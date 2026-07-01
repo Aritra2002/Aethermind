@@ -2,6 +2,7 @@
   "name": "personal-knowledge-graph",
   "private": true,
   "version": "1.19.1",
+  "homepage": "https://aritra2002.github.io/personal-knowledge-graph",
   "type": "module",
   "scripts": {
     "dev": "concurrently \"vite\" \"node sync-server/index.js\"",
