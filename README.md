@@ -19,13 +19,13 @@
 
 ## 👑 The Vision
 
-**AetherMind** is not just another note-taking app. It is a robust, local-first Personal Knowledge Graph engineered with CRDTs (`yjs`) to ensure your data is always yours. With deep, privacy-preserving AI integrations running directly on your machine or through secure proxies, AetherMind helps you cultivate ideas without compromising security.
+**AetherMind** is not just another note-taking app. It is a robust, local-first Personal Knowledge Graph engineered with CRDTs to ensure your data is always yours. With deep, privacy-preserving AI integrations running directly on your machine or through secure proxies, AetherMind helps you cultivate ideas without compromising security.
 
 ---
 
 ## ✨ Premium Features
 
-*   🌍 **Local-First Architecture**: Built on state-of-the-art CRDTs using `yjs` and `y-websocket`. Your data stays on your device and syncs effortlessly without a centralized database.
+*   🌍 **Local-First Architecture**: Your data stays on your device and operates effortlessly without a centralized database.
 *   🧠 **Deep AI Integration**: Harness local AI models via `@xenova/transformers` for capabilities like Voice Dictation, Text-to-Speech, and smart semantic organization.
 *   🛡️ **Advanced AI Proxy Gateway**: Built-in backend proxy effortlessly bypasses strict WAF firewalls (e.g., AgentRouter, OpenRouter) by spoofing authorized client headers, giving you ultimate flexibility between local and cloud LLMs.
 *   🌌 **Interactive Graph Visualization**: Explore the cosmos of your thoughts with a rich, physics-based interactive node graph.

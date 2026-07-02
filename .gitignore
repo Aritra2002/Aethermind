@@ -129,10 +129,4 @@ dist-ssr/
 # Custom ignores
 .vite/
 
-# Backend sync server persistence
-sync-server/data/
-sync-server/.y-leveldb/
-sync-server/*.bin
-sync-server/*.db
-sync-server/*.sqlite
 
