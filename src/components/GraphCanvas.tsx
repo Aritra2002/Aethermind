@@ -700,7 +700,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
           if (isTouch) {
             clickRadius += 8;
           }
-          return Math.sqrt(dx * dx + dy * dy) < clickRadius + 5;
+          return Math.sqrt(dx * dx + dy * dy) < clickRadius;
         });
 
         if (foundNode && foundNode.x !== undefined && foundNode.y !== undefined) {

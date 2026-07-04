@@ -59,7 +59,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = (props) => {
         </div>
 
         {/* Settings Content */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative' }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative', minHeight: 0 }}>
           <button className="icon-btn close-btn" onClick={props.onClose} aria-label="Close settings" style={{ position: 'absolute', top: '16px', right: '16px', zIndex: 10 }}>
             <X size={18} />
           </button>
