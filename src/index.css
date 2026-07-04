@@ -1,4 +1,4 @@
-﻿@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap');
 
 :root {
   color-scheme: dark;
@@ -1399,11 +1399,11 @@ body {
   .app-workspace { flex-direction: column; padding: 8px; gap: 8px; height: 0; flex-grow: 1; overflow: hidden; }
   .right-sidebar {
     position: fixed; top: 0; left: 0; right: 0; bottom: calc(var(--mobile-nav-height, 60px) + var(--safe-bottom, 0px)); width: 100% !important;
-    z-index: 20; transform: translateX(100%); opacity: 0; visibility: hidden;
+    z-index: 20; transform: translateY(100%); opacity: 0; visibility: hidden;
     transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease, visibility 0.4s;
     background: var(--bg-primary);
   }
-  .right-sidebar.open { transform: translateX(0); opacity: 1; visibility: visible; }
+  .right-sidebar.open { transform: translateY(0); opacity: 1; visibility: visible; }
   .sidebar-tab-trigger { display: none !important; }
   .canvas-controls { top: auto; bottom: 16px; }
   .canvas-help-box { top: auto; bottom: 64px; right: 8px; }
@@ -1430,11 +1430,11 @@ body {
   .app-workspace { flex-direction: column; padding: 8px; gap: 8px; height: 0; flex-grow: 1; overflow: hidden; }
   .right-sidebar {
     position: fixed; top: 0; left: 0; right: 0; bottom: calc(var(--mobile-nav-height, 60px) + var(--safe-bottom, 0px)); width: 100% !important;
-    z-index: 20; transform: translateX(100%); opacity: 0; visibility: hidden;
+    z-index: 20; transform: translateY(100%); opacity: 0; visibility: hidden;
     transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease, visibility 0.4s;
     background: var(--bg-primary);
   }
-  .right-sidebar.open { transform: translateX(0); opacity: 1; visibility: visible; }
+  .right-sidebar.open { transform: translateY(0); opacity: 1; visibility: visible; }
   .sidebar-tab-trigger { display: none !important; }
   .canvas-controls { top: auto; bottom: 16px; }
   .canvas-help-box { top: auto; bottom: 64px; right: 8px; }

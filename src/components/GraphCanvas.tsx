@@ -685,11 +685,22 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
         const simX = (mouseX - currentTransform.x) / currentTransform.k;
         const simY = (mouseY - currentTransform.y) / currentTransform.k;
         
+        const state = stateRef.current;
         const foundNode = nodesRef.current.find((node) => {
           if (node.x === undefined || node.y === undefined) return false;
           const dx = node.x - simX;
           const dy = node.y - simY;
-          return Math.sqrt(dx * dx + dy * dy) < node.radius + 5;
+          let clickRadius = node.id === state.activeNote?.id ? node.radius + 4 : node.radius;
+          const srcEvt = event.sourceEvent;
+          const isTouch = srcEvt && (
+            srcEvt.type?.startsWith('touch') || 
+            srcEvt.pointerType === 'touch' || 
+            window.matchMedia('(pointer: coarse)').matches
+          );
+          if (isTouch) {
+            clickRadius += 8;
+          }
+          return Math.sqrt(dx * dx + dy * dy) < clickRadius + 5;
         });
 
         if (foundNode && foundNode.x !== undefined && foundNode.y !== undefined) {

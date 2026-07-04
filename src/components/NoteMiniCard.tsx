@@ -31,8 +31,6 @@ export const NoteMiniCard: React.FC<NoteMiniCardProps> = ({ note, category, onOp
   return (
     <div 
       className="note-mini-card" 
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
       style={{
         position: 'absolute', bottom: 'calc(var(--mobile-nav-height, 60px) + 16px)', left: '16px', right: '16px',
         background: 'rgba(20, 27, 50, 0.95)', borderRadius: '16px',
@@ -44,15 +42,21 @@ export const NoteMiniCard: React.FC<NoteMiniCardProps> = ({ note, category, onOp
         display: 'flex', flexDirection: 'column'
       }}
     >
-      <div style={{ width: '32px', height: '4px', background: 'rgba(255,255,255,0.2)', borderRadius: '2px', margin: '0 auto 12px' }} />
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-        <h3 style={{ margin: 0, fontSize: '18px', color: 'var(--text-primary, #ffffff)' }}>
-          <span style={{ color: category?.color || '#818cf8', marginRight: '8px' }}>●</span>
-          {note.title}
-        </h3>
-        <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-secondary, #9ca3af)', padding: '4px' }}>
-          <X size={16} />
-        </button>
+      <div 
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        style={{ cursor: 'grab', paddingBottom: '8px' }}
+      >
+        <div style={{ width: '32px', height: '4px', background: 'rgba(255,255,255,0.2)', borderRadius: '2px', margin: '0 auto 12px' }} />
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+          <h3 style={{ margin: 0, fontSize: '18px', color: 'var(--text-primary, #ffffff)' }}>
+            <span style={{ color: category?.color || '#818cf8', marginRight: '8px' }}>●</span>
+            {note.title}
+          </h3>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-secondary, #9ca3af)', padding: '4px' }}>
+            <X size={16} />
+          </button>
+        </div>
       </div>
       <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', fontSize: '12px', color: 'var(--text-secondary, #9ca3af)' }}>
         <span>Category: {category?.id || note.category}</span>
