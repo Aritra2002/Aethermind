@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import * as d3 from 'd3';
 import type { Note, Link, Category } from '../db';
 import { updateNote } from '../db/helpers';
-import { HelpCircle, PanelLeft } from 'lucide-react';
+import { HelpCircle, PanelLeft, Download } from 'lucide-react';
 import { cosineSimilarity } from '../utils/vectorSearch';
 
 interface GraphCanvasProps {
@@ -53,6 +53,58 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
   const [dimensions, setDimensions] = useState({ width: 600, height: 600 });
   const [transform, setTransform] = useState(d3.zoomIdentity);
   const [showHelp, setShowHelp] = useState(false);
+  const [showExportMenu, setShowExportMenu] = useState(false);
+
+  const handleExport = async (format: 'svg' | 'png') => {
+    setShowExportMenu(false);
+    if (format === 'png') {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      canvas.toBlob(blob => {
+        if (blob) {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'aethermind-graph.png';
+          a.click();
+          URL.revokeObjectURL(url);
+        }
+      });
+    } else {
+      const sim = simulationRef.current;
+      if (!sim) return;
+      const currentNodes = nodesRef.current;
+      const linkForce = sim.force('link') as d3.ForceLink<SimNode, any>;
+      const currentLinks = linkForce ? (linkForce.links() as { source: SimNode; target: SimNode }[]) : [];
+      
+      let svgStr = `<svg xmlns="http://www.w3.org/2000/svg" width="${dimensions.width}" height="${dimensions.height}" style="background-color: #06071a;">`;
+      svgStr += `<g transform="translate(${transform.x}, ${transform.y}) scale(${transform.k})">`;
+      
+      currentLinks.forEach(link => {
+        const source = link.source;
+        const target = link.target;
+        if (source.x === undefined || source.y === undefined || target.x === undefined || target.y === undefined) return;
+        svgStr += `<line x1="${source.x}" y1="${source.y}" x2="${target.x}" y2="${target.y}" stroke="rgba(255,255,255,0.25)" stroke-width="1.5" />`;
+      });
+      
+      currentNodes.forEach(node => {
+        if (node.x === undefined || node.y === undefined) return;
+        const categoryObj = categories.find(c => c.id === node.category);
+        let color = node.color || categoryObj?.color || '#818cf8';
+        svgStr += `<circle cx="${node.x}" cy="${node.y}" r="${node.radius}" fill="${color}" />`;
+        svgStr += `<text x="${node.x}" y="${node.y + 16}" fill="#e5e7eb" font-family="Inter" font-size="12" font-weight="500" text-anchor="middle" dominant-baseline="hanging">${node.title.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</text>`;
+      });
+      
+      svgStr += `</g></svg>`;
+      const blob = new Blob([svgStr], { type: 'image/svg+xml' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'aethermind-graph.svg';
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+  };
 
   // Maintain persistent node positions across re-renders
   const nodesRef = useRef<SimNode[]>([]);
@@ -431,39 +483,55 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
         setTransform(event.transform);
       });
 
-    // Click handler for node selection / creation
-    const handleCanvasClick = (event: MouseEvent) => {
-      const rect = canvas.getBoundingClientRect();
-      const clickX = event.clientX - rect.left;
-      const clickY = event.clientY - rect.top;
+    // Pointer click handler
+    let pointerStartX = 0;
+    let pointerStartY = 0;
 
-      // Translate canvas click coordinates to D3 simulation world coordinates
+    const handlePointerDown = (event: PointerEvent) => {
+      pointerStartX = event.clientX;
+      pointerStartY = event.clientY;
+    };
+
+    const handlePointerClick = (clickX: number, clickY: number, isTouch: boolean) => {
       const currentTransform = d3.zoomTransform(canvas);
       const simX = (clickX - currentTransform.x) / currentTransform.k;
       const simY = (clickY - currentTransform.y) / currentTransform.k;
 
-      // Find if we clicked on a node (radius detection)
       const state = stateRef.current;
       const clickedNode = nodesRef.current.find((node) => {
         if (node.x === undefined || node.y === undefined) return false;
         const dx = node.x - simX;
         const dy = node.y - simY;
-        const clickRadius = node.id === state.activeNote?.id ? node.radius + 4 : node.radius;
+        let clickRadius = node.id === state.activeNote?.id ? node.radius + 4 : node.radius;
+        if (isTouch || window.matchMedia('(pointer: coarse)').matches) {
+          clickRadius += 8;
+        }
         return Math.sqrt(dx * dx + dy * dy) < clickRadius;
       });
 
       if (clickedNode) {
-        // Trigger select note
         const note = state.notes.find(n => n.id === clickedNode.id);
         if (note) state.onSelectNote(note);
       } else {
-        // Clicked empty space: Unselect active note
         state.onSelectNote(null);
+      }
+    };
+
+    const handlePointerUp = (event: PointerEvent) => {
+      const deltaX = event.clientX - pointerStartX;
+      const deltaY = event.clientY - pointerStartY;
+      if (Math.sqrt(deltaX * deltaX + deltaY * deltaY) < 10) {
+        const rect = canvas.getBoundingClientRect();
+        const clickX = event.clientX - rect.left;
+        const clickY = event.clientY - rect.top;
+        const isTouch = event.pointerType === 'touch';
+        handlePointerClick(clickX, clickY, isTouch);
       }
     };
 
     // Double click to create or release node
     const handleCanvasDblClick = (event: MouseEvent) => {
+      if (window.innerWidth < 768) return; // disable double-click-to-create on mobile
       const rect = canvas.getBoundingClientRect();
       const clickX = event.clientX - rect.left;
       const clickY = event.clientY - rect.top;
@@ -547,11 +615,13 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
     d3.select(canvas).call(dragBehavior as any);
     d3.select(canvas).call(zoomBehavior);
 
-    canvas.addEventListener('click', handleCanvasClick);
+    canvas.addEventListener('pointerdown', handlePointerDown);
+    canvas.addEventListener('pointerup', handlePointerUp);
     canvas.addEventListener('dblclick', handleCanvasDblClick);
 
     return () => {
-      canvas.removeEventListener('click', handleCanvasClick);
+      canvas.removeEventListener('pointerdown', handlePointerDown);
+      canvas.removeEventListener('pointerup', handlePointerUp);
       canvas.removeEventListener('dblclick', handleCanvasDblClick);
     };
   }, []);
@@ -577,6 +647,23 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
           >
             <PanelLeft size={16} /> Sidebar
           </button>
+        )}
+        {window.innerWidth >= 768 && (
+          <div style={{ position: 'relative' }}>
+            <button
+              className="canvas-control-btn canvas-btn"
+              onClick={() => setShowExportMenu(!showExportMenu)}
+              title="Export graph"
+            >
+              <Download size={16} /> Export
+            </button>
+            {showExportMenu && (
+              <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '8px', background: 'rgba(20,27,50,0.95)', border: '1px solid rgba(124,58,237,0.2)', borderRadius: '8px', padding: '4px', display: 'flex', flexDirection: 'column', minWidth: '120px', zIndex: 100, boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}>
+                <button onClick={() => handleExport('svg')} style={{ background: 'none', border: 'none', color: 'white', padding: '8px', textAlign: 'left', borderRadius: '4px', cursor: 'pointer' }}>SVG (vector)</button>
+                <button onClick={() => handleExport('png')} style={{ background: 'none', border: 'none', color: 'white', padding: '8px', textAlign: 'left', borderRadius: '4px', cursor: 'pointer' }}>PNG (image)</button>
+              </div>
+            )}
+          </div>
         )}
         <button
           className="canvas-btn"

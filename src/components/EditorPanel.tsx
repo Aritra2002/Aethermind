@@ -15,8 +15,9 @@ import { processFileForOCR } from '../utils/ocr';
 import { ConfirmModal } from './ConfirmModal';
 import { useToast } from './ToastContext';
 import { UploadCloud, PenTool, Volume2, VolumeX, Mic, MicOff, Loader2, Sparkles } from 'lucide-react';
-import { Excalidraw } from '@excalidraw/excalidraw';
 import { cosineSimilarity } from '../utils/vectorSearch';
+
+const Excalidraw = React.lazy(() => import('@excalidraw/excalidraw').then(module => ({ default: module.Excalidraw })));
 
 interface EditorPanelProps {
   note: Note | null;
@@ -160,7 +161,7 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
   };
 
   const insertText = (before: string, after: string = '') => {
-    const textarea = document.getElementById('editor-note-body') as HTMLTextAreaElement;
+    const textarea = textareaRef.current;
     if (!textarea) return;
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
@@ -251,10 +252,24 @@ Return exactly and ONLY the summary text, with no markdown code blocks or conver
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === '/') {
-      // Basic block emulation using slash menu
-      // Get cursor coordinates (roughly)
-      // Very basic approximation for demo
-      setSlashMenuPos({ top: 40, left: 20 });
+      const textarea = textareaRef.current;
+      if (textarea) {
+        const textBeforeCursor = textarea.value.substring(0, textarea.selectionStart);
+        const lines = textBeforeCursor.split('\n');
+        const currentLine = lines.length;
+        const currentLineLength = lines[lines.length - 1].length;
+        
+        // Approximate caret position within the textarea
+        const lineHeight = 24; // typical line height
+        const charWidth = 8; // typical char width
+        
+        const top = (currentLine * lineHeight) - textarea.scrollTop + 10;
+        const left = (currentLineLength * charWidth) + 16;
+        
+        setSlashMenuPos({ top, left });
+      } else {
+        setSlashMenuPos({ top: 40, left: 20 });
+      }
     } else if (e.key === 'Escape') {
       setSlashMenuPos(null);
     }
@@ -267,6 +282,8 @@ Return exactly and ONLY the summary text, with no markdown code blocks or conver
 
   // Setup wiki-link clicking and PrismJS syntax highlighting in preview mode
   useEffect(() => {
+    let activeLinks: { element: HTMLAnchorElement; listener: (e: MouseEvent) => void }[] = [];
+    
     if (!editMode && previewRef.current) {
       Prism.highlightAllUnder(previewRef.current);
       
@@ -275,7 +292,7 @@ Return exactly and ONLY the summary text, with no markdown code blocks or conver
         const href = link.getAttribute('href');
         // Handle wiki-link triggers or custom clicks
         if (href && href.startsWith('wiki://')) {
-          link.addEventListener('click', (e) => {
+          const listener = (e: MouseEvent) => {
             e.preventDefault();
             const targetTitle = decodeURIComponent(href.replace('wiki://', ''));
             if ((e.metaKey || e.ctrlKey || e.altKey) && onSplitRight) {
@@ -283,11 +300,19 @@ Return exactly and ONLY the summary text, with no markdown code blocks or conver
             } else {
               onJumpToNote(targetTitle);
             }
-          });
+          };
+          link.addEventListener('click', listener);
+          activeLinks.push({ element: link, listener });
         }
       });
     }
-  }, [editMode, content]);
+
+    return () => {
+      activeLinks.forEach(({ element, listener }) => {
+        element.removeEventListener('click', listener);
+      });
+    };
+  }, [editMode, content, onSplitRight, onJumpToNote]);
 
   // Convert [[Wiki Links]] in markdown content into custom links for rendering
   const getRenderedContent = () => {
@@ -474,15 +499,17 @@ Return exactly and ONLY the summary text, with no markdown code blocks or conver
       <div className="editor-body" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
         {isWhiteboard ? (
           <div style={{ flex: 1, position: 'relative', width: '100%', minHeight: '400px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
-            <Excalidraw 
-              initialData={content ? JSON.parse(content) : null}
-              onChange={(elements: any, _appState: any, files: any) => {
-                if (note) {
-                  debouncedSaveContent(note.id!, JSON.stringify({ elements, files }));
-                }
-              }}
-              theme="dark"
-            />
+            <React.Suspense fallback={<div style={{ padding: '20px', color: 'var(--text-secondary)' }}>Loading whiteboard...</div>}>
+              <Excalidraw 
+                initialData={content ? (() => { try { return JSON.parse(content); } catch (e) { return null; } })() : null}
+                onChange={(elements: any, _appState: any, files: any) => {
+                  if (note) {
+                    debouncedSaveContent(note.id!, JSON.stringify({ elements, files }));
+                  }
+                }}
+                theme="dark"
+              />
+            </React.Suspense>
           </div>
         ) : editMode ? (
           <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -781,7 +808,7 @@ Return exactly and ONLY the summary text, with no markdown code blocks or conver
               <Sparkles size={20} style={{ color: 'var(--node-amber)' }} />
               AI Summary
             </h3>
-            <div style={{ lineHeight: '1.6', color: 'var(--text-primary)', marginBottom: '24px', maxHeight: '400px', overflowY: 'auto' }}>
+            <div style={{ lineHeight: '1.6', color: 'var(--text-primary)', marginBottom: '24px', maxHeight: '200px', overflowY: 'auto' }}>
               {aiSummary}
             </div>
             <div style={{ display: 'flex', justifyContent: 'center', marginTop: '16px' }}>

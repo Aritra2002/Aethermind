@@ -15,7 +15,25 @@ import { RenamePageModal } from './components/RenamePageModal';
 import { ReviewModal } from './components/ReviewModal';
 import { useToast } from './components/ToastContext';
 import { PromptModal } from './components/PromptModal';
-import { Brain, Plus, Settings, MessageSquare, Calendar, Sparkles, Edit2, Trash2, Loader2, Search } from 'lucide-react';
+import { MobileNav } from './components/MobileNav';
+import { NoteMiniCard } from './components/NoteMiniCard';
+import { Brain, Plus, Settings, Calendar, Sparkles, Edit2, Trash2, Loader2, Search, Menu } from 'lucide-react';
+
+function useViewport() {
+  const [viewport, setViewport] = useState<'sm' | 'md' | 'lg'>('lg');
+  useEffect(() => {
+    const handleResize = () => {
+      const width = window.innerWidth;
+      if (width < 768) setViewport('sm');
+      else if (width < 1024) setViewport('md');
+      else setViewport('lg');
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+  return viewport;
+}
 import { initPluginManager } from './utils/pluginManager';
 import { saveSnapshot, loadSnapshot, getSnapshots, restoreSnapshot } from './utils/snapshotManager';
 
@@ -35,7 +53,14 @@ export default function App() {
   const [showDeletePageConfirm, setShowDeletePageConfirm] = useState(false);
   const [showReview, setShowReview] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [isSearchOpen, setIsSearchOpen] = useState(window.innerWidth > 768);
+  const viewport = useViewport();
+  const isDesktop = viewport === 'lg';
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
+
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  useEffect(() => {
+    setIsSearchOpen(viewport !== 'sm');
+  }, [viewport]);
   const [currentPageId, setCurrentPageId] = useState<number>(1);
   const [sidebarWidth, setSidebarWidth] = useState(420);
   const [physicsConfig, setPhysicsConfig] = useState(() => {
@@ -180,7 +205,9 @@ export default function App() {
         setActiveNoteId(note.id);
       } else {
         setActiveNoteId(note.id);
-        setIsSidebarOpen(true);
+        if (viewport !== 'sm') {
+          setIsSidebarOpen(true);
+        }
       }
       if (note.id !== undefined) {
         const currentVisits = note.visits || 0;
@@ -317,47 +344,106 @@ export default function App() {
     <div className="app-container">
       {/* Header Bar */}
       <header className="app-header glass-panel">
-        <div className="app-logo">
-          <Brain size={24} className="logo-icon" />
-          <h1>AetherMind</h1>
-        </div>
-        
-        {/* Page Selector */}
-        <div className="page-selector" style={{ display: 'flex', alignItems: 'center', marginLeft: '16px', gap: '8px', borderLeft: '1px solid var(--border-color)', paddingLeft: '16px' }}>
-          <select 
-            value={currentPageId} 
-            onChange={e => setCurrentPageId(Number(e.target.value))}
-            style={{ padding: '6px 12px', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-color)', borderRadius: '6px', color: 'var(--text-color)', outline: 'none' }}
-          >
-            {pages.map(p => (
-              <option key={p.id} value={p.id} style={{ background: '#111827' }}>{p.title}</option>
-            ))}
-          </select>
-          <button className="header-btn icon-only-btn" onClick={() => setShowRenamePage(true)} title="Rename Page" style={{ padding: '6px' }}>
-            <Edit2 size={14} />
-          </button>
-          <button className="header-btn icon-only-btn" onClick={handleDeletePage} title="Delete Page" disabled={pages.length <= 1} style={{ padding: '6px' }}>
-            <Trash2 size={14} style={{ color: pages.length <= 1 ? 'var(--text-secondary)' : '#f43f5e' }} />
-          </button>
-        </div>
-
-        <div className="header-controls" style={{ marginLeft: 'auto' }}>
-          <button className="header-btn" onClick={() => setShowReview(true)}>
-            <Brain size={16} /> Review
-          </button>
-          <button className="header-btn" onClick={() => setShowAskAi(true)} style={{ color: 'var(--node-amber)' }}>
-            <Sparkles size={16} /> Ask AI
-          </button>
-          <button className="header-btn" onClick={handleCreateDailyNote}>
-            <Calendar size={16} /> Daily Note
-          </button>
-          <button className="header-btn primary-btn" onClick={() => setShowNewPage(true)}>
-            <Plus size={16} /> New Page
-          </button>
-          <button className="header-btn icon-only-btn" onClick={() => setShowSettings(true)} aria-label="Settings" title="Settings">
-            <Settings size={18} />
-          </button>
-        </div>
+        {viewport === 'sm' && (
+          <>
+            <div className="app-logo">
+              <Brain size={24} className="logo-icon" />
+            </div>
+            <div className="page-selector" style={{ display: 'flex', alignItems: 'center', margin: '0 auto', gap: '8px' }}>
+              <button 
+                className="header-btn" 
+                onClick={() => { /* maybe open a dialog in future, for now acts as pill */ }}
+                style={{ padding: '6px 12px', borderRadius: '16px', background: 'rgba(0,0,0,0.2)' }}
+              >
+                {pages.find(p => p.id === currentPageId)?.title || 'AetherMind'}
+              </button>
+            </div>
+            <div className="header-controls">
+              <button className="header-btn icon-only-btn" onClick={() => setShowMobileMenu(!showMobileMenu)}>
+                <Menu size={20} />
+              </button>
+            </div>
+          </>
+        )}
+        {viewport === 'md' && (
+          <>
+            <div className="app-logo">
+              <Brain size={24} className="logo-icon" />
+              <h1>AetherMind</h1>
+            </div>
+            <div className="page-selector" style={{ display: 'flex', alignItems: 'center', marginLeft: '16px', gap: '8px', borderLeft: '1px solid var(--border-color)', paddingLeft: '16px' }}>
+              <select 
+                value={currentPageId} 
+                onChange={e => setCurrentPageId(Number(e.target.value))}
+                style={{ padding: '6px 12px', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-color)', borderRadius: '6px', color: 'var(--text-primary)', outline: 'none' }}
+              >
+                {pages.map(p => (
+                  <option key={p.id} value={p.id} style={{ background: '#111827' }}>{p.title}</option>
+                ))}
+              </select>
+            </div>
+            <div className="header-controls" style={{ marginLeft: 'auto' }}>
+              <button className="header-btn icon-only-btn" onClick={() => setShowReview(true)} title="Review">
+                <Brain size={16} />
+              </button>
+              <button className="header-btn icon-only-btn" onClick={() => setShowAskAi(true)} style={{ color: 'var(--node-amber)' }} title="Ask AI">
+                <Sparkles size={16} />
+              </button>
+              <button className="header-btn icon-only-btn" onClick={handleCreateDailyNote} title="Daily Note">
+                <Calendar size={16} />
+              </button>
+              <button className="header-btn icon-only-btn primary-btn" onClick={() => setShowNewPage(true)} title="New Page">
+                <Plus size={16} />
+              </button>
+              <button className="header-btn icon-only-btn" onClick={() => setShowSettings(true)} aria-label="Settings" title="Settings">
+                <Settings size={18} />
+              </button>
+            </div>
+          </>
+        )}
+        {viewport === 'lg' && (
+          <>
+            <div className="app-logo">
+              <Brain size={24} className="logo-icon" />
+              <h1>AetherMind</h1>
+            </div>
+            <div className="page-selector" style={{ display: 'flex', alignItems: 'center', marginLeft: '16px', gap: '8px', borderLeft: '1px solid var(--border-color)', paddingLeft: '16px' }}>
+              <select 
+                value={currentPageId} 
+                onChange={e => setCurrentPageId(Number(e.target.value))}
+                style={{ padding: '6px 12px', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-color)', borderRadius: '6px', color: 'var(--text-primary)', outline: 'none' }}
+              >
+                {pages.map(p => (
+                  <option key={p.id} value={p.id} style={{ background: '#111827' }}>{p.title}</option>
+                ))}
+              </select>
+              <button className="header-btn icon-only-btn" onClick={() => setShowRenamePage(true)} title="Rename Page" style={{ padding: '6px' }}>
+                <Edit2 size={14} />
+              </button>
+              <button className="header-btn icon-only-btn" onClick={handleDeletePage} title="Delete Page" disabled={pages.length <= 1} style={{ padding: '6px' }}>
+                <Trash2 size={14} style={{ color: pages.length <= 1 ? 'var(--text-secondary)' : '#f43f5e' }} />
+              </button>
+            </div>
+            <div className="header-controls" style={{ marginLeft: 'auto' }}>
+              <button className="header-btn" onClick={() => setShowReview(true)}>
+                <Brain size={16} /> Review
+              </button>
+              <button className="header-btn" onClick={() => setShowAskAi(true)} style={{ color: 'var(--node-amber)' }}>
+                <Sparkles size={16} /> Ask AI
+              </button>
+              <button className="header-btn" onClick={handleCreateDailyNote}>
+                <Calendar size={16} /> Daily Note
+              </button>
+              <button className="header-btn primary-btn" onClick={() => setShowNewPage(true)}>
+                <Plus size={16} /> New Page
+              </button>
+              <button className="header-btn icon-only-btn" onClick={() => setShowSettings(true)} aria-label="Settings" title="Settings">
+                <Settings size={18} />
+              </button>
+              <span style={{ fontSize: '12px', color: 'var(--text-secondary)', marginLeft: '8px', border: '1px solid var(--border-color)', padding: '2px 6px', borderRadius: '4px' }}>⌘K</span>
+            </div>
+          </>
+        )}
       </header>
 
       {/* Main Workspace Dashboard */}
@@ -426,14 +512,7 @@ export default function App() {
           } as React.CSSProperties}
         >
           {isSidebarOpen && (
-            <div className="sidebar-resizer" onMouseDown={startResizing} style={{ left: 0 }} />
-          )}
-
-          {/* Sidebar Toggle handle for mobile viewports */}
-          {activeNote && !isSidebarOpen && (
-            <button className="sidebar-tab-trigger glass-panel" onClick={() => setIsSidebarOpen(true)}>
-              <MessageSquare size={16} /> Open Editor
-            </button>
+            <div className="sidebar-resizer" onMouseDown={startResizing} style={{ left: 0, touchAction: 'none' }} />
           )}
 
           <div style={{ flex: 1, minWidth: 0, minHeight: 0, height: '100%' }}>
@@ -447,14 +526,14 @@ export default function App() {
               }}
               onNoteDeleted={handleNoteDeleted}
               onJumpToNote={handleJumpToNote}
-              onSplitRight={(title) => {
+              onSplitRight={isDesktop ? (title) => {
                 const target = notes.find(n => n.title.toLowerCase() === title.toLowerCase());
                 if (target) setSecondaryNoteId(target.id!);
-              }}
+              } : undefined}
             />
           </div>
 
-          {secondaryNote && (
+          {isDesktop && secondaryNote && (
             <div style={{ flex: 1, minWidth: 0, minHeight: 0, height: '100%', borderLeft: '1px solid var(--border-color)' }}>
               <EditorPanel
                 note={secondaryNote}
@@ -463,15 +542,97 @@ export default function App() {
                 onClose={() => setSecondaryNoteId(null)}
                 onNoteDeleted={() => setSecondaryNoteId(null)}
                 onJumpToNote={handleJumpToNote}
-                onSplitRight={(title) => {
+                onSplitRight={isDesktop ? (title) => {
                   const target = notes.find(n => n.title.toLowerCase() === title.toLowerCase());
                   if (target) setSecondaryNoteId(target.id!);
-                }}
+                } : undefined}
               />
             </div>
           )}
         </div>
       </main>
+
+      {viewport === 'sm' && activeNote && !isSidebarOpen && (
+        <NoteMiniCard 
+          note={activeNote}
+          category={categories.find(c => c.id === activeNote.category)}
+          onOpenEditor={() => setIsSidebarOpen(true)}
+          onAskAi={() => setShowAskAi(true)}
+          onClose={() => handleSelectNote(null)}
+        />
+      )}
+
+      {viewport === 'sm' && !activeNote && !isSidebarOpen && !isSearchOpen && (
+        <button 
+          className="fab-create-btn"
+          style={{
+            position: 'absolute', bottom: 'calc(var(--mobile-nav-height, 60px) + 16px)', right: '16px',
+            width: '56px', height: '56px', borderRadius: '28px',
+            background: 'linear-gradient(135deg, #7c3aed, #4f46e5)', color: 'white',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 4px 15px rgba(124, 58, 237, 0.4)', zIndex: 50, border: 'none'
+          }}
+          onClick={() => handleCreateNote()}
+        >
+          <Plus size={24} />
+        </button>
+      )}
+
+      {showMobileMenu && viewport === 'sm' && (
+        <div className="mobile-menu-drawer" style={{
+          position: 'fixed', bottom: 'var(--mobile-nav-height, 60px)', left: 0, right: 0,
+          background: 'rgba(20, 27, 50, 0.95)', borderTopLeftRadius: '16px', borderTopRightRadius: '16px',
+          padding: '16px', paddingBottom: 'calc(16px + var(--safe-bottom, env(safe-area-inset-bottom, 0px)))', zIndex: 99,
+          borderTop: '1px solid rgba(124, 58, 237, 0.2)',
+          boxShadow: '0 -4px 24px rgba(0,0,0,0.5)'
+        }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <button className="header-btn" onClick={() => { setShowReview(true); setShowMobileMenu(false); }} style={{ justifyContent: 'flex-start', padding: '12px', width: '100%' }}>
+              <Brain size={18} /> Review
+            </button>
+            <button className="header-btn" onClick={() => { setShowAskAi(true); setShowMobileMenu(false); }} style={{ justifyContent: 'flex-start', padding: '12px', color: 'var(--node-amber, #f59e0b)', width: '100%' }}>
+              <Sparkles size={18} /> Ask AI
+            </button>
+            <button className="header-btn" onClick={() => { handleCreateDailyNote(); setShowMobileMenu(false); }} style={{ justifyContent: 'flex-start', padding: '12px', width: '100%' }}>
+              <Calendar size={18} /> Daily Note
+            </button>
+            <button className="header-btn primary-btn" onClick={() => { setShowNewPage(true); setShowMobileMenu(false); }} style={{ justifyContent: 'flex-start', padding: '12px', width: '100%' }}>
+              <Plus size={18} /> New Page
+            </button>
+            <button className="header-btn" onClick={() => { setShowSettings(true); setShowMobileMenu(false); }} style={{ justifyContent: 'flex-start', padding: '12px', width: '100%' }}>
+              <Settings size={18} /> Settings
+            </button>
+          </div>
+        </div>
+      )}
+
+      {viewport === 'sm' && (
+        <MobileNav 
+          activeTab={isSidebarOpen ? 'editor' : (isSearchOpen ? 'search' : (showMobileMenu ? 'menu' : 'graph'))}
+          onTabChange={(tab) => {
+            switch (tab) {
+              case 'graph':
+                setIsSidebarOpen(false);
+                setIsSearchOpen(false);
+                setShowMobileMenu(false);
+                break;
+              case 'editor':
+                setIsSidebarOpen(true);
+                setIsSearchOpen(false);
+                setShowMobileMenu(false);
+                break;
+              case 'search':
+                setIsSearchOpen(true);
+                setIsSidebarOpen(false);
+                setShowMobileMenu(false);
+                break;
+              case 'menu':
+                setShowMobileMenu(!showMobileMenu);
+                break;
+            }
+          }}
+        />
+      )}
 
       {/* Backup and settings Modal */}
       {promptConfig && (

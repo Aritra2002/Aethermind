@@ -1,3 +1,44 @@
+## [1.21.0] — 2026-07-03
+
+### ✨ Royal UI Overhaul
+- Complete visual redesign with deep violet + electric cyan + gold palette
+- Premium glassmorphism panels with gradient borders and glow effects
+- Gradient logo text, shimmer primary button animation
+- Richer midnight cosmic background
+- Improved graph node rendering with radial fills and active glow rings
+
+### 📱 Full Responsive Design (All Devices)
+- Four-tier breakpoint system: < 480px / 480–767px / 768–1023px / ≥ 1024px
+- Proper safe-area inset support for iOS and Android notch/home-bar
+- Mobile floating mini-card on node tap (bottom sheet with preview)
+- Mobile bottom navigation bar (Graph / Editor / Search / Menu)
+- Compact mobile header (icon-only) with slide-up action drawer
+- Tablet header with icon-only buttons and tooltips
+- Split-view editor disabled below 1024px (best UX approach)
+- Touch-optimized graph canvas: tap-to-select nodes, larger tap radius
+
+### 🐛 Bug Fixes
+- Fixed global `button` override regression breaking all button sizes
+- Fixed `isSearchOpen` initial state not reacting to window resize
+- Fixed mobile sidebar slide direction (now slides from right, not bottom)
+- Fixed split-view rendering on small screens (now disabled < 1024px)
+- Fixed ghost "Open Editor" button appearing behind mobile sidebar
+- Fixed `insertText()` using wrong DOM lookup instead of ref
+- Fixed Excalidraw crash on non-JSON note content
+- Fixed wiki-link click listener memory leak (duplicate handlers)
+- Fixed canvas controls clipping behind iOS/Android home indicator
+- Fixed `var(--text-color)` undefined token in page selector
+- Fixed canvas help box overflow on narrow screens
+- Fixed modal button clipping behind iPhone home bar
+- Fixed AI summary panel overflowing editor area
+- Lazy-loaded Excalidraw to reduce initial bundle size
+
+### 🔧 Improvements
+- Sidebar width now clamped to `clamp(340px, 30vw, 520px)` on desktop
+- Search filter panel widened to 360px with better tag cloud display
+- Slash menu now positions correctly at cursor location
+- Timeline slider capped to viewport width on all screen sizes
+
 # v1.20.0
 - **Local-First Architecture**: Completely removed the experimental Node.js sync server (`yjs` & `y-webrtc`) in favor of a purely offline, local-first architecture for improved privacy and reduced bundle size.
 - **Smart AI CORS Handling**: Fixed a critical CORS preflight issue where custom proxy headers (`Originator`, `User-Agent`) were incorrectly sent to direct browser endpoints. The AI Client now intelligently applies spoof headers only when communicating via the proxy URL or specifically to AgentRouter.
