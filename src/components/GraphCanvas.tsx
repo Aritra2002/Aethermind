@@ -503,10 +503,37 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
     // Pointer click handler
     let pointerStartX = 0;
     let pointerStartY = 0;
+    let longPressTimer: ReturnType<typeof setTimeout> | null = null;
+    let isLongPress = false;
 
     const handlePointerDown = (event: PointerEvent) => {
       pointerStartX = event.clientX;
       pointerStartY = event.clientY;
+      isLongPress = false;
+
+      if (event.pointerType === 'touch' || window.innerWidth < 768) {
+        longPressTimer = setTimeout(() => {
+          isLongPress = true;
+          const rect = canvas.getBoundingClientRect();
+          const clickX = pointerStartX - rect.left;
+          const clickY = pointerStartY - rect.top;
+          const currentTransform = d3.zoomTransform(canvas);
+          const simX = (clickX - currentTransform.x) / currentTransform.k;
+          const simY = (clickY - currentTransform.y) / currentTransform.k;
+          
+          const clickedNode = nodesRef.current.find((node) => {
+            if (node.x === undefined || node.y === undefined) return false;
+            const dx = node.x - simX;
+            const dy = node.y - simY;
+            return Math.sqrt(dx * dx + dy * dy) < node.radius + 15;
+          });
+
+          if (clickedNode && clickedNode.fx !== null) {
+            updateNote(clickedNode.id, { fx: null, fy: null });
+            if (navigator.vibrate) navigator.vibrate(50);
+          }
+        }, 500);
+      }
     };
 
     const handlePointerClick = (clickX: number, clickY: number, isTouch: boolean) => {
@@ -535,6 +562,12 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
     };
 
     const handlePointerUp = (event: PointerEvent) => {
+      if (longPressTimer) {
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+      }
+      if (isLongPress) return;
+
       const deltaX = event.clientX - pointerStartX;
       const deltaY = event.clientY - pointerStartY;
       if (Math.sqrt(deltaX * deltaX + deltaY * deltaY) < 10) {
@@ -547,6 +580,14 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
     };
 
     const handlePointerMove = (event: PointerEvent) => {
+      if (longPressTimer) {
+        const deltaX = event.clientX - pointerStartX;
+        const deltaY = event.clientY - pointerStartY;
+        if (Math.sqrt(deltaX * deltaX + deltaY * deltaY) > 10) {
+          clearTimeout(longPressTimer);
+          longPressTimer = null;
+        }
+      }
       if (event.buttons > 0) return;
       const rect = canvas.getBoundingClientRect();
       const clientX = event.clientX - rect.left;
