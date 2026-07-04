@@ -1,14 +1,15 @@
 import React from 'react';
-import { Network, FileText, Search, Menu } from 'lucide-react';
+import { Network, FileText, Plus, Menu } from 'lucide-react';
 import { VoiceRecorder } from './VoiceRecorder';
 
 interface MobileNavProps {
   pageId: number;
   activeTab: 'graph' | 'editor' | 'search' | 'menu';
   onTabChange: (tab: 'graph' | 'editor' | 'search' | 'menu') => void;
+  onCreateNote: () => void;
 }
 
-export const MobileNav: React.FC<MobileNavProps> = ({ pageId, activeTab, onTabChange }) => {
+export const MobileNav: React.FC<MobileNavProps> = ({ pageId, activeTab, onTabChange, onCreateNote }) => {
   return (
     <div className="mobile-nav" style={{
       position: 'fixed', bottom: 0, left: 0, right: 0, 
@@ -35,11 +36,11 @@ export const MobileNav: React.FC<MobileNavProps> = ({ pageId, activeTab, onTabCh
         <span style={{ fontSize: '10px' }}>Editor</span>
       </button>
       <button 
-        style={{ background: 'none', border: 'none', color: activeTab === 'search' ? 'var(--accent-primary, #7c3aed)' : 'var(--text-secondary, #9ca3af)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}
-        onClick={() => onTabChange('search')}
+        style={{ background: 'none', border: 'none', color: 'var(--text-secondary, #9ca3af)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}
+        onClick={onCreateNote}
       >
-        <Search size={20} style={{ transform: activeTab === 'search' ? 'scale(1.1)' : 'scale(1)', transition: 'transform 0.2s' }} />
-        <span style={{ fontSize: '10px' }}>Search</span>
+        <Plus size={20} style={{ transition: 'transform 0.2s' }} />
+        <span style={{ fontSize: '10px' }}>New</span>
       </button>
 
       <VoiceRecorder pageId={pageId} variant="nav" />

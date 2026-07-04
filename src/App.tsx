@@ -570,21 +570,6 @@ export default function App() {
         />
       )}
 
-      {viewport === 'sm' && !activeNote && !isSidebarOpen && !isSearchOpen && (
-        <button 
-          className="fab-create-btn"
-          style={{
-            position: 'absolute', bottom: 'calc(var(--mobile-nav-height, 60px) + 16px)', right: '16px',
-            width: '56px', height: '56px', borderRadius: '28px',
-            background: 'linear-gradient(135deg, #7c3aed, #4f46e5)', color: 'white',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 4px 15px rgba(124, 58, 237, 0.4)', zIndex: 50, border: 'none'
-          }}
-          onClick={() => handleCreateNote()}
-        >
-          <Plus size={24} />
-        </button>
-      )}
 
       {showMobileMenu && viewport === 'sm' && (
         <div className="mobile-menu-drawer" style={{
@@ -643,6 +628,7 @@ export default function App() {
                 break;
             }
           }}
+          onCreateNote={() => handleCreateNote()}
         />
       )}
 
