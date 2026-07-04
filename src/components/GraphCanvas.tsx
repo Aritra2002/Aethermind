@@ -767,8 +767,8 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
       />
 
       {/* Floating Canvas Controls */}
-      <div className="canvas-controls">
-        {!isSidebarOpen && window.innerWidth >= 768 && (
+      <div className="canvas-controls" style={{ display: window.innerWidth < 768 ? 'none' : 'flex', flexDirection: 'column', gap: '8px' }}>
+        {!isSidebarOpen && (
           <button
             className="canvas-btn"
             onClick={onOpenSidebar}
@@ -778,23 +778,21 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
             <PanelLeft size={16} /> Sidebar
           </button>
         )}
-        {window.innerWidth >= 768 && (
-          <div style={{ position: 'relative' }}>
-            <button
-              className="canvas-control-btn canvas-btn"
-              onClick={() => setShowExportMenu(!showExportMenu)}
-              title="Export graph"
-            >
-              <Download size={16} /> Export
-            </button>
-            {showExportMenu && (
-              <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '8px', background: 'rgba(20,27,50,0.95)', border: '1px solid rgba(124,58,237,0.2)', borderRadius: '8px', padding: '4px', display: 'flex', flexDirection: 'column', minWidth: '120px', zIndex: 100, boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}>
-                <button onClick={() => handleExport('svg')} style={{ background: 'none', border: 'none', color: 'white', padding: '8px', textAlign: 'left', borderRadius: '4px', cursor: 'pointer' }}>SVG (vector)</button>
-                <button onClick={() => handleExport('png')} style={{ background: 'none', border: 'none', color: 'white', padding: '8px', textAlign: 'left', borderRadius: '4px', cursor: 'pointer' }}>PNG (image)</button>
-              </div>
-            )}
-          </div>
-        )}
+        <div style={{ position: 'relative' }}>
+          <button
+            className="canvas-control-btn canvas-btn"
+            onClick={() => setShowExportMenu(!showExportMenu)}
+            title="Export graph"
+          >
+            <Download size={16} /> Export
+          </button>
+          {showExportMenu && (
+            <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '8px', background: 'rgba(20,27,50,0.95)', border: '1px solid rgba(124,58,237,0.2)', borderRadius: '8px', padding: '4px', display: 'flex', flexDirection: 'column', minWidth: '120px', zIndex: 100, boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}>
+              <button onClick={() => handleExport('svg')} style={{ background: 'none', border: 'none', color: 'white', padding: '8px', textAlign: 'left', borderRadius: '4px', cursor: 'pointer' }}>SVG (vector)</button>
+              <button onClick={() => handleExport('png')} style={{ background: 'none', border: 'none', color: 'white', padding: '8px', textAlign: 'left', borderRadius: '4px', cursor: 'pointer' }}>PNG (image)</button>
+            </div>
+          )}
+        </div>
         <button
           className="canvas-btn"
           onClick={() => setShowHelp(!showHelp)}

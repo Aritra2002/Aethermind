@@ -144,7 +144,13 @@ export const VoiceRecorder = ({ pageId, onNoteCreated, variant = 'default' }: { 
         disabled={isProcessing}
         title={isRecording ? "Stop Recording" : "Voice Note"}
       >
-        {isProcessing ? <Loader2 size={20} className="spinning" /> : isRecording ? <Square size={20} /> : <Mic size={20} />}
+        {isProcessing ? (
+          <Loader2 size={20} className="spinning" style={{ transform: isRecording ? 'scale(1.1)' : 'scale(1)', transition: 'transform 0.2s' }} />
+        ) : isRecording ? (
+          <Square size={20} style={{ transform: isRecording ? 'scale(1.1)' : 'scale(1)', transition: 'transform 0.2s' }} />
+        ) : (
+          <Mic size={20} style={{ transform: isRecording ? 'scale(1.1)' : 'scale(1)', transition: 'transform 0.2s' }} />
+        )}
         <span style={{ fontSize: '10px' }}>Voice</span>
       </button>
     );
