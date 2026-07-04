@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.25.0] - 2026-07-05
+
+### 📱 Mobile View UX Fixes
+- **Graph Dragging Fix**: Resolved issue where long-pressing a node on mobile would trigger the context menu and interrupt drag operations by adding strict touch-action and contextmenu preventions.
+- **Mobile Page Management**: Replaced placeholder page title pill in mobile header with a fully functional dropdown selector to easily switch between graph pages. Added edit and delete buttons to mobile view.
+- **Review Modal Crash Fix**: Fixed a silent initialization crash in the Spaced Repetition Review modal on slower devices by adding a robust loading state when checking for due notes.
+
+
 ## [1.24.0] — 2026-07-04
 
 ### ✨ System Audit & Refactoring

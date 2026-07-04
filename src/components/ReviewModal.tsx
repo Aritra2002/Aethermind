@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db';
 import type { Note } from '../db';
-import { X, BrainCircuit } from 'lucide-react';
+import { X, BrainCircuit, Loader2 } from 'lucide-react';
 import { marked } from 'marked';
 
 interface ReviewModalProps {
@@ -101,7 +101,11 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({ onClose }) => {
         </div>
 
         <div className="modal-body" style={{ minHeight: '300px', display: 'flex', flexDirection: 'column' }}>
-          {isDone ? (
+          {!isQueueInitialized ? (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1 }}>
+              <Loader2 className="spinning" size={32} />
+            </div>
+          ) : isDone ? (
             <div style={{ textAlign: 'center', margin: 'auto' }}>
               <h3>🎉 You're all caught up!</h3>
               <p>No more flashcards to review right now.</p>

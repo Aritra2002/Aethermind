@@ -759,11 +759,13 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
 
   return (
     <div className="graph-container" ref={containerRef} id="graph-container-root">
-      <canvas
-        ref={canvasRef}
+      <canvas 
+        ref={canvasRef} 
         width={dimensions.width}
         height={dimensions.height}
-        className="graph-canvas"
+        className="graph-canvas" 
+        onContextMenu={(e) => e.preventDefault()}
+        style={{ touchAction: 'none', WebkitTouchCallout: 'none' }}
       />
 
       {/* Floating Canvas Controls */}

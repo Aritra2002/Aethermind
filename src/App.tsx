@@ -352,13 +352,21 @@ export default function App() {
             <div className="app-logo">
               <Brain size={24} className="logo-icon" />
             </div>
-            <div className="page-selector" style={{ display: 'flex', alignItems: 'center', margin: '0 auto', gap: '8px' }}>
-              <button 
-                className="header-btn" 
-                onClick={() => { /* maybe open a dialog in future, for now acts as pill */ }}
-                style={{ padding: '6px 12px', borderRadius: '16px', background: 'rgba(0,0,0,0.2)' }}
+            <div className="page-selector" style={{ display: 'flex', alignItems: 'center', margin: '0 auto', gap: '4px' }}>
+              <select 
+                value={currentPageId} 
+                onChange={e => setCurrentPageId(Number(e.target.value))}
+                style={{ padding: '4px 8px', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-color)', borderRadius: '6px', color: 'var(--text-primary)', outline: 'none', maxWidth: '120px' }}
               >
-                {pages.find(p => p.id === currentPageId)?.title || 'AetherMind'}
+                {pages.map(p => (
+                  <option key={p.id} value={p.id} style={{ background: '#111827' }}>{p.title}</option>
+                ))}
+              </select>
+              <button className="header-btn icon-only-btn" onClick={() => setShowRenamePage(true)} title="Rename Page" style={{ padding: '6px' }}>
+                <Edit2 size={14} />
+              </button>
+              <button className="header-btn icon-only-btn" onClick={handleDeletePage} title="Delete Page" disabled={pages.length <= 1} style={{ padding: '6px' }}>
+                <Trash2 size={14} style={{ color: pages.length <= 1 ? 'var(--text-secondary)' : '#f43f5e' }} />
               </button>
             </div>
           </>
