@@ -31,7 +31,8 @@ jobs:
           node-version: 22
           cache: 'npm'
       - name: Install dependencies
-        run: npm ci
+        run: |
+          npm ci --legacy-peer-deps || (sleep 5 && npm ci --legacy-peer-deps) || (sleep 10 && npm ci --legacy-peer-deps)
       - name: Build
         run: npm run build
       - name: Setup Pages
