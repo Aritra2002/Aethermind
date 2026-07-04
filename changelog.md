@@ -1,3 +1,10 @@
+## [1.22.1] — 2026-07-04
+
+### 🐛 Bug Fixes
+- Fixed mobile popup swipe-up gesture triggering unintentionally when scrolling note content.
+- Corrected the mobile sidebar / editor slide animation to appear from the bottom instead of sliding from the side.
+- Fixed node drag-and-drop on mobile not responding due to mismatched touch padding in the interaction radius.
+
 ## [1.22.0] — 2026-07-04
 
 ### 🧠 AI Intelligence Layer
