@@ -128,5 +128,4 @@ dist-ssr/
 
 # Custom ignores
 .vite/
-
-
+.agents/
