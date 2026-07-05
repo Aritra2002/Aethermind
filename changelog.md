@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.25.3] - 2026-07-05
+
+### 🐛 Bug Fixes
+- **Mobile Node Drag (Root Fix)**: Completely rewrote touch drag handling. D3 drag is now mouse-only; touch drag uses native `setPointerCapture()` with a dedicated `pointerdown → pointermove → pointerup` path on the canvas — this correctly maps `clientX/Y → canvas space → simulation space` so nodes actually move when dragged on mobile.
+- **Mobile UI Bounds**: Canvas control buttons (Sidebar, Export, Help) now stack vertically (`flex-direction: column`) so they never overflow horizontally on narrow screens. Fixed z-index token references across modals and overlay elements.
+- **Z-Index System**: Replaced magic `z-index` numbers with a 11-tier CSS token scale (`--z-canvas-overlay` → `--z-toast: 9999`).
+
+### ✨ Improvements
+- **Premium Canvas Button Style**: Floating canvas controls upgraded to glassmorphism with gradient border, violet glow on hover, lift + scale active animation.
+- **Button Design System**: Unified `.btn`, `.btn-primary`, `.btn-secondary`, `.btn-ghost`, `.btn-icon`, `.btn-danger`, `.btn-sm/md/lg` classes with glassmorphism, shimmer sheen, and micro-animations applied across all interactive elements.
+- **Review Modal**: Now uses `glass-panel`, correct `overflow`, and safe-area padding.
+
+
+
 ## [1.25.2] - 2026-07-05
 
 ### 🐛 Bug Fixes
