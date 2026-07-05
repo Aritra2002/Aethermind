@@ -179,14 +179,14 @@ specifies otherwise. Suggest 2-3 connections to existing notes if relevant.`;
 
   return (
     <>
-      <div className="modal-overlay" onClick={onClose} style={{ zIndex: 1000 }}>
+      <div className="modal-overlay" onClick={onClose} style={{ zIndex: 'var(--z-modal, 1000)' }}>
         <div className="settings-modal glass-panel" onClick={e => e.stopPropagation()} style={{ maxWidth: '600px', width: '90%' }}>
           <div className="modal-header">
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--accent-gold)' }}>
               <Sparkles size={18} />
               <h2>Ask AI</h2>
             </div>
-            <button className="icon-btn close-btn" onClick={onClose} aria-label="Close">
+            <button className="btn btn-icon close-btn" onClick={onClose} aria-label="Close">
               <X size={18} />
             </button>
           </div>
@@ -201,7 +201,7 @@ specifies otherwise. Suggest 2-3 connections to existing notes if relevant.`;
                 
                 {!isAiLoading && (
                   <button 
-                    className="settings-action-btn" 
+                    className="btn btn-secondary" 
                     onClick={() => {
                       setAiResponse(null);
                       setQuery('');
@@ -240,10 +240,10 @@ specifies otherwise. Suggest 2-3 connections to existing notes if relevant.`;
                     }}
                   />
                   <button 
-                    className="primary-btn" 
+                    className="btn btn-primary btn-icon" 
                     onClick={handleAskAi}
                     disabled={!query.trim() || isAiLoading}
-                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '48px', height: '48px', borderRadius: '8px', padding: 0 }}
+                    style={{ width: '48px', height: '48px' }}
                   >
                     <ArrowRight size={20} />
                   </button>

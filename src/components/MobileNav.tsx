@@ -13,7 +13,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({ pageId, activeTab, onTabCh
   return (
     <div className="mobile-nav" style={{
       position: 'fixed', bottom: 0, left: 0, right: 0, 
-      height: 'var(--mobile-nav-height, 60px)', 
+      height: 'calc(var(--mobile-nav-height, 60px) + var(--safe-bottom, env(safe-area-inset-bottom, 0px)))', 
       background: 'rgba(15, 20, 50, 0.85)', 
       backdropFilter: 'blur(10px)',
       display: 'flex', justifyContent: 'space-around', alignItems: 'center',

@@ -36,7 +36,7 @@ export const RenamePageModal: React.FC<RenamePageModalProps> = ({
       <div className="modal-content glass-panel" style={{ maxWidth: '400px' }}>
         <div className="modal-header">
           <h2>Rename Page</h2>
-          <button className="icon-btn" onClick={onClose} aria-label="Close">
+          <button className="btn btn-icon" onClick={onClose} aria-label="Close">
             <X size={20} />
           </button>
         </div>
@@ -54,10 +54,10 @@ export const RenamePageModal: React.FC<RenamePageModalProps> = ({
             />
           </div>
           <div className="modal-actions" style={{ marginTop: '16px', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-            <button type="button" className="secondary-btn" onClick={onClose}>
+            <button type="button" className="btn btn-secondary" onClick={onClose}>
               Cancel
             </button>
-            <button type="submit" className="primary-btn" disabled={!title.trim()}>
+            <button type="submit" className="btn btn-primary" disabled={!title.trim()}>
               Save
             </button>
           </div>

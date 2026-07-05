@@ -93,14 +93,14 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({ onClose }) => {
   };
 
   return (
-    <div className="modal-overlay">
-      <div className="modal-content review-modal" style={{ maxWidth: '600px', width: '100%' }}>
+    <div className="modal-overlay" style={{ zIndex: 'var(--z-modal, 1000)' }}>
+      <div className="modal-content review-modal glass-panel" style={{ maxWidth: '600px', width: '90%', maxHeight: '85vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <div className="modal-header">
           <h2><BrainCircuit size={20} /> Spaced Repetition Review</h2>
-          <button className="icon-btn close-btn" onClick={onClose} aria-label="Close"><X size={20} /></button>
+          <button className="btn btn-icon close-btn" onClick={onClose} aria-label="Close"><X size={20} /></button>
         </div>
 
-        <div className="modal-body" style={{ minHeight: '300px', display: 'flex', flexDirection: 'column' }}>
+        <div className="modal-body" style={{ minHeight: '300px', display: 'flex', flexDirection: 'column', overflowY: 'auto', flex: 1 }}>
           {!isQueueInitialized ? (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1 }}>
               <Loader2 className="spinning" size={32} />
@@ -109,7 +109,7 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({ onClose }) => {
             <div style={{ textAlign: 'center', margin: 'auto' }}>
               <h3>🎉 You're all caught up!</h3>
               <p>No more flashcards to review right now.</p>
-              <button className="primary-btn" onClick={onClose} style={{ marginTop: '20px' }}>Close</button>
+              <button className="btn btn-primary" onClick={onClose} style={{ marginTop: '20px' }}>Close</button>
             </div>
           ) : (
             <div className="flashcard-container" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
@@ -123,14 +123,14 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({ onClose }) => {
                        dangerouslySetInnerHTML={{ __html: marked.parse(currentNote.content) as string }} />
                   
                   <div className="flashcard-actions" style={{ display: 'flex', gap: '10px', marginTop: '20px', justifyContent: 'center' }}>
-                    <button className="action-btn" onClick={() => handleGrade(1)} style={{ backgroundColor: '#ef4444' }}>Again (1m)</button>
-                    <button className="action-btn" onClick={() => handleGrade(2)} style={{ backgroundColor: '#f59e0b' }}>Hard (1.2x)</button>
-                    <button className="action-btn" onClick={() => handleGrade(3)} style={{ backgroundColor: '#10b981' }}>Good</button>
-                    <button className="action-btn" onClick={() => handleGrade(4)} style={{ backgroundColor: '#3b82f6' }}>Easy</button>
+                    <button className="btn" onClick={() => handleGrade(1)} style={{ backgroundColor: 'rgba(239, 68, 68, 0.2)', borderColor: 'rgba(239, 68, 68, 0.4)', color: '#ef4444' }}>Again (1m)</button>
+                    <button className="btn" onClick={() => handleGrade(2)} style={{ backgroundColor: 'rgba(245, 158, 11, 0.2)', borderColor: 'rgba(245, 158, 11, 0.4)', color: '#f59e0b' }}>Hard (1.2x)</button>
+                    <button className="btn" onClick={() => handleGrade(3)} style={{ backgroundColor: 'rgba(16, 185, 129, 0.2)', borderColor: 'rgba(16, 185, 129, 0.4)', color: '#10b981' }}>Good</button>
+                    <button className="btn" onClick={() => handleGrade(4)} style={{ backgroundColor: 'rgba(59, 130, 246, 0.2)', borderColor: 'rgba(59, 130, 246, 0.4)', color: '#60a5fa' }}>Easy</button>
                   </div>
                 </>
               ) : (
-                <button className="primary-btn" onClick={() => setShowAnswer(true)} style={{ margin: 'auto' }}>Show Answer</button>
+                <button className="btn btn-primary" onClick={() => setShowAnswer(true)} style={{ margin: 'auto' }}>Show Answer</button>
               )}
               
               <div style={{ textAlign: 'center', marginTop: '15px', color: 'var(--text-secondary)' }}>

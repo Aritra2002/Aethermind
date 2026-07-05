@@ -74,9 +74,9 @@ export const NoteMiniCard: React.FC<NoteMiniCardProps> = ({ note, category, onOp
     <div 
       className="note-mini-card" 
       style={{
-        position: 'absolute', bottom: 'calc(var(--mobile-nav-height, 60px) + 16px)', left: '16px', right: '16px',
+        position: 'absolute', bottom: 'calc(var(--mobile-nav-height, 60px) + var(--safe-bottom, env(safe-area-inset-bottom, 0px)) + 16px)', left: '16px', right: '16px',
         background: 'rgba(20, 27, 50, 0.95)', borderRadius: '16px',
-        padding: '16px', zIndex: 50,
+        padding: '16px', zIndex: 'var(--z-mini-card, 50)',
         border: '1px solid rgba(124, 58, 237, 0.2)',
         boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)',
         backdropFilter: 'blur(10px)',
@@ -95,7 +95,7 @@ export const NoteMiniCard: React.FC<NoteMiniCardProps> = ({ note, category, onOp
             <span style={{ color: category?.color || '#818cf8', marginRight: '8px' }}>●</span>
             {note.title}
           </h3>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-secondary, #9ca3af)', padding: '4px' }}>
+          <button className="btn btn-icon btn-ghost" onClick={onClose} aria-label="Close">
             <X size={16} />
           </button>
         </div>
@@ -127,8 +127,9 @@ export const NoteMiniCard: React.FC<NoteMiniCardProps> = ({ note, category, onOp
       </div>
       <div style={{ display: 'flex', gap: '8px' }}>
         <button 
+          className="btn btn-primary"
           onClick={onOpenEditor} 
-          style={{ flex: 1, padding: '10px', borderRadius: '8px', background: 'linear-gradient(135deg, #7c3aed, #4f46e5)', color: 'white', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: '500' }}
+          style={{ flex: 1 }}
         >
           <FileText size={16} /> Open Full Editor (or Swipe Up)
         </button>

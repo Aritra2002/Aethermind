@@ -54,12 +54,14 @@ export const PluginSettingsTab: React.FC = () => {
                 </span>
               </label>
               <button
+                className="btn btn-icon btn-ghost"
                 onClick={() => {
                   const updated = plugins.filter(pl => pl.id !== p.id);
                   setPlugins(updated);
                   savePlugins(updated);
                 }}
-                style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '2px' }}
+                aria-label="Delete plugin"
+                style={{ minWidth: '32px', minHeight: '32px', padding: '2px' }}
               >
                 <Trash2 size={14} />
               </button>
@@ -86,7 +88,7 @@ export const PluginSettingsTab: React.FC = () => {
             style={{ width: '100px', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.1)', padding: '6px 8px', borderRadius: '4px', color: '#fff', fontSize: '0.8rem' }}
           />
           <button
-            className="primary-btn"
+            className="btn btn-primary btn-sm"
             onClick={async () => {
               if (!pluginUrl.trim() || !pluginName.trim()) return showToast('Enter both name and URL', 'error');
               const id = `plugin-${Date.now()}`;
@@ -102,7 +104,7 @@ export const PluginSettingsTab: React.FC = () => {
               setPluginUrl('');
               setPluginName('');
             }}
-            style={{ padding: '6px 12px', fontSize: '0.8rem', whiteSpace: 'nowrap' }}
+            style={{ whiteSpace: 'nowrap' }}
           >
             Add Plugin
           </button>

@@ -32,6 +32,12 @@ interface SimNode extends d3.SimulationNodeDatum {
   isDimmed: boolean;
   radius: number;
   visits: number;
+  __originalFx?: number | null;
+  __originalFy?: number | null;
+  __wasDragged?: boolean;
+  __wasUnpinned?: boolean;
+  __startX?: number;
+  __startY?: number;
 }
 
 export const GraphCanvas: React.FC<GraphCanvasProps> = ({
@@ -220,8 +226,8 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
         y: existing?.y ?? note.fy ?? (dimensions.height / 2 + (Math.random() - 0.5) * 50),
         vx: existing?.vx ?? 0,
         vy: existing?.vy ?? 0,
-        fx: note.fx ?? null,
-        fy: note.fy ?? null
+        fx: existing?.fx !== undefined ? existing.fx : (note.fx ?? null),
+        fy: existing?.fy !== undefined ? existing.fy : (note.fy ?? null)
       };
     });
 
@@ -465,12 +471,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
         
         // If it's a mouse down, check if we're hitting a node. If we are, ignore the zoom!
         if (event.type === 'mousedown' || event.type === 'touchstart' || event.type === 'pointerdown') {
-          const rect = canvas.getBoundingClientRect();
-          const clientX = event.type === 'touchstart' ? event.touches[0].clientX : event.clientX;
-          const clientY = event.type === 'touchstart' ? event.touches[0].clientY : event.clientY;
-          
-          const clickX = clientX - rect.left;
-          const clickY = clientY - rect.top;
+          const [clickX, clickY] = d3.pointer(event, canvas);
           
           const currentTransform = d3.zoomTransform(canvas);
           const simX = (clickX - currentTransform.x) / currentTransform.k;
@@ -531,7 +532,11 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
           if (clickedNode && clickedNode.fx !== null) {
             clickedNode.fx = null;
             clickedNode.fy = null;
+            clickedNode.__wasUnpinned = true;
             updateNote(clickedNode.id, { fx: null, fy: null });
+            if (simulationRef.current) {
+              simulationRef.current.alpha(0.3).restart();
+            }
             if (navigator.vibrate) navigator.vibrate(50);
           }
         }, 500);
@@ -718,11 +723,14 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
       }
     };
 
-    // Drag setup
+    // Drag setup — Mouse only; touch drag handled by pointer capture below
     const dragBehavior = d3.drag<HTMLCanvasElement, unknown>()
+      .filter((event) => {
+        // Only handle mouse events here; touch is handled manually
+        return event.type !== 'touchstart' && (event as PointerEvent).pointerType !== 'touch';
+      })
       .subject((event) => {
         if (!canvasRef.current) return undefined;
-        // Use d3.pointer to properly get coordinates relative to the canvas for both mouse and touch events
         const [mouseX, mouseY] = d3.pointer(event, canvasRef.current);
         const currentTransform = d3.zoomTransform(canvasRef.current);
         const simX = (mouseX - currentTransform.x) / currentTransform.k;
@@ -734,15 +742,6 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
           const dx = node.x - simX;
           const dy = node.y - simY;
           let clickRadius = node.id === state.activeNote?.id ? node.radius + 4 : node.radius;
-          const srcEvt = event.sourceEvent;
-          const isTouch = srcEvt && (
-            srcEvt.type?.startsWith('touch') || 
-            srcEvt.pointerType === 'touch' || 
-            window.matchMedia('(pointer: coarse)').matches
-          );
-          if (isTouch) {
-            clickRadius += 8;
-          }
           return Math.sqrt(dx * dx + dy * dy) < clickRadius;
         });
 
@@ -757,21 +756,25 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
       })
       .on('start', (event) => {
         if (!simulationRef.current) return;
+        if (!event.active) simulationRef.current.alphaTarget(0.3).restart();
         event.subject.node.__originalFx = event.subject.node.fx;
         event.subject.node.__originalFy = event.subject.node.fy;
         event.subject.node.__wasDragged = false;
-        
+        event.subject.node.__startX = event.x;
+        event.subject.node.__startY = event.y;
         event.subject.node.fx = event.subject.node.x;
         event.subject.node.fy = event.subject.node.y;
       })
       .on('drag', (event) => {
         if (!canvasRef.current) return;
-        event.subject.node.__wasDragged = true;
-        // event.x and event.y are screen coordinates now
+        const startX = event.subject.node.__startX ?? event.x;
+        const startY = event.subject.node.__startY ?? event.y;
+        if (Math.hypot(event.x - startX, event.y - startY) > 3) {
+          event.subject.node.__wasDragged = true;
+        }
         const currentTransform = d3.zoomTransform(canvasRef.current);
         const simX = (event.x - currentTransform.x) / currentTransform.k;
         const simY = (event.y - currentTransform.y) / currentTransform.k;
-        
         event.subject.node.fx = simX;
         event.subject.node.fy = simY;
         event.subject.node.x = simX;
@@ -780,32 +783,124 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
       .on('end', async (event) => {
         if (!simulationRef.current) return;
         if (!event.active) simulationRef.current.alphaTarget(0);
-        
-        // If unpinned via long press, it will be handled by the timeout (fx is set to null)
-        // If genuinely dragged, save the new pinned coordinates
         if (event.subject.node.__wasDragged) {
           await updateNote(event.subject.node.id, {
             fx: event.subject.node.fx,
             fy: event.subject.node.fy
           });
-        } else if (event.subject.node.fx !== null) {
-          // If just tapped (not dragged and not unpinned), revert the temporary pinning
+        } else {
+          // Tap (not drag): revert temp pin
           event.subject.node.fx = event.subject.node.__originalFx !== undefined ? event.subject.node.__originalFx : null;
           event.subject.node.fy = event.subject.node.__originalFy !== undefined ? event.subject.node.__originalFy : null;
         }
       });
 
+    // ── Manual touch drag via pointer capture ──────────────────────────────
+    let touchDragNode: SimNode | null = null;
+    let touchDragPointerId: number | null = null;
+
+    const handleTouchDragStart = (event: PointerEvent) => {
+      if (event.pointerType !== 'touch') return;
+      if (isLongPress) return; // long-press handled separately
+
+      const rect = canvas.getBoundingClientRect();
+      const canvasX = event.clientX - rect.left;
+      const canvasY = event.clientY - rect.top;
+      const currentTransform = d3.zoomTransform(canvas);
+      const simX = (canvasX - currentTransform.x) / currentTransform.k;
+      const simY = (canvasY - currentTransform.y) / currentTransform.k;
+
+      const found = nodesRef.current.find((node) => {
+        if (node.x === undefined || node.y === undefined) return false;
+        const dx = node.x - simX;
+        const dy = node.y - simY;
+        return Math.sqrt(dx * dx + dy * dy) < node.radius + 12;
+      });
+
+      if (found) {
+        touchDragNode = found;
+        touchDragPointerId = event.pointerId;
+        found.__originalFx = found.fx;
+        found.__originalFy = found.fy;
+        found.__wasDragged = false;
+        found.__startX = canvasX;
+        found.__startY = canvasY;
+        found.fx = found.x;
+        found.fy = found.y;
+        canvas.setPointerCapture(event.pointerId);
+        if (simulationRef.current) simulationRef.current.alphaTarget(0.3).restart();
+      }
+    };
+
+    const handleTouchDragMove = (event: PointerEvent) => {
+      if (event.pointerType !== 'touch') return;
+      if (!touchDragNode || event.pointerId !== touchDragPointerId) return;
+
+      // Cancel long-press if moving
+      if (longPressTimer) {
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+      }
+
+      const rect = canvas.getBoundingClientRect();
+      const canvasX = event.clientX - rect.left;
+      const canvasY = event.clientY - rect.top;
+      const currentTransform = d3.zoomTransform(canvas);
+      const simX = (canvasX - currentTransform.x) / currentTransform.k;
+      const simY = (canvasY - currentTransform.y) / currentTransform.k;
+
+      const startX = touchDragNode.__startX ?? canvasX;
+      const startY = touchDragNode.__startY ?? canvasY;
+      if (Math.hypot(canvasX - startX, canvasY - startY) > 6) {
+        touchDragNode.__wasDragged = true;
+      }
+
+      touchDragNode.fx = simX;
+      touchDragNode.fy = simY;
+      touchDragNode.x = simX;
+      touchDragNode.y = simY;
+      event.preventDefault();
+    };
+
+    const handleTouchDragEnd = async (event: PointerEvent) => {
+      if (event.pointerType !== 'touch') return;
+      if (!touchDragNode || event.pointerId !== touchDragPointerId) return;
+
+      const node = touchDragNode;
+      touchDragNode = null;
+      touchDragPointerId = null;
+
+      if (simulationRef.current) simulationRef.current.alphaTarget(0);
+
+      if (node.__wasDragged) {
+        await updateNote(node.id, { fx: node.fx, fy: node.fy });
+      } else {
+        // Tap: revert temp pin
+        node.fx = node.__originalFx !== undefined ? node.__originalFx : null;
+        node.fy = node.__originalFy !== undefined ? node.__originalFy : null;
+      }
+    };
+
+
     // Call both behaviors
     d3.select(canvas).call(dragBehavior as unknown as never);
     d3.select(canvas).call(zoomBehavior);
 
-    canvas.addEventListener('pointerdown', handlePointerDown);
+    canvas.addEventListener('pointerdown', handlePointerDown, { passive: false });
+    canvas.addEventListener('pointerdown', handleTouchDragStart, { passive: false });
+    canvas.addEventListener('pointermove', handleTouchDragMove, { passive: false });
+    canvas.addEventListener('pointerup', handleTouchDragEnd);
+    canvas.addEventListener('pointercancel', handleTouchDragEnd);
     canvas.addEventListener('pointerup', handlePointerUp);
     canvas.addEventListener('dblclick', handleCanvasDblClick);
     canvas.addEventListener('pointermove', handlePointerMove);
 
     return () => {
       canvas.removeEventListener('pointerdown', handlePointerDown);
+      canvas.removeEventListener('pointerdown', handleTouchDragStart);
+      canvas.removeEventListener('pointermove', handleTouchDragMove);
+      canvas.removeEventListener('pointerup', handleTouchDragEnd);
+      canvas.removeEventListener('pointercancel', handleTouchDragEnd);
       canvas.removeEventListener('pointerup', handlePointerUp);
       canvas.removeEventListener('dblclick', handleCanvasDblClick);
       canvas.removeEventListener('pointermove', handlePointerMove);
@@ -825,7 +920,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
       />
 
       {/* Floating Canvas Controls */}
-      <div className="canvas-controls" style={{ display: window.innerWidth < 768 ? 'none' : 'flex', flexDirection: 'column', gap: '8px' }}>
+      <div className="canvas-controls" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
         {!isSidebarOpen && (
           <button
             className="canvas-btn"
@@ -845,7 +940,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
             <Download size={16} /> Export
           </button>
           {showExportMenu && (
-            <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '8px', background: 'rgba(20,27,50,0.95)', border: '1px solid rgba(124,58,237,0.2)', borderRadius: '8px', padding: '4px', display: 'flex', flexDirection: 'column', minWidth: '120px', zIndex: 100, boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}>
+            <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '8px', background: 'rgba(20,27,50,0.95)', border: '1px solid rgba(124,58,237,0.2)', borderRadius: '8px', padding: '4px', display: 'flex', flexDirection: 'column', minWidth: '120px', zIndex: 'var(--z-dropdown, 40)', boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}>
               <button onClick={() => handleExport('svg')} style={{ background: 'none', border: 'none', color: 'white', padding: '8px', textAlign: 'left', borderRadius: '4px', cursor: 'pointer' }}>SVG (vector)</button>
               <button onClick={() => handleExport('png')} style={{ background: 'none', border: 'none', color: 'white', padding: '8px', textAlign: 'left', borderRadius: '4px', cursor: 'pointer' }}>PNG (image)</button>
             </div>
@@ -904,7 +999,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
           padding: '8px 12px',
           color: 'white',
           pointerEvents: 'none',
-          zIndex: 100,
+          zIndex: 'var(--z-controls, 20)',
           maxWidth: '300px',
           boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
           fontSize: '14px',

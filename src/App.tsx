@@ -582,9 +582,9 @@ export default function App() {
 
       {showMobileMenu && viewport === 'sm' && (
         <div className="mobile-menu-drawer" style={{
-          position: 'fixed', bottom: 'var(--mobile-nav-height, 60px)', left: 0, right: 0,
+          position: 'fixed', bottom: 'calc(var(--mobile-nav-height, 60px) + var(--safe-bottom, env(safe-area-inset-bottom, 0px)))', left: 0, right: 0,
           background: 'rgba(20, 27, 50, 0.95)', borderTopLeftRadius: '16px', borderTopRightRadius: '16px',
-          padding: '16px', paddingBottom: 'calc(16px + var(--safe-bottom, env(safe-area-inset-bottom, 0px)))', zIndex: 99,
+          padding: '16px', paddingBottom: 'calc(16px + var(--safe-bottom, env(safe-area-inset-bottom, 0px)))', zIndex: 'var(--z-drawer, 60)',
           borderTop: '1px solid rgba(124, 58, 237, 0.2)',
           boxShadow: '0 -4px 24px rgba(0,0,0,0.5)'
         }}>

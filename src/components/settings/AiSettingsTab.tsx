@@ -131,11 +131,10 @@ export const AiSettingsTab: React.FC = () => {
             <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Model</label>
             {['custom', 'openrouter', 'openai', 'deepseek'].includes(aiConfig.provider) && (
               <button 
+                className="btn btn-ghost btn-sm"
                 onClick={handleDetectModels}
                 disabled={isDetecting || !aiConfig.baseUrl}
-                style={{
-                  background: 'none', border: 'none', color: '#8b5cf6', fontSize: '0.8rem', cursor: 'pointer', padding: 0
-                }}
+                style={{ color: 'var(--accent-primary)', padding: '2px 8px' }}
               >
                 {isDetecting ? 'Detecting...' : 'Detect Models'}
               </button>

@@ -238,10 +238,9 @@ export const DataSettingsTab: React.FC<DataSettingsTabProps> = ({
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
           <h3>Node Types</h3>
           <button 
-            className="primary-btn" 
+            className="btn btn-primary btn-sm" 
             onClick={() => setShowAddCat(!showAddCat)} 
             title="Add Node Type"
-            style={{ padding: '4px 12px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px' }}
           >
             <Plus size={14} /> Add Type
           </button>
@@ -266,10 +265,12 @@ export const DataSettingsTab: React.FC<DataSettingsTabProps> = ({
                 />
                 {['general', 'work', 'personal', 'ideas'].includes(cat.id) ? null : (
                   <button 
+                    className="btn btn-icon btn-ghost"
                     onClick={() => {
                       setCategoryToDelete(cat.id);
                     }}
-                    style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '4px' }}
+                    aria-label="Delete category"
+                    style={{ minWidth: '32px', minHeight: '32px', padding: '4px' }}
                   >
                     <Trash2 size={14} />
                   </button>
@@ -309,6 +310,7 @@ export const DataSettingsTab: React.FC<DataSettingsTabProps> = ({
                 style={{ width: '24px', height: '24px', padding: '0', border: 'none', borderRadius: '4px', cursor: 'pointer', background: 'transparent' }}
               />
               <button 
+                className="btn btn-accent btn-sm"
                 onClick={async () => {
                   if (newCatLabel.trim()) {
                     const id = newCatLabel.trim().toLowerCase().replace(/\s+/g, '-');
@@ -317,7 +319,6 @@ export const DataSettingsTab: React.FC<DataSettingsTabProps> = ({
                     setShowAddCat(false);
                   }
                 }}
-                style={{ background: 'var(--node-emerald)', color: '#000', border: 'none', padding: '4px 8px', borderRadius: '4px', fontSize: '0.85rem', cursor: 'pointer', fontWeight: 600 }}
               >
                 Add
               </button>

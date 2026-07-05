@@ -35,7 +35,7 @@ export function PromptModal({ title, message, placeholder = '', defaultValue = '
       <div className="modal-content" style={{ maxWidth: '400px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
           <h3>{title}</h3>
-          <button className="icon-btn" onClick={onCancel} aria-label="Close"><X size={16} /></button>
+          <button className="btn btn-icon" onClick={onCancel} aria-label="Close"><X size={16} /></button>
         </div>
         
         <p style={{ color: 'var(--text-secondary)', marginBottom: '16px', fontSize: '0.9rem' }}>
@@ -61,13 +61,13 @@ export function PromptModal({ title, message, placeholder = '', defaultValue = '
 
         <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
           <button 
-            className="secondary-btn" 
+            className="btn btn-secondary" 
             onClick={onCancel}
           >
             Cancel
           </button>
           <button 
-            className="primary-btn" 
+            className="btn btn-primary" 
             onClick={() => onConfirm(value)}
           >
             Confirm

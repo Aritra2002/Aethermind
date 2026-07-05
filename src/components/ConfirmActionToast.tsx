@@ -46,7 +46,7 @@ export const ConfirmActionToast: React.FC<ConfirmActionToastProps> = ({ action, 
           <AlertTriangle size={16} color="var(--accent-gold)" />
           {action.action === 'delete_note' ? 'Delete Note?' : 'Edit Note?'}
         </h3>
-        <button onClick={onCancel} className="icon-btn" style={{ border: 'none', background: 'transparent' }}><X size={16}/></button>
+        <button onClick={onCancel} className="btn btn-icon" style={{ border: 'none', background: 'transparent' }}><X size={16}/></button>
       </div>
       
       {action.action === 'edit_note' && (
@@ -71,29 +71,15 @@ export const ConfirmActionToast: React.FC<ConfirmActionToastProps> = ({ action, 
       <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
         <button 
           onClick={onConfirm} 
-          className="primary-btn"
-          style={{ 
-            flex: 1, 
-            padding: '8px', 
-            borderRadius: '4px', 
-            background: action.action === 'delete_note' ? '#ef4444' : '',
-            border: 'none',
-            cursor: 'pointer'
-          }}
+          className={action.action === 'delete_note' ? 'btn btn-danger' : 'btn btn-primary'}
+          style={{ flex: 1 }}
         >
           {action.action === 'delete_note' ? 'Delete' : 'Apply Edit'}
         </button>
         <button 
           onClick={onCancel} 
-          style={{ 
-            flex: 1, 
-            padding: '8px', 
-            borderRadius: '4px', 
-            background: 'transparent',
-            color: 'var(--text-primary)',
-            border: '1px solid rgba(255,255,255,0.2)',
-            cursor: 'pointer'
-          }}
+          className="btn btn-secondary"
+          style={{ flex: 1 }}
         >
           Cancel
         </button>

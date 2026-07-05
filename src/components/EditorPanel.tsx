@@ -335,9 +335,9 @@ Return exactly and ONLY the summary text, with no markdown code blocks or conver
   };
   if (!note) {
     return (
-      <div className="editor-placeholder" style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+      <div className="editor-placeholder" style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', paddingTop: 'env(safe-area-inset-top, 0px)' }}>
         <div style={{ position: 'absolute', top: '16px', right: '16px' }}>
-          <button className="icon-button" onClick={onClose} aria-label="Close Sidebar" title="Close Sidebar" style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}>
+          <button className="btn btn-icon" onClick={onClose} aria-label="Close Sidebar" title="Close Sidebar" style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}>
             <X size={20} />
           </button>
         </div>
@@ -346,32 +346,11 @@ Return exactly and ONLY the summary text, with no markdown code blocks or conver
           <h2>AetherMind Workspace</h2>
           <p style={{ maxWidth: '300px', margin: '0 auto', marginBottom: '24px' }}>Select a node in the graph, search for a topic, or double-click empty space on the canvas to create a new note.</p>
           <button 
-            className="primary-btn" 
+            className="btn btn-primary btn-lg" 
             style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center', 
-              gap: '8px',
-              width: '100%',
               maxWidth: '220px',
               margin: '0 auto',
-              padding: '12px 24px',
-              fontSize: '1.05rem',
-              fontWeight: 600,
-              background: 'linear-gradient(135deg, var(--node-work), var(--node-personal))',
-              border: 'none',
-              borderRadius: '8px',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-              transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-              cursor: 'pointer'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = 'translateY(-2px)';
-              e.currentTarget.style.boxShadow = '0 6px 16px rgba(0,0,0,0.4)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)';
+              width: '100%'
             }}
             onClick={() => {
               let newTitle = "New Node";
@@ -395,7 +374,7 @@ Return exactly and ONLY the summary text, with no markdown code blocks or conver
   const categoryColor = categoryObj ? categoryObj.color : '#818cf8';
 
   return (
-    <div className="editor-panel glass-panel" id="editor-panel-root">
+    <div className="editor-panel glass-panel" id="editor-panel-root" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
       {/* Panel Header */}
       <div className="editor-header">
         <div className="category-indicator" style={{ backgroundColor: categoryColor }}></div>
@@ -626,13 +605,13 @@ Return exactly and ONLY the summary text, with no markdown code blocks or conver
                   flexDirection: 'column',
                   gap: '2px',
                   boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
-                  zIndex: 100
+                  zIndex: 'var(--z-dropdown, 40)'
                 }}>
                   <div style={{ fontSize: '10px', color: 'var(--text-secondary)', padding: '4px 8px', textTransform: 'uppercase' }}>Blocks</div>
-                  <button className="slash-cmd-btn" onClick={() => handleSlashCommand('### ')} style={{ textAlign: 'left', background: 'transparent', border: 'none', color: 'var(--text-primary)', padding: '6px 8px', borderRadius: '4px', cursor: 'pointer' }}>H3 Heading</button>
-                  <button className="slash-cmd-btn" onClick={() => handleSlashCommand('- [ ] ')} style={{ textAlign: 'left', background: 'transparent', border: 'none', color: 'var(--text-primary)', padding: '6px 8px', borderRadius: '4px', cursor: 'pointer' }}>Todo List</button>
-                  <button className="slash-cmd-btn" onClick={() => handleSlashCommand('> ')} style={{ textAlign: 'left', background: 'transparent', border: 'none', color: 'var(--text-primary)', padding: '6px 8px', borderRadius: '4px', cursor: 'pointer' }}>Quote</button>
-                  <button className="slash-cmd-btn" onClick={() => handleSlashCommand('```\n\n```')} style={{ textAlign: 'left', background: 'transparent', border: 'none', color: 'var(--text-primary)', padding: '6px 8px', borderRadius: '4px', cursor: 'pointer' }}>Code Block</button>
+                  <button className="btn btn-secondary btn-sm" onClick={() => handleSlashCommand('### ')} style={{ justifyContent: 'flex-start', width: '100%' }}>H3 Heading</button>
+                  <button className="btn btn-secondary btn-sm" onClick={() => handleSlashCommand('- [ ] ')} style={{ justifyContent: 'flex-start', width: '100%' }}>Todo List</button>
+                  <button className="btn btn-secondary btn-sm" onClick={() => handleSlashCommand('> ')} style={{ justifyContent: 'flex-start', width: '100%' }}>Quote</button>
+                  <button className="btn btn-secondary btn-sm" onClick={() => handleSlashCommand('```\n\n```')} style={{ justifyContent: 'flex-start', width: '100%' }}>Code Block</button>
                 </div>
               )}
             </div>
@@ -641,7 +620,7 @@ Return exactly and ONLY the summary text, with no markdown code blocks or conver
           <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
             <div style={{ display: 'flex', gap: '8px', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)', marginBottom: '12px', alignItems: 'center' }}>
               <button 
-                className="icon-btn" 
+                className="btn btn-secondary btn-sm" 
                 onClick={async () => {
                   const { speakText, stopSpeaking } = await import('../utils/speech');
                   if (isPlaying) {
@@ -655,7 +634,7 @@ Return exactly and ONLY the summary text, with no markdown code blocks or conver
                 title={isPlaying ? "Stop Reading" : "Read Aloud"}
               >
                 {isPlaying ? <VolumeX size={14} /> : <Volume2 size={14} />}
-                <span style={{ fontSize: '12px', marginLeft: '4px' }}>{isPlaying ? "Stop Reading" : "Read Aloud"}</span>
+                <span>{isPlaying ? "Stop Reading" : "Read Aloud"}</span>
               </button>
             </div>
             <div
@@ -791,7 +770,7 @@ Return exactly and ONLY the summary text, with no markdown code blocks or conver
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          zIndex: 1000
+          zIndex: 'var(--z-modal, 1000)'
         }}>
           <div className="glass-panel" style={{
             background: 'var(--bg-secondary)',
@@ -802,7 +781,7 @@ Return exactly and ONLY the summary text, with no markdown code blocks or conver
             position: 'relative',
             boxShadow: '0 8px 32px rgba(0,0,0,0.5)'
           }}>
-            <button className="icon-btn close-btn" onClick={() => setAiSummary(null)} style={{ position: 'absolute', top: '16px', right: '16px' }}>
+            <button className="btn btn-icon close-btn" onClick={() => setAiSummary(null)} style={{ position: 'absolute', top: '16px', right: '16px' }}>
               <X size={18} />
             </button>
             <h3 style={{ marginTop: 0, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -813,28 +792,12 @@ Return exactly and ONLY the summary text, with no markdown code blocks or conver
               {aiSummary}
             </div>
             <div style={{ display: 'flex', justifyContent: 'center', marginTop: '16px' }}>
-              <button className="primary-btn" onClick={() => {
+              <button className="btn btn-primary btn-lg" onClick={() => {
                 const newContent = `> **AI Summary:** ${aiSummary}\n\n${content}`;
                 setContent(newContent);
                 if (note) updateNote(note.id!, { content: newContent });
                 setAiSummary(null);
-              }} style={{
-                width: '100%',
-                padding: '12px 24px',
-                borderRadius: '8px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px',
-                fontWeight: '600',
-                fontSize: '1rem',
-                background: 'linear-gradient(135deg, var(--node-indigo), var(--node-emerald))',
-                color: 'white',
-                border: 'none',
-                cursor: 'pointer',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
-                transition: 'transform 0.2s, box-shadow 0.2s'
-              }}>
+              }} style={{ width: '100%' }}>
                 <Sparkles size={18} />
                 Insert into Note
               </button>
