@@ -51,23 +51,35 @@ export const NoteMiniCard: React.FC<NoteMiniCardProps> = ({ note, category, onOp
     });
     try {
       const rawHtml = marked.parse(processedContent) as string;
-      return DOMPurify.sanitize(rawHtml);
+      return DOMPurify.sanitize(rawHtml, {
+        ADD_ATTR: ['href'],
+        ALLOWED_URI_REGEXP: /^(https?|ftp|mailto|#wiki-)/i,
+      });
     } catch (e) {
       return '<p>Error rendering markdown.</p>';
     }
   };
 
+  // Only trigger swipe-up when the touch originates from the drag handle area, not the scrollable preview
+  const [swipeFromHandle, setSwipeFromHandle] = useState(false);
+
   const handleTouchStart = (e: React.TouchEvent) => {
     setTouchStart(e.targetTouches[0].clientY);
+    setSwipeFromHandle(true); // this handler is only on the handle div
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
-    if (!touchStart) return;
+    if (!touchStart || !swipeFromHandle) return;
     const touchEnd = e.changedTouches[0].clientY;
     if (touchStart - touchEnd > 50) { // Swipe up threshold
       onOpenEditor();
     }
     setTouchStart(null);
+    setSwipeFromHandle(false);
+  };
+
+  const handlePreviewTouchStart = () => {
+    setSwipeFromHandle(false); // touch started in scrollable area — disable swipe-up
   };
 
   return (
@@ -118,6 +130,7 @@ export const NoteMiniCard: React.FC<NoteMiniCardProps> = ({ note, category, onOp
           touchAction: 'pan-y' // Ensure native scrolling works for the content
         }}
         onPointerDown={(e) => e.stopPropagation()} // Let scroll happen instead of drag
+        onTouchStart={handlePreviewTouchStart} // Disable swipe-up when touch starts in preview
       >
         {note.content ? (
           <div dangerouslySetInnerHTML={{ __html: getRenderedContent() }} />

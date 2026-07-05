@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.25.4] - 2026-07-05
+
+### 🐛 Bug Fixes
+- **Wiki-link Click (Root Fix)**: Fixed `DOMPurify` stripping `href="#wiki-..."` attributes in both `EditorPanel.tsx` preview and `NoteMiniCard.tsx`. Added `ALLOWED_URI_REGEXP` to explicitly permit the `#wiki-` scheme — wiki-links now render as clickable anchors and correctly navigate to the target note on both desktop and mobile.
+- **Swipe-up False Trigger**: Fixed the mobile mini card swipe-up gesture firing when scrolling the note preview content. The gesture now only triggers when the swipe originates from the drag handle at the top of the card, not from the scrollable text area.
+
 ## [1.25.3] - 2026-07-05
 
 ### 🐛 Bug Fixes
@@ -18,8 +24,8 @@
 
 ### 🐛 Bug Fixes
 - **Mobile Node Unpinning**: Fixed an issue where the long-press unpin gesture would immediately re-pin the node. The unpin gesture now correctly frees nodes. (Note: dragging a node to a new position on mobile was still broken — D3 drag `event.x/y` coordinate mapping was incorrect for touch; fully fixed in v1.25.3.)
-- **Wiki-links in Markdown**: Fixed wiki-links (`[[Note Title]]`) being incorrectly stripped by DOMPurify in the Editor preview and failing to navigate on click. Wiki-links are now correctly formatted and fully functional across desktop and mobile.
-- **Mobile Mini Card**: Added parsing and rendering for wiki-links in the mobile floating Note Mini Card, matching the behavior of the full editor.
+- **Wiki-link Rendering**: Added `[[Note Title]]` → `#wiki-` link conversion in the Editor preview and Mobile Mini Card so wiki-links appear as visible anchor elements. (Note: the links were still not clickable due to DOMPurify stripping `#wiki-` hrefs; fully fixed in v1.25.4.)
+- **Mobile Mini Card Content**: Wiki-link text in the mobile floating Note Mini Card now renders as styled anchor elements (previously rendered as plain text).
 - **Mobile Layout Bounds**: Fixed canvas control overlays (sidebar button, export button, help button) colliding with the bottom navigation and timeline scrubber in vertical mode by safely anchoring them to the top of the viewport.
 
 
@@ -129,109 +135,182 @@
 - Slash menu now positions correctly at cursor location
 - Timeline slider capped to viewport width on all screen sizes
 
-# v1.20.0
-- **Local-First Architecture**: Completely removed the experimental Node.js sync server (`yjs` & `y-webrtc`) in favor of a purely offline, local-first architecture for improved privacy and reduced bundle size.
-- **Smart AI CORS Handling**: Fixed a critical CORS preflight issue where custom proxy headers (`Originator`, `User-Agent`) were incorrectly sent to direct browser endpoints. The AI Client now intelligently applies spoof headers only when communicating via the proxy URL or specifically to AgentRouter.
-- **Universal Model Configuration**: Unlocked the Model name input field and "Detect Models" button for all AI providers (OpenAI, DeepSeek, Anthropic, Google). Users can now directly specify or detect fine-tuned model IDs across any platform.
+## [1.20.0] - 2026-07-03
+
+### 🏗️ Architecture
+- **Local-First Rebuild**: Completely removed the experimental Node.js sync server (`yjs` & `y-webrtc`) in favour of a purely offline, local-first architecture — improved privacy and significantly reduced bundle size.
+
+### 🐛 Bug Fixes
+- **AI CORS Handling**: Fixed a critical CORS preflight issue where custom proxy headers (`Originator`, `User-Agent`) were incorrectly sent to direct browser endpoints. The AI client now only applies spoof headers when communicating via a proxy URL or AgentRouter.
+
+### ✨ Improvements
+- **Universal Model Config**: Unlocked the Model name input field and "Detect Models" button for all AI providers (OpenAI, DeepSeek, Anthropic, Google). Users can directly specify or detect fine-tuned model IDs across any platform.
 - **UI Animations**: Added smooth CSS transitions to the search overlay toggle button.
 
-# v1.19.4
-- **Offline Mode Fix**: The public Yjs demo server fallback (`wss://demos.yjs.dev`) was rejecting connections on GitHub Pages. The app now detects GitHub Pages and gracefully falls back to *Offline/Single-Player Mode* instead of repeatedly failing to connect to a WebSocket.
+## [1.19.4] - 2026-07-02
 
-# v1.19.3
-- **GitHub Pages Compatibility**: Added intelligent fallback logic to the AI Proxy and Sync features. Because GitHub Pages is static and cannot host the Node.js backend, the app now gracefully intercepts those connection attempts instead of timing out, displaying a clear alert to the user.
-- **Sync Fallback**: Automatically redirects to a public demo server (`wss://demos.yjs.dev/aethermind`) when hosted on `github.io` so that basic syncing operations continue to work without a custom backend.
-- **AgentRouter Authentication**: Improved error handling for 401 Unauthorized API responses. An explicit alert popup now alerts the user to supply a valid API key instead of silently failing in the console.
+### 🐛 Bug Fixes
+- **Offline Mode**: The public Yjs demo server fallback (`wss://demos.yjs.dev`) was rejecting connections on GitHub Pages. The app now detects GitHub Pages and gracefully falls back to *Offline / Single-Player Mode* instead of repeatedly failing to connect.
 
-# v1.19.2
-- **Mixed Content Security Fix**: Implemented dynamic protocol resolution for both the `y-websocket` client (`syncManager.ts`) and the AI Proxy (`aiClient.ts`). The app now gracefully upgrades `ws://` to `wss://` and `http://` to `https://` when loaded in a secure context (like GitHub Pages), preventing hard browser security crashes.
+## [1.19.3] - 2026-07-02
 
-# v1.19.1
-- **Sync Protocol Fix**: Rewrote the WebSocket client inside `syncManager.ts` to use the official `WebsocketProvider` from `y-websocket`. This fixes the critical `Unexpected end of array` crashes caused by raw Yjs buffers being incorrectly pushed to the backend server.
-- **Node v26 Compatibility**: Hardened the sync server by rolling back `y-websocket` to `v2.0.4` (restoring the `bin/utils` export) while pushing `lib0` to the bleeding-edge latest version to fix binary parser incompatibilities on modern Node versions.
+### 🐛 Bug Fixes
+- **GitHub Pages Compatibility**: Added intelligent fallback logic to AI Proxy and Sync features. The app now gracefully intercepts connection attempts instead of timing out when hosted on `github.io`, displaying a clear alert.
+- **Sync Fallback**: Automatically redirects to a public demo server (`wss://demos.yjs.dev/aethermind`) when on `github.io` so basic syncing continues without a custom backend.
+- **AgentRouter Auth**: Improved error handling for 401 Unauthorized responses — an explicit alert now surfaces instead of silently failing in the console.
 
-# v1.19.0
-- **AgentRouter WAF Bypass**: Integrated advanced header spoofing (`Originator: codex_cli_rs`, `Roo Code` signatures) into the AI proxy to seamlessly bypass strict client firewalls on third-party AI gateways like AgentRouter and OpenRouter.
-- **AI Summary UI Polish**: Refined the AI Summarize popup by removing redundant close buttons and applying the premium gradient style to the 'Insert into Note' button.
-- **Sync Server Automation**: Integrated `concurrently` so that running `npm run dev` automatically spins up both the Vite frontend and the backend sync server seamlessly, while fixing zombie port process locking.
-- **API URL Normalization**: Hardened URL path handling for custom AI base URLs, eliminating double `/v1/v1` path concatenation errors and gracefully handling missing model endpoints (`404` silencing).
+## [1.19.2] - 2026-07-02
 
-# v1.18.0
-- **Responsive Overflow**: Added bounding sizes for sidebars and panels to avoid overflow off the screen.
+### 🐛 Bug Fixes
+- **Mixed Content Security**: Implemented dynamic protocol resolution for the `y-websocket` client and AI Proxy. The app now upgrades `ws://` → `wss://` and `http://` → `https://` when loaded in a secure context (e.g. GitHub Pages), preventing hard browser security blocks.
 
-# v1.17.0
-- **Collapsible Search & Branding**: The search and filter overlay is now collapsible to save screen space, accompanied by fluid slide animations. Replaced default Vite logo with the official AetherMind Brain logo.
+## [1.19.1] - 2026-07-02
 
-# v1.16.0
-- **Responsive UI Overhaul**: Implemented responsive layouts. Components automatically resize and re-flow into a mobile-friendly layout on smaller screens. The sidebar converts into a fluid overlay, and the top navigation wraps dynamically.
+### 🐛 Bug Fixes
+- **Sync Protocol**: Rewrote the WebSocket client in `syncManager.ts` to use the official `WebsocketProvider` from `y-websocket`, fixing critical `Unexpected end of array` crashes caused by raw Yjs buffers being pushed incorrectly.
+- **Node v26 Compatibility**: Hardened the sync server by pinning `y-websocket` to v2.0.4 (restoring the `bin/utils` export) and upgrading `lib0` to fix binary parser incompatibilities on modern Node versions.
 
-# v1.15.1
-- **UI Animation Overhaul**: Added fluid and bouncy CSS @keyframes (using spring-like cubic-beziers and blur filters) to all transition states globally.
-- **Sidebar Transition Fix**: Corrected missing width transitions for the right-sidebar toggle event.
+## [1.19.0] - 2026-07-01
 
-# v1.15.0
-- **Architecture Refactoring**: Completely modularized the monolithic `SettingsModal.tsx` into clean, tabbed components (`AiSettingsTab.tsx`, `SyncSettingsTab.tsx`, `DataSettingsTab.tsx`, `PluginSettingsTab.tsx`) acting as an orchestrator. Added `React.lazy` to `GraphCanvas` to optimize the main bundle load times.
-- **Security & Vulnerability Fixes**: Installed DOMPurify to mitigate Stored XSS inside `EditorPanel.tsx` Markdown preview rendering.
-- **UX & Accessibility Enhancements**: Conducted a `ux-audit` and `accessibility-audit`, adding `aria-label`s to all icon-only buttons (`ColorPicker`, `ConfirmModal`, `PromptModal`, `RenamePageModal`, `ReviewModal`, `EditorPanel`) to improve screen-reader compatibility and usability.
-- **SEO & Metadata**: Injected high-quality SEO meta tags, title tags, and Open Graph structured data into `index.html`.
-- **Motion Performance Improvements**: Refactored `index.css` global transitions. Removed layout-thrashing `transition: all` patterns and constrained them to composite-only properties (`transform`, `opacity`) for smooth 60fps graph interactions.
+### ✨ Improvements
+- **AgentRouter WAF Bypass**: Integrated advanced header spoofing (`Originator: codex_cli_rs`) into the AI proxy to bypass strict client firewalls on third-party gateways like AgentRouter and OpenRouter.
+- **AI Summary UI**: Refined the AI Summarise popup — removed redundant close buttons and applied premium gradient style to the "Insert into Note" button.
+- **Sync Automation**: Integrated `concurrently` so `npm run dev` automatically starts both the Vite frontend and backend sync server. Fixed zombie port process locking.
 
-# v1.14.0
-- **Pre-Push Codebase Audit**: Performed a comprehensive cleanup of junk files, added `.env` tracking to `.gitignore`, and scrubbed sensitive or spammy debug logs from production utility files (`ocr.ts`, `syncManager.ts`).
-- **Security & Dependencies**: Executed non-breaking updates via `npm audit fix` across both the client and `sync-server` codebases to patch nested prototype pollution vulnerabilities.
-- **Documentation Setup**: Created a formal `README.md` to document the local-first architecture, ML setup, and sync server deployment instructions.
+### 🐛 Bug Fixes
+- **API URL Normalisation**: Hardened URL path handling for custom AI base URLs, eliminating double `/v1/v1` concatenation errors and gracefully handling missing model endpoints (404 silencing).
 
-# v1.13.0
-- **Polished Multi-Provider AI Integration**: Base URLs are now strictly enforced and locked to official endpoints for standard providers to prevent errors.
-- **Dynamic AI Settings UI**: The 'Model Name' field is now intelligently hidden unless required (Custom or Vercel AI Gateway), making the settings menu much cleaner.
-- **Consistent Dropdowns**: Styled the AI Provider dropdown to match the sleek global glassmorphic 'meta-select' design used throughout the app.
-- **Vercel AI Gateway Support**: Unlocked the base URL and model name for Vercel AI Gateway to correctly support user-specific gateway endpoints.
+## [1.18.0] - 2026-07-01
 
-# v1.12.0
-- Refactored native browser popups (alert, confirm, prompt) into advanced glassmorphic modals and toast notifications.
-- Implemented Multi-Provider AI Integration (Anthropic, DeepSeek, OpenAI, Google, OpenRouter, Vercel AI Gateway) natively in the browser without requiring external proxies for compatibility.
+### 🐛 Bug Fixes
+- **Responsive Overflow**: Added bounding sizes for sidebars and panels to prevent overflow off-screen on smaller viewports.
 
-# v1.11.0
-- **Audio & Voice Capabilities**: Added cross-browser Voice-to-Text dictation using local WebAssembly models (Whisper), and Text-to-Speech (Read Aloud) functionality.
-- **Plugin Ecosystem Foundation**: Exposed `window.AetherMindApi` with global hooks for UI navigation, settings, and note management. Initialized Plugin Manager.
+## [1.17.0] - 2026-06-30
+
+### ✨ Improvements
+- **Collapsible Search & Branding**: The search and filter overlay is now collapsible to save screen space, with fluid slide animations. Replaced the default Vite logo with the official AetherMind Brain logo.
+
+## [1.16.0] - 2026-06-30
+
+### 📱 Responsive UI
+- **Layout Overhaul**: Implemented responsive layouts across all components. Components automatically resize and re-flow into a mobile-friendly layout on smaller screens. The sidebar converts into a fluid overlay; the top navigation wraps dynamically.
+
+## [1.15.1] - 2026-06-29
+
+### ✨ Improvements
+- **Animation Overhaul**: Added fluid, bouncy CSS `@keyframes` (spring-like cubic-beziers and blur filters) to all transition states globally.
+
+### 🐛 Bug Fixes
+- **Sidebar Transition**: Corrected missing width transitions for the right-sidebar toggle.
+
+## [1.15.0] - 2026-06-29
+
+### 🏗️ Architecture
+- **Modular Settings**: Completely refactored the monolithic `SettingsModal.tsx` into tabbed components (`AiSettingsTab`, `SyncSettingsTab`, `DataSettingsTab`, `PluginSettingsTab`). Added `React.lazy` to `GraphCanvas` to reduce initial bundle load time.
+
+### 🔒 Security
+- **XSS Mitigation**: Installed DOMPurify to sanitise Markdown preview output in `EditorPanel.tsx`, mitigating Stored XSS vulnerabilities.
+
+### ♿ Accessibility
+- **ARIA Labels**: Added `aria-label` to all icon-only buttons across `ColorPicker`, `ConfirmModal`, `PromptModal`, `RenamePageModal`, `ReviewModal`, and `EditorPanel`.
+
+### 🔧 Improvements
+- **SEO & Metadata**: Injected descriptive title tags, meta descriptions, and Open Graph data into `index.html`.
+- **Performance**: Refactored global CSS transitions — removed layout-thrashing `transition: all` patterns, constraining transitions to composite-only properties (`transform`, `opacity`) for smooth 60fps graph interactions.
+
+## [1.14.0] - 2026-06-28
+
+### 🏗️ Architecture
+- **Codebase Audit**: Removed junk files, added `.env` to `.gitignore`, and scrubbed sensitive debug logs from `ocr.ts` and `syncManager.ts`.
+
+### 🔒 Security
+- **Dependency Patches**: Ran `npm audit fix` across client and `sync-server` to patch nested prototype pollution vulnerabilities.
+
+### 📄 Documentation
+- **README**: Created `README.md` documenting the local-first architecture, ML setup, and sync server deployment.
+
+## [1.13.0] - 2026-06-27
+
+### ✨ Improvements
+- **AI Settings UI**: The "Model Name" field is now hidden unless required (Custom or Vercel AI Gateway), making the settings panel cleaner.
+- **Provider Consistency**: Base URLs are strictly enforced and locked to official endpoints for standard providers.
+- **Dropdown Styling**: Styled the AI Provider dropdown to match the global glassmorphic `meta-select` design.
+- **Vercel AI Gateway**: Unlocked base URL and model name fields for Vercel AI Gateway to support user-specific endpoints.
+
+## [1.12.0] - 2026-06-26
+
+### ✨ Improvements
+- **Custom Modals**: Replaced all native browser popups (`alert`, `confirm`, `prompt`) with advanced glassmorphic modals and toast notifications.
+- **Multi-Provider AI**: Implemented native browser support for Anthropic, DeepSeek, OpenAI, Google, OpenRouter, and Vercel AI Gateway without requiring external proxies.
+
+## [1.11.0] - 2026-06-25
+
+### ✨ New Features
+- **Voice-to-Text**: Added cross-browser Voice-to-Text dictation using local WebAssembly models (Whisper) — fully offline, no API key needed.
+- **Text-to-Speech**: Added "Read Aloud" functionality using the Web Speech API.
+- **Plugin Ecosystem**: Exposed `window.AetherMindApi` with global hooks for UI navigation, settings, and note management. Initialised Plugin Manager.
+
+### 🐛 Bug Fixes
 - Fixed sidebar to consistently default to Preview Mode when opening a new node.
 
-# v1.10.5
-- Made sidebar placeholder text and empty state text unselectable (uncopyable) to improve UI feel.
+## [1.10.5] - 2026-06-24
 
-# v1.10.4
-- Redesigned sidebar buttons (icon buttons and tab buttons) with premium glassmorphism styling, shadows, and hover animations.
+### 🐛 Bug Fixes
+- Made sidebar placeholder text and empty-state text unselectable to improve UI feel.
 
-# v1.10.3
+## [1.10.4] - 2026-06-24
+
+### ✨ Improvements
+- **Button Redesign**: Redesigned sidebar icon buttons and tab buttons with premium glassmorphism styling, shadows, and hover animations.
+
+## [1.10.3] - 2026-06-24
+
+### 🐛 Bug Fixes
 - Repositioned "Help" and "Sidebar" buttons to the top-right corner of the graph canvas.
-- Fixed node color reactivity: Changes to node default colors in Settings now update immediately.
-- Fixed node aura and link color logic to correctly reflect the selected node color instead of a default heatmap red.
+- Fixed node color reactivity — changes to default node colors in Settings now update the graph immediately.
+- Fixed node aura and link color to correctly reflect the selected node's color instead of a default heatmap red.
 
-# v1.10.0 - v1.10.2
-- Core AI integration: Added "Ask AI" modal and "Auto-tagging" features (supporting OpenAI and Anthropic).
-- UI/UX Refinements: Added premium dark mode styles and glassmorphism elements.
+## [1.10.0] — [1.10.2] - 2026-06-23
 
-# v1.9.0
-- Added Web Clipper Extension: Created Chrome extension to easily save web pages directly into AetherMind.
-- Added File Uploads & OCR: Integrated image uploading with OCR text extraction.
+### ✨ New Features
+- **AI Integration**: Added "Ask AI" modal and "Auto-tagging" features supporting OpenAI and Anthropic.
 
-# v1.8.0
-- Added Timeline Slider & Journal Calendar: View notes chronologically and scrub through knowledge base history.
-- Introduced Pages concept: Group multiple notes under specific pages (e.g., Default Graph vs other workspaces).
+### 🎨 UI/UX
+- Added premium dark mode styles and glassmorphism elements across the app.
 
-# v1.7.0
-- Added Excalidraw Whiteboard integration: Create embedded visual whiteboards inside notes.
-- Added Export to HTML functionality.
+## [1.9.0] - 2026-06-22
 
-# v1.6.0
-- Added Command Palette (Ctrl+K / Cmd+K) for quick navigation and commands.
-- Added Global Search Bar with full-text search across all notes.
+### ✨ New Features
+- **Web Clipper Extension**: Created a Chrome extension to save web pages directly into AetherMind.
+- **File Uploads & OCR**: Integrated image uploading with OCR text extraction.
 
-# v1.5.0
-- Markdown Editor enhancements: Added Prism.js syntax highlighting.
-- Added `[[Wiki Link]]` syntax to automatically create connections between nodes.
+## [1.8.0] - 2026-06-21
 
-# v1.0.0 - v1.4.0
-- Initial Release: Local-first personal knowledge graph using Dexie.js (IndexedDB).
-- Implemented D3.js Force-Directed Graph simulation for organic note navigation.
-- Basic note creation, editing, tagging, and category color customization.
+### ✨ New Features
+- **Timeline Slider & Journal Calendar**: View notes chronologically and scrub through knowledge base history.
+- **Pages**: Introduced the Pages concept — group multiple notes under specific workspaces (e.g. Default Graph vs. custom pages).
+
+## [1.7.0] - 2026-06-20
+
+### ✨ New Features
+- **Excalidraw Whiteboard**: Integrated Excalidraw for embedded visual whiteboards inside notes.
+- **Export to HTML**: Added note export as standalone HTML files.
+
+## [1.6.0] - 2026-06-19
+
+### ✨ New Features
+- **Command Palette**: Added `Ctrl+K` / `Cmd+K` command palette for quick navigation and actions.
+- **Global Search**: Added full-text search bar across all notes.
+
+## [1.5.0] - 2026-06-18
+
+### ✨ New Features
+- **Markdown Enhancements**: Added Prism.js syntax highlighting for code blocks.
+- **Wiki Links**: Added `[[Note Title]]` syntax to automatically create graph connections between notes.
+
+## [1.0.0] — [1.4.0] - 2026-06-01
+
+### 🚀 Initial Release
+- **Local-First Architecture**: Built on Dexie.js (IndexedDB) — all data stored offline in the browser.
+- **D3.js Force Graph**: Implemented a force-directed graph simulation for organic, interconnected note navigation.
+- **Core Features**: Note creation, editing, tagging, and category colour customisation.

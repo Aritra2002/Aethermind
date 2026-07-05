@@ -328,7 +328,10 @@ Return exactly and ONLY the summary text, with no markdown code blocks or conver
     try {
       // Safely parse and sanitize markdown
       const rawHtml = marked.parse(processedContent) as string;
-      return DOMPurify.sanitize(rawHtml);
+      return DOMPurify.sanitize(rawHtml, {
+        ADD_ATTR: ['href'],
+        ALLOWED_URI_REGEXP: /^(https?|ftp|mailto|#wiki-)/i,
+      });
     } catch (e) {
       return '<p>Error rendering markdown.</p>';
     }

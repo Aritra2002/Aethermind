@@ -1,7 +1,7 @@
 {
   "name": "personal-knowledge-graph",
   "private": true,
-  "version": "1.25.3",
+  "version": "1.25.4",
   "homepage": "https://aritra2002.github.io/personal-knowledge-graph",
   "type": "module",
   "scripts": {
