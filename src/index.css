@@ -1715,6 +1715,10 @@ body {
     align-items: stretch; 
     bottom: calc(var(--mobile-nav-height) + 16px);
   }
+  .timeline-info {
+    width: 100%;
+    justify-content: space-between;
+  }
   
   .note-textarea, .search-input, .prompt-textarea, .chat-input, .settings-section input[type="number"], .settings-section input[type="text"] {
     font-size: 0.85rem !important; padding: 8px !important;
@@ -1748,6 +1752,10 @@ body {
   .search-filter-panel { width: calc(100% - 16px); left: 8px; }
   .mobile-menu-drawer { animation: slideUpDrawer 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
   .timeline-slider-panel { flex-direction: column; align-items: stretch; }
+  .timeline-info {
+    width: 100%;
+    justify-content: space-between;
+  }
   
   .note-textarea, .search-input, .prompt-textarea, .chat-input, .settings-section input[type="number"], .settings-section input[type="text"] {
     font-size: 0.85rem !important; padding: 8px !important;

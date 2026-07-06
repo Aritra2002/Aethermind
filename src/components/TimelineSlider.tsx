@@ -91,11 +91,18 @@ export const TimelineSlider: React.FC<TimelineSliderProps> = ({
   return (
     <div className="timeline-slider-panel glass-panel" id="timeline-slider-panel-root">
       <div className="timeline-info">
-        <Calendar size={14} className="timeline-icon" />
-        <span className="timeline-label">History Scrubber:</span>
-        <span className="timeline-dates">
-          {formatDate(minDate)} — {formatDate(value)}
-        </span>
+        <div className="timeline-info-content" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Calendar size={14} className="timeline-icon" />
+          <span className="timeline-label">History Scrubber:</span>
+          <span className="timeline-dates">
+            {formatDate(minDate)} - {formatDate(value)}
+          </span>
+        </div>
+        {dateRange && (
+          <button className="reset-timeline-btn" onClick={() => setDateRange(null)}>
+            Reset Timeline
+          </button>
+        )}
       </div>
       <div className="slider-container">
         <input
@@ -107,13 +114,6 @@ export const TimelineSlider: React.FC<TimelineSliderProps> = ({
           value={value}
           onChange={handleSliderChange}
         />
-        <button 
-          className="reset-timeline-btn" 
-          onClick={() => setDateRange(null)}
-          style={{ visibility: dateRange ? 'visible' : 'hidden' }}
-        >
-          Reset Timeline
-        </button>
       </div>
     </div>
   );
