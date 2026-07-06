@@ -57,10 +57,17 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
   onOpenSearch,
   nlpClustering
 }) => {
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [dimensions, setDimensions] = useState({ width: 600, height: 600 });
   const [transform, setTransform] = useState(d3.zoomIdentity);
+  const isNodeDraggingRef = useRef(false);
   const [showHelp, setShowHelp] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [tooltip, setTooltip] = useState<{
@@ -472,6 +479,8 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
         if (event.ctrlKey || event.button) return false;
         
         // If it's a mouse down, check if we're hitting a node. If we are, ignore the zoom!
+        if (isNodeDraggingRef.current) return false;
+        
         if (event.type === 'mousedown' || event.type === 'touchstart' || event.type === 'pointerdown') {
           const [clickX, clickY] = d3.pointer(event, canvas);
           
@@ -829,6 +838,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
         found.__startY = canvasY;
         found.fx = found.x;
         found.fy = found.y;
+        isNodeDraggingRef.current = true;
         canvas.setPointerCapture(event.pointerId);
         if (simulationRef.current) simulationRef.current.alphaTarget(0.3).restart();
         event.preventDefault(); // Stop browser scrolling/panning
@@ -873,6 +883,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
       const node = touchDragNode;
       touchDragNode = null;
       touchDragPointerId = null;
+      isNodeDraggingRef.current = false;
 
       if (simulationRef.current) simulationRef.current.alphaTarget(0);
 
@@ -929,9 +940,9 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
       {/* Floating Canvas Controls */}
       {/* Floating Canvas Controls */}
       <div className="canvas-controls" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        {!isSidebarOpen && (
+        {!isSidebarOpen && !isMobile && (
           <button
-            className="canvas-btn hide-on-mobile"
+            className="canvas-btn"
             onClick={onOpenSidebar}
             title="Open Sidebar"
             aria-label="Open Sidebar"
@@ -947,16 +958,16 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
               title="Search graph"
               aria-label="Search"
             >
-              <Search size={16} /> Search
+              <Search size={16} /> {isMobile ? '' : 'Search'}
             </button>
           )}
           <div style={{ position: 'relative' }}>
             <button
-              className="canvas-control-btn canvas-btn"
+              className="canvas-btn"
               onClick={() => setShowExportMenu(!showExportMenu)}
               title="Export graph"
             >
-              <Download size={16} /> Export
+              <Download size={16} /> {isMobile ? '' : 'Export'}
             </button>
             {showExportMenu && (
               <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '8px', background: 'rgba(20,27,50,0.95)', border: '1px solid rgba(124,58,237,0.2)', borderRadius: '8px', padding: '4px', display: 'flex', flexDirection: 'column', minWidth: '120px', zIndex: 'var(--z-dropdown, 40)', boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}>
@@ -971,7 +982,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
             title="Show controls help"
             aria-label="Controls help"
           >
-            <HelpCircle size={16} /> Help
+            <HelpCircle size={16} /> {isMobile ? '' : 'Help'}
           </button>
         </div>
       </div>
