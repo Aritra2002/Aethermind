@@ -17,8 +17,8 @@ describe('Tier 3: Cross-Feature Combinations', () => {
   it('T3-1 (R1 + R2): Mobile node drag near search overlay panel bounds (375x667 portrait screen)', () => {
     // Mobile screen dimensions: 375x667
     const viewportWidth = 375;
-    const searchPanelWidth = viewportWidth - 16; // 359px
     const searchPanelBottom = 200; // Search panel covers top 200px
+    const exportPanelTop = 500; // Export menu opens at bottom
 
     const transform = { x: 0, y: 0, k: 1 };
     const rect = { left: 0, top: 0 };

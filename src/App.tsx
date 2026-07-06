@@ -86,7 +86,7 @@ export default function App() {
     const interval = setInterval(async () => {
       try {
         await saveSnapshot(currentPageId);
-      } catch (e) {
+      } catch {
         // Ignore auto-save errors
       }
     }, 10 * 60 * 1000);

@@ -64,7 +64,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = (props) => {
             <X size={18} />
           </button>
           
-          <div style={{ flex: 1, padding: isMobile ? '16px 16px 16px 16px' : '24px 24px 24px 32px', overflowY: 'auto' }}>
+          <div style={{ flex: 1, padding: isMobile ? '56px 16px 16px 16px' : '24px 24px 24px 32px', overflowY: 'auto' }}>
             {activeTab === 'data' && <DataSettingsTab {...props} />}
             {activeTab === 'journal' && <JournalCalendar />}
             {activeTab === 'ai' && (

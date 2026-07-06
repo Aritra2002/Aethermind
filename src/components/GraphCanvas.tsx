@@ -71,7 +71,6 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
   const [transform, setTransform] = useState(d3.zoomIdentity);
   const isNodeDraggingRef = useRef(false);
   const [showHelp, setShowHelp] = useState(false);
-  const [showExportMenu, setShowExportMenu] = useState(false);
   const [tooltip, setTooltip] = useState<{
     visible: boolean;
     x: number;
@@ -81,8 +80,45 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
     linkId?: number;
   }>({ visible: false, x: 0, y: 0, loading: false, text: '' });
 
-  const handleExport = async (format: 'svg' | 'png') => {
+  const handleExport = async (format: 'svg' | 'png' | 'zip') => {
     setShowExportMenu(false);
+    if (format === 'zip') {
+      try {
+        const JSZip = (await import('jszip')).default;
+        const zip = new JSZip();
+        
+        // Save data
+        zip.file('graph_data.json', JSON.stringify({ notes, links }, null, 2));
+        
+        // Save notes
+        const notesFolder = zip.folder('notes');
+        notes.forEach(note => {
+          const safeTitle = note.title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+          notesFolder?.file(`${safeTitle}.md`, `# ${note.title}\n\n${note.content}`);
+        });
+        
+        // Save snapshot (PNG)
+        const canvas = canvasRef.current;
+        if (canvas) {
+          const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve));
+          if (blob) {
+            zip.file('graph.png', blob);
+          }
+        }
+        
+        const content = await zip.generateAsync({ type: 'blob' });
+        const url = URL.createObjectURL(content);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'aethermind-graph.zip';
+        a.click();
+        URL.revokeObjectURL(url);
+      } catch (err) {
+        console.error("Export zip failed", err);
+      }
+      return;
+    }
+    
     if (format === 'png') {
       const canvas = canvasRef.current;
       if (!canvas) return;
@@ -695,7 +731,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
               await db.links.update(linkId, { explanation: result });
               
               setTooltip(curr => curr.linkId === linkId ? { ...curr, loading: false, text: result } : curr);
-            } catch (e) {
+            } catch {
               setTooltip(curr => curr.linkId === linkId ? { ...curr, loading: false, text: "Error generating explanation." } : curr);
             }
           }, 0);
@@ -971,20 +1007,14 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
             <button
               className="canvas-btn"
               onClick={() => {
-                setShowExportMenu(!showExportMenu);
+                handleExport('zip');
                 setShowHelp(false);
                 if (onCloseSearch) onCloseSearch();
               }}
-              title="Export graph"
+              title="Export graph as ZIP"
             >
               <Download size={16} /> {isMobile ? '' : 'Export'}
             </button>
-            {showExportMenu && (
-              <div style={{ position: 'absolute', top: '100%', left: isMobile ? 0 : 'auto', right: isMobile ? 'auto' : 0, marginTop: '8px', background: 'rgba(20,27,50,0.95)', border: '1px solid rgba(124,58,237,0.2)', borderRadius: '8px', padding: '4px', display: 'flex', flexDirection: 'column', minWidth: '120px', zIndex: 'var(--z-dropdown, 40)', boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}>
-                <button onClick={() => handleExport('svg')} style={{ background: 'none', border: 'none', color: 'white', padding: '8px', textAlign: 'left', borderRadius: '4px', cursor: 'pointer' }}>SVG (vector)</button>
-                <button onClick={() => handleExport('png')} style={{ background: 'none', border: 'none', color: 'white', padding: '8px', textAlign: 'left', borderRadius: '4px', cursor: 'pointer' }}>PNG (image)</button>
-              </div>
-            )}
           </div>
           <button
             className="canvas-btn"

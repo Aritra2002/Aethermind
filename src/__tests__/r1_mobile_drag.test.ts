@@ -300,8 +300,7 @@ describe('M1: Mobile Node Drag Lifecycle Fixes', () => {
     handleDragMove(node, 101, 101, 101, 101);
     
     // Long press fires after 500ms:
-    let updatedCoords: any = null;
-    handleLongPressUnpin(node, (id, coords) => { updatedCoords = coords; });
+    handleLongPressUnpin(node, () => { /* dummy */ });
     expect(node.__wasUnpinned).toBe(true);
     expect(node.fx).toBeNull();
     expect(node.fy).toBeNull();

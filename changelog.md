@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.26.1] - 2026-07-06
+
+### ✨ Improvements
+- **Direct ZIP Export**: The Export button now instantly downloads the comprehensive ZIP archive (containing graph data, Markdown notes, and a PNG snapshot) directly upon click, streamlining the workflow.
+- **Codebase Optimization**: Removed various unused variables and stale code artifacts across the application to improve maintainability.
+- **Configuration**: Updated `.gitignore` to prevent tracking of local temporary assets.
+
+### 🐛 Bug Fixes
+- **Mobile Settings Modal Bounds**: Fixed an issue where the close button inside the Settings Modal would overlap with content headings on small mobile viewports.
+
+
+
 ## [1.26.0] - 2026-07-06
 
 ### ✨ New Features

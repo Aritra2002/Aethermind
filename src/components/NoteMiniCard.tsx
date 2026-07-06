@@ -55,7 +55,7 @@ export const NoteMiniCard: React.FC<NoteMiniCardProps> = ({ note, category, onOp
         ADD_ATTR: ['href'],
         ALLOWED_URI_REGEXP: /^(https?|ftp|mailto|#wiki-)/i,
       });
-    } catch (e) {
+    } catch {
       return '<p>Error rendering markdown.</p>';
     }
   };

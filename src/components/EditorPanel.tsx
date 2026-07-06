@@ -332,7 +332,7 @@ Return exactly and ONLY the summary text, with no markdown code blocks or conver
         ADD_ATTR: ['href'],
         ALLOWED_URI_REGEXP: /^(https?|ftp|mailto|#wiki-)/i,
       });
-    } catch (e) {
+    } catch {
       return '<p>Error rendering markdown.</p>';
     }
   };
@@ -484,7 +484,7 @@ Return exactly and ONLY the summary text, with no markdown code blocks or conver
           <div style={{ flex: 1, position: 'relative', width: '100%', minHeight: '400px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
             <React.Suspense fallback={<div style={{ padding: '20px', color: 'var(--text-secondary)' }}>Loading whiteboard...</div>}>
               <Excalidraw 
-                initialData={content ? (() => { try { return JSON.parse(content); } catch (e) { return null; } })() : null}
+                initialData={content ? (() => { try { return JSON.parse(content); } catch { return null; } })() : null}
                 onChange={(elements: any, _appState: any, files: any) => {
                   if (note) {
                     debouncedSaveContent(note.id!, JSON.stringify({ elements, files }));
