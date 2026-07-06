@@ -1,7 +1,7 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, type Note, type Link } from './db';
-import { seedDatabase, createNote } from './db/helpers';
+import { seedDatabase, createNote, syncLinksForNote } from './db/helpers';
 const GraphCanvas = lazy(() => import('./components/GraphCanvas').then(m => ({ default: m.GraphCanvas })));
 import { EditorPanel } from './components/EditorPanel';
 import { SearchBar } from './components/SearchBar';
@@ -19,7 +19,8 @@ import { MobileNav } from './components/MobileNav';
 import { NoteMiniCard } from './components/NoteMiniCard';
 import { DiscoveryDigestModal } from './components/DiscoveryDigestModal';
 import { VoiceRecorder } from './components/VoiceRecorder';
-import { Brain, Plus, Settings, Calendar, Sparkles, Edit2, Trash2, Loader2, Compass } from 'lucide-react';
+import { Brain, Plus, Settings, Calendar, Sparkles, Edit2, Trash2, Loader2, Compass, FileArchive, FileUp } from 'lucide-react';
+import { callAI } from './utils/aiClient';
 
 function useViewport() {
   const [viewport, setViewport] = useState<'sm' | 'md' | 'lg'>('lg');
@@ -59,6 +60,8 @@ export default function App() {
   const viewport = useViewport();
   const isDesktop = viewport === 'lg';
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [docLoading, setDocLoading] = useState(false);
+  const [docStatus, setDocStatus] = useState('');
 
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [currentPageId, setCurrentPageId] = useState<number>(1);
@@ -304,6 +307,184 @@ export default function App() {
     }
   };
 
+  const handleImportZip = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.zip';
+    input.onchange = async (e: Event) => {
+      const target = e.target as HTMLInputElement;
+      if (!target.files || target.files.length === 0) return;
+      const file = target.files[0];
+      try {
+        const JSZip = (await import('jszip')).default;
+        const zip = new JSZip();
+        const loadedZip = await zip.loadAsync(file);
+        const graphDataFile = loadedZip.file('graph_data.json');
+        if (!graphDataFile) {
+          throw new Error('graph_data.json not found in the ZIP archive');
+        }
+        const graphDataStr = await graphDataFile.async('text');
+        const graphData = JSON.parse(graphDataStr);
+
+        const importedNotes: Note[] = graphData.notes || [];
+        const importedLinks: Link[] = graphData.links || [];
+
+        await db.transaction('rw', [db.notes, db.links], async () => {
+          const oldToNewIdMap: Record<number, number> = {};
+          
+          for (const note of importedNotes) {
+            if (note.id === undefined) continue;
+            
+            const existingNote = await db.notes
+              .where('title')
+              .equalsIgnoreCase(note.title)
+              .and(n => n.pageId === currentPageId)
+              .first();
+            
+            if (existingNote) {
+              const mergedTags = Array.from(new Set([...(existingNote.tags || []), ...(note.tags || [])]));
+              const mergedContent = existingNote.content 
+                ? (existingNote.content.includes(note.content) ? existingNote.content : `${existingNote.content}\n\n${note.content}`)
+                : note.content;
+              
+              await db.notes.update(existingNote.id!, {
+                tags: mergedTags,
+                content: mergedContent,
+                updatedAt: Date.now()
+              });
+              
+              oldToNewIdMap[note.id] = existingNote.id!;
+              await syncLinksForNote(existingNote.id!, mergedContent);
+            } else {
+              const newNoteId = await db.notes.add({
+                pageId: currentPageId,
+                title: note.title,
+                content: note.content,
+                category: note.category || 'general',
+                tags: note.tags || [],
+                createdAt: note.createdAt || Date.now(),
+                updatedAt: Date.now(),
+                visits: note.visits || 0
+              });
+              oldToNewIdMap[note.id] = newNoteId as number;
+            }
+          }
+
+          for (const link of importedLinks) {
+            const resolvedSourceId = oldToNewIdMap[link.sourceId];
+            const resolvedTargetId = oldToNewIdMap[link.targetId];
+            
+            if (resolvedSourceId !== undefined && resolvedTargetId !== undefined) {
+              const existingLink = await db.links
+                .where('sourceId')
+                .equals(resolvedSourceId)
+                .and(l => l.targetId === resolvedTargetId)
+                .first();
+              
+              if (!existingLink) {
+                await db.links.add({
+                  sourceId: resolvedSourceId,
+                  targetId: resolvedTargetId
+                });
+              }
+            }
+          }
+        });
+
+        showToast('ZIP imported successfully!', 'success');
+      } catch (err: any) {
+        showToast(`Failed to import ZIP: ${err.message}`, 'error');
+      }
+    };
+    input.click();
+  };
+
+  const handleUploadDocument = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.txt,.md,.pdf';
+    input.onchange = async (e: Event) => {
+      const target = e.target as HTMLInputElement;
+      if (!target.files || target.files.length === 0) return;
+      const file = target.files[0];
+      
+      setDocLoading(true);
+      setDocStatus('Reading document layout...');
+      
+      try {
+        let textContent = '';
+        if (file.name.endsWith('.pdf')) {
+          setDocStatus('Extracting text content...');
+          const { extractTextFromPDF } = await import('./utils/ocr');
+          textContent = await extractTextFromPDF(file);
+        } else {
+          textContent = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (event) => resolve(event.target?.result as string || '');
+            reader.onerror = (err) => reject(err);
+            reader.readAsText(file);
+          });
+        }
+        
+        if (!textContent.trim()) {
+          throw new Error('Document content is empty');
+        }
+
+        setDocStatus('Running AI conceptual analysis...');
+        await new Promise(r => setTimeout(r, 500));
+        
+        const systemPrompt = `You are a conceptual knowledge map architect. You analyze the provided document text and extract key concepts, ideas, terms, or sections.
+You must output a JSON list of actions to structure this document into a knowledge graph.
+You can create new notes and links between them.
+Output ONLY a JSON block containing the actions you want to perform. Do not include any extra text.
+
+Format:
+\`\`\`json
+[
+  { "action": "create_note", "title": "Concept A", "content": "Detailed explanation of concept A...", "tags": ["tag1"] },
+  { "action": "create_note", "title": "Concept B", "content": "Detailed explanation of concept B...", "tags": ["tag2"] },
+  { "action": "create_link", "from": "Concept A", "to": "Concept B" }
+]
+\`\`\`
+`;
+        const userPrompt = `Please analyze the following document and decompose it into a structured set of notes and links:
+
+--- DOCUMENT START ---
+${textContent}
+--- DOCUMENT END ---
+`;
+        
+        const aiResponse = await callAI(systemPrompt, userPrompt);
+        
+        setDocStatus('Structuring knowledge graph...');
+        await new Promise(r => setTimeout(r, 500));
+        
+        const { parseAiResponse, executeAiAction } = await import('./utils/aiActions');
+        const parsed = parseAiResponse(aiResponse);
+        if (!parsed || parsed.actions.length === 0) {
+          throw new Error('Failed to extract structured knowledge actions from AI response');
+        }
+        
+        setDocStatus('Finalizing connections...');
+        await new Promise(r => setTimeout(r, 500));
+        
+        await db.transaction('rw', [db.notes, db.links], async () => {
+          for (const action of parsed.actions) {
+            await executeAiAction(action, currentPageId);
+          }
+        });
+        
+        showToast('Document uploaded and structured successfully!', 'success');
+      } catch (err: any) {
+        showToast(`Failed to upload document: ${err.message}`, 'error');
+      } finally {
+        setDocLoading(false);
+        setDocStatus('');
+      }
+    };
+    input.click();
+  };
+
   const startResizing = (e: React.MouseEvent) => {
     e.preventDefault();
     const startX = e.clientX;
@@ -399,6 +580,12 @@ export default function App() {
               <button className="header-btn icon-only-btn" onClick={handleCreateDailyNote} title="Daily Note">
                 <Calendar size={16} />
               </button>
+              <button className="header-btn icon-only-btn" onClick={handleImportZip} title="Import ZIP">
+                <FileArchive size={16} />
+              </button>
+              <button className="header-btn icon-only-btn" onClick={handleUploadDocument} title="Upload Document">
+                <FileUp size={16} />
+              </button>
               <VoiceRecorder pageId={currentPageId} onNoteCreated={(id) => handleSelectNote({ id })} />
               <button className="header-btn icon-only-btn primary-btn" onClick={() => setShowNewPage(true)} title="New Page">
                 <Plus size={16} />
@@ -444,6 +631,12 @@ export default function App() {
               </button>
               <button className="header-btn" onClick={handleCreateDailyNote}>
                 <Calendar size={16} /> Daily Note
+              </button>
+              <button className="header-btn" onClick={handleImportZip} title="Import ZIP">
+                <FileArchive size={16} /> <span className="hidden xl:inline">Import ZIP</span>
+              </button>
+              <button className="header-btn" onClick={handleUploadDocument} title="Upload Document">
+                <FileUp size={16} /> <span className="hidden xl:inline">Upload Document</span>
               </button>
               <VoiceRecorder pageId={currentPageId} onNoteCreated={(id) => handleSelectNote({ id })} />
               <button className="header-btn primary-btn" onClick={() => setShowNewPage(true)}>
@@ -593,6 +786,12 @@ export default function App() {
             <button className="header-btn" onClick={() => { handleCreateDailyNote(); setShowMobileMenu(false); }} style={{ justifyContent: 'flex-start', padding: '12px', width: '100%' }}>
               <Calendar size={18} /> Daily Note
             </button>
+            <button className="header-btn" onClick={() => { handleImportZip(); setShowMobileMenu(false); }} style={{ justifyContent: 'flex-start', padding: '12px', width: '100%' }}>
+              <FileArchive size={18} /> Import ZIP
+            </button>
+            <button className="header-btn" onClick={() => { handleUploadDocument(); setShowMobileMenu(false); }} style={{ justifyContent: 'flex-start', padding: '12px', width: '100%' }}>
+              <FileUp size={18} /> Upload Document
+            </button>
             <button className="header-btn primary-btn" onClick={() => { setShowNewPage(true); setShowMobileMenu(false); }} style={{ justifyContent: 'flex-start', padding: '12px', width: '100%' }}>
               <Plus size={18} /> New Page
             </button>
@@ -734,6 +933,55 @@ export default function App() {
           }}
           onCancel={() => setPromptConfig(null)}
         />
+      )}
+      {docLoading && (
+        <div className="modal-overlay" style={{ zIndex: 99999, flexDirection: 'column', gap: '20px' }}>
+          <div className="premium-loader-card glass-panel" style={{
+            padding: '40px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '24px',
+            maxWidth: '400px',
+            textAlign: 'center',
+            border: '1px solid rgba(124, 58, 237, 0.3)',
+            background: 'linear-gradient(135deg, rgba(15, 20, 50, 0.9) 0%, rgba(8, 12, 35, 0.95) 100%)',
+            boxShadow: '0 20px 50px rgba(0, 0, 0, 0.6), 0 0 30px rgba(124, 58, 237, 0.15)'
+          }}>
+            <div style={{ position: 'relative', width: '80px', height: '80px' }}>
+              <svg width="80" height="80" viewBox="0 0 80 80" style={{ overflow: 'visible' }}>
+                <defs>
+                  <linearGradient id="synGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#7c3aed" />
+                    <stop offset="100%" stopColor="#06b6d4" />
+                  </linearGradient>
+                </defs>
+                <circle cx="40" cy="15" r="5" fill="#7c3aed">
+                  <animate attributeName="r" values="5;7;5" dur="2s" repeatCount="indefinite" />
+                </circle>
+                <circle cx="15" cy="55" r="5" fill="#06b6d4">
+                  <animate attributeName="r" values="5;7;5" dur="2s" begin="0.5s" repeatCount="indefinite" />
+                </circle>
+                <circle cx="65" cy="55" r="5" fill="#f59e0b">
+                  <animate attributeName="r" values="5;7;5" dur="2s" begin="1s" repeatCount="indefinite" />
+                </circle>
+                <line x1="40" y1="15" x2="15" y2="55" stroke="url(#synGrad)" strokeWidth="2" strokeDasharray="5,5">
+                  <animate attributeName="stroke-dashoffset" values="20;0" dur="2s" repeatCount="indefinite" />
+                </line>
+                <line x1="40" y1="15" x2="65" y2="55" stroke="url(#synGrad)" strokeWidth="2" strokeDasharray="5,5">
+                  <animate attributeName="stroke-dashoffset" values="20;0" dur="2s" repeatCount="indefinite" />
+                </line>
+                <line x1="15" y1="55" x2="65" y2="55" stroke="url(#synGrad)" strokeWidth="2" strokeDasharray="5,5">
+                  <animate attributeName="stroke-dashoffset" values="0;20" dur="2s" repeatCount="indefinite" />
+                </line>
+              </svg>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <h3 style={{ fontSize: '1.2rem', fontWeight: 600, color: '#fff', margin: 0 }}>Processing Document</h3>
+              <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', margin: 0, minHeight: '24px' }}>{docStatus}</p>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

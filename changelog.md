@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.26.0] - 2026-07-06
+
+### ✨ New Features
+- **Document to Graph AI Generation**: Users can now upload `.txt`, `.md`, and `.pdf` files. The system utilizes `pdfjs-dist` to extract full document text, displays a premium glassmorphism loading state with micro-animations, and uses AI to automatically structure the document into connected notes and links on the current page.
+- **Graph Import from ZIP**: Users can now seamlessly import previously exported graph ZIP archives into the active page without losing existing graph context.
+
+### 💄 UI & Aesthetics
+- **Premium Header Redesign**: Introduced responsive `page-action-btn` class with glassmorphism for top-nav action buttons ("New Page", "Daily Note", "Import ZIP", "Upload Document").
+- **Perfect Desktop & Mobile Parity**: Mobile menus now include the new file action buttons without causing layout shifts or overlapping bounding boxes.
+- **History Scrubber Polish**: Hid the "Reset Timeline" button on mobile view and resolved mobile out-of-bounds text wrapping for timestamp displays.
+
+
 ## [1.25.5] - 2026-07-06
 
 ### 🐛 Bug Fixes
