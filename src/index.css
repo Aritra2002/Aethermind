@@ -534,6 +534,7 @@ body {
   transform: translateX(-120%);
   opacity: 0;
   visibility: hidden;
+  transition: none;
 }
 
 .search-filter-panel.open {
@@ -1246,6 +1247,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  margin-bottom: 24px;
 }
 
 .settings-section h3 {

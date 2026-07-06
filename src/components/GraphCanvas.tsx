@@ -977,17 +977,17 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
       {/* Floating Canvas Controls */}
       {/* Floating Canvas Controls */}
       <div className="canvas-controls" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        {!isSidebarOpen && !isMobile && (
-          <button
-            className="canvas-btn"
-            onClick={onOpenSidebar}
-            title="Open Sidebar"
-            aria-label="Open Sidebar"
-          >
-            <PanelLeft size={16} /> Sidebar
-          </button>
-        )}
         <div style={{ display: 'flex', flexDirection: 'row', gap: '8px' }}>
+          {!isSidebarOpen && !isMobile && (
+            <button
+              className="canvas-btn"
+              onClick={onOpenSidebar}
+              title="Open Sidebar"
+              aria-label="Open Sidebar"
+            >
+              <PanelLeft size={16} /> Sidebar
+            </button>
+          )}
           {onOpenSearch && (
             <button
               className="canvas-btn"

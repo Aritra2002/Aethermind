@@ -51,7 +51,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = (props) => {
             <button className={`tab-btn ${activeTab === 'plugins' ? 'active' : ''}`} onClick={() => setActiveTab('plugins')} style={{ width: isMobile ? 'auto' : '100%', justifyContent: 'flex-start', whiteSpace: 'nowrap' }}>
               <Puzzle size={16} /> Plugins
             </button>
-            <div style={{ flex: 1 }}></div>
+            { !isMobile && <div style={{ flex: 1 }}></div> }
             <button className={`tab-btn ${activeTab === 'about' ? 'active' : ''}`} onClick={() => setActiveTab('about')} style={{ width: isMobile ? 'auto' : '100%', justifyContent: 'flex-start', whiteSpace: 'nowrap' }}>
               <Info size={16} /> About
             </button>
