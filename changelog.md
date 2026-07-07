@@ -8,6 +8,8 @@
 
 ### 🎨 UI/UX
 - **Styling**: Made every textbar in the project stylish and improved the styling of the graph page changing dropdown.
+- **New Page UI**: Updated the Create button in the New Page modal to match the project's premium button styles.
+- **Animations**: Fixed an issue where the search filter panel closed abruptly without transitioning.
 
 ### 🐛 Bug Fixes
 - **The "Edit Note" Bug**: When you asked it to write inside an already created node, it correctly tried to use the edit_note action. However, the system prompt tells it to provide the edits under a parameter called newContent. The AI was hallucinating and just using content (like it does for creating nodes). When the code looked for newContent, it found nothing, and the edit failed silently! I've updated the action processor to accept either newContent or content so the edits will now successfully apply to the database.
