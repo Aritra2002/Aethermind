@@ -789,7 +789,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
           if (node.x === undefined || node.y === undefined) return false;
           const dx = node.x - simX;
           const dy = node.y - simY;
-          let clickRadius = node.id === state.activeNote?.id ? node.radius + 4 : node.radius;
+          const clickRadius = node.id === state.activeNote?.id ? node.radius + 4 : node.radius;
           return Math.sqrt(dx * dx + dy * dy) < clickRadius;
         });
 

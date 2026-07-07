@@ -25,9 +25,9 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     if (isOpen) {
       // eslint-disable-next-line
       setQuery('');
-      // eslint-disable-next-line
+
       setSelectedIndex(0);
-      // eslint-disable-next-line
+
       setTimeout(() => inputRef.current?.focus(), 50);
     }
   }, [isOpen]);
@@ -52,7 +52,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
         onClose();
         e.preventDefault();
       } else if (e.key === 'ArrowDown') {
-      // eslint-disable-next-line
+
         setSelectedIndex(prev => (prev < totalItems - 1 ? prev + 1 : prev));
         e.preventDefault();
       } else if (e.key === 'ArrowUp') {
