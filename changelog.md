@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.27.0] - 2026-07-07
+
+### ✨ Features
+- **Large Document Upload Processing**: Implemented advanced text chunking and cross-chunk linking to seamlessly process and analyze user documents larger than 5 pages. AI now correctly maintains structural knowledge across extensive files by creating and merging nodes systematically.
+
+### 🐛 Bug Fixes
+- **PDF Upload parsing**: Fixed an issue causing PDF extraction to fail ("getDocument expected data") by correctly casting ArrayBuffer to Uint8Array for pdfjsLib.
+
 ## [1.26.2] - 2026-07-06
 
 ### 🔧 Feature Adjustments
