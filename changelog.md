@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.27.1] - 2026-07-07
+
+### ✨ Features
+- **Array Processing**: The AI's response is now looped through, allowing it to execute as many create_note, create_link, or edit_note actions as it wants in a single turn. Improved System Prompt: I also updated the AI's internal instructions so it knows it can format its output as a JSON array of multiple actions. UI Update: The Ask AI modal will now show you a stacked list of all the nodes and links it successfully created in that single run. Multiple Nodes Issue: AI models often disobey formatting rules. Even though I asked it to output a single JSON array (e.g. [ {node1}, {node2} ]), the AI was actually outputting multiple separate code blocks like: json { "action": "create_note", "title": "Node 1" } json { "action": "create_note", "title": "Node 2" } Our previous parser was programmed to only grab the very first code block it found and ignore the rest! I have completely rewritten parseAiResponse with a global regex scanner to extract and merge actions across any number of code blocks and JSON structures. It will now definitely pick up every node it tries to make.
+- **Removed Conciseness Constraints**: I deleted the instruction telling the AI to "Keep your answer concise" and replaced it with a strict rule demanding it to "Write highly detailed, comprehensive responses. Do not be overly brief." Aggressive Markdown Formatting: I fed the AI the exact list of custom Markdown formatting used by AetherMind (which appears in the Canvas Help button) and instructed it to "aggressively use rich Markdown formatting to structure the content beautifully." It now explicitly knows how to use: [[Node Title]] for graph connections Headings (#, ##) Bold, italics, blockquotes, lists, and task checkboxes Code blocks and external hyperlinks
+
+### 🎨 UI/UX
+- **Styling**: Made every textbar in the project stylish and improved the styling of the graph page changing dropdown.
+
+### 🐛 Bug Fixes
+- **The "Edit Note" Bug**: When you asked it to write inside an already created node, it correctly tried to use the edit_note action. However, the system prompt tells it to provide the edits under a parameter called newContent. The AI was hallucinating and just using content (like it does for creating nodes). When the code looked for newContent, it found nothing, and the edit failed silently! I've updated the action processor to accept either newContent or content so the edits will now successfully apply to the database.
+- **AI Discovery Connection Logic**: Prevented AI discovery popup from suggesting notes that are already explicitly linked in either direction, and resolved button UI inconsistency.
+- **Editor Modes Fix**: Removed tabs for editing and preview modes, consolidated interface, improved edit button, and made default open in View mode.
+
 ## [1.27.0] - 2026-07-07
 
 ### ✨ Features

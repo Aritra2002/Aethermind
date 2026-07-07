@@ -6,14 +6,13 @@ import { db } from '../db';
 import type { Note, Link, Category } from '../db';
 import { updateNote, deleteNote } from '../db/helpers';
 import { useDebounce } from '../hooks/useDebounce';
-import { X, Trash2, Eye, Edit3, Tag, Folder, Bold, Italic, Heading, Code, Link as LinkIcon, Wand2, PlusCircle, FileText, SplitSquareHorizontal } from 'lucide-react';
+import { X, Trash2, Edit3, Tag, Folder, Bold, Italic, Heading, Code, Link as LinkIcon, Wand2, PlusCircle, FileText, SplitSquareHorizontal, PenTool, Sparkles } from 'lucide-react';
 import Prism from 'prismjs';
 import 'prismjs/themes/prism-tomorrow.css';
 import { ColorPicker } from './ColorPicker';
 import { callAI } from '../utils/aiClient';
 import { ConfirmModal } from './ConfirmModal';
 import { useToast } from './ToastContext';
-import { PenTool, Sparkles } from 'lucide-react';
 import { cosineSimilarity } from '../utils/vectorSearch';
 import { ConnectionDiscovery } from './ConnectionDiscovery';
 
@@ -434,27 +433,12 @@ Return exactly and ONLY the summary text, with no markdown code blocks or conver
         </div>
       </div>
 
-      {/* Edit / Preview Toggle */}
-      <div className="editor-tabs">
-        <button
-          className={`tab-btn ${editMode ? 'active' : ''}`}
-          onClick={() => setEditMode(true)}
-        >
-          <Edit3 size={14} /> Edit
-        </button>
-        <button
-          className={`tab-btn ${!editMode ? 'active' : ''}`}
-          onClick={() => setEditMode(false)}
-        >
-          <Eye size={14} /> Preview
-        </button>
-      </div>
-
       {/* Main Body Viewport */}
-      <div className="editor-body" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <div className="editor-body" style={{ height: '100%', display: 'flex', flexDirection: 'column', marginTop: '12px' }}>
         {editMode ? (
           <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
             <div style={{ display: 'flex', gap: '8px', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)', marginBottom: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <button className="btn btn-primary btn-sm" onClick={() => setEditMode(false)} style={{ marginRight: '8px' }}><PenTool size={14} /> Finish Editing Mode</button>
               <button className="icon-btn" onClick={() => insertText('**', '**')} aria-label="Bold" title="Bold"><Bold size={14} /></button>
               <button className="icon-btn" onClick={() => insertText('_', '_')} aria-label="Italic" title="Italic"><Italic size={14} /></button>
               <button className="icon-btn" onClick={() => insertText('### ')} aria-label="Heading" title="Heading"><Heading size={14} /></button>

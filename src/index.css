@@ -1909,3 +1909,43 @@ body {
   opacity: 0.3;
   cursor: not-allowed;
 }
+
+/* Stylish textbars/inputs */
+input[type="text"], input[type="number"], .note-textarea, .chat-input, .prompt-textarea, .search-input {
+  background: rgba(18, 24, 58, 0.6);
+  border: 1px solid rgba(124, 58, 237, 0.3);
+  border-radius: 8px;
+  color: var(--text-primary);
+  padding: 10px 14px;
+  font-size: 0.95rem;
+  transition: all 0.3s ease;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+input[type="text"]:focus, input[type="number"]:focus, .note-textarea:focus, .chat-input:focus, .prompt-textarea:focus, .search-input:focus {
+  border-color: rgba(124, 58, 237, 0.8);
+  background: rgba(18, 24, 58, 0.8);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.2), inset 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+input::placeholder, textarea::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* Smooth transition for scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(124, 58, 237, 0.4);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(124, 58, 237, 0.6);
+}
+
+.page-select-dropdown:hover, .page-select-dropdown:focus {
+  box-shadow: 0 0 10px rgba(124, 58, 237, 0.4);
+}
