@@ -76,7 +76,7 @@ export const NewPageModal: React.FC<NewPageModalProps> = ({ isOpen, onClose, onC
                 Cancel
               </button>
               <button 
-                className="primary-btn" 
+                className="btn btn-primary"
                 onClick={handleCreate}
                 disabled={!title.trim()}
                 style={{ padding: '8px 16px', borderRadius: '6px' }}
