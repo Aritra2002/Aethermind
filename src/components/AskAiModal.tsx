@@ -42,8 +42,8 @@ export const AskAiModal: React.FC<AskAiModalProps> = ({ isOpen, onClose, notes }
   const [query, setQuery] = useState('');
   const [aiResponse, setAiResponse] = useState<string | null>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
-  const [stagedAction, setStagedAction] = useState<AiAction | null>(null);
-  const [actionResult, setActionResult] = useState<{ action: AiAction; success: boolean; message: string } | null>(null);
+  const [stagedActions, setStagedActions] = useState<AiAction[]>([]);
+  const [actionResults, setActionResults] = useState<{ action: AiAction; success: boolean; message: string }[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
   const { showToast } = useToast();
 
@@ -54,8 +54,8 @@ export const AskAiModal: React.FC<AskAiModalProps> = ({ isOpen, onClose, notes }
       setQuery('');
       setAiResponse(null);
       setIsAiLoading(false);
-      setStagedAction(null);
-      setActionResult(null);
+      setStagedActions([]);
+      setActionResults([]);
       setTimeout(() => inputRef.current?.focus(), 50);
     }
   }, [isOpen]);
@@ -66,8 +66,8 @@ export const AskAiModal: React.FC<AskAiModalProps> = ({ isOpen, onClose, notes }
     try {
       setIsAiLoading(true);
       setAiResponse('');
-      setActionResult(null);
-      setStagedAction(null);
+      setActionResults([]);
+      setStagedActions([]);
       
       let finalQuery = query;
       let contextPrefix = "";
@@ -99,11 +99,12 @@ export const AskAiModal: React.FC<AskAiModalProps> = ({ isOpen, onClose, notes }
       
       const systemPrompt = `You are an AI assistant analyzing a personal knowledge graph. You will be provided with the most relevant notes retrieved via semantic search. Use ONLY the provided notes to answer the user's question. If the answer is not in the notes, say so. Keep your answer concise.
 
-You can create, edit, and delete notes in the knowledge graph. When you need to
-perform an action, include a JSON block in your response using this format:
+When you need to perform an action, include a JSON block in your response using this format:
 
 \`\`\`json
-{ "action": "create_note", "title": "...", "content": "...", "tags": [], "linkTo": ["existing note title"] }
+[
+  { "action": "create_note", "title": "...", "content": "...", "tags": [], "linkTo": ["existing note title"] }
+]
 \`\`\`
 
 Available actions: create_note, edit_note, delete_note, create_link, delete_link.
@@ -129,21 +130,27 @@ specifies otherwise. Suggest 2-3 connections to existing notes if relevant.`;
 
       // Phase 8: AI Co-Author action parsing
       const parsed = parseAiResponse(fullResponse);
-      if (parsed) {
+      if (parsed && parsed.actions.length > 0) {
         setAiResponse(parsed.explanation || "Action proposed:");
-        const action = parsed.actions[0];
         
-        if (action.action === 'create_note' || action.action === 'create_link' || action.action === 'delete_link') {
-          const result = await executeAiAction(action, pageId);
-          setActionResult({ action, success: result.success, message: result.message });
-        } else {
-          const preflight = await validateActionPreflight(action, pageId);
-          if (preflight.blocked) {
-            showToast(preflight.message || 'Action blocked', 'error');
+        const results: { action: AiAction; success: boolean; message: string }[] = [];
+        const staged: AiAction[] = [];
+
+        for (const action of parsed.actions) {
+          if (action.action === 'create_note' || action.action === 'create_link' || action.action === 'delete_link') {
+            const result = await executeAiAction(action, pageId);
+            results.push({ action, success: result.success, message: result.message });
           } else {
-            setStagedAction(action);
+            const preflight = await validateActionPreflight(action, pageId);
+            if (preflight.blocked) {
+              showToast(preflight.message || 'Action blocked', 'error');
+            } else {
+              staged.push(action);
+            }
           }
         }
+        setActionResults(results);
+        setStagedActions(staged);
       }
       
     } catch (e: any) {
@@ -153,12 +160,10 @@ specifies otherwise. Suggest 2-3 connections to existing notes if relevant.`;
     }
   };
 
-  const handleConfirmStaged = async () => {
-    if (!stagedAction) return;
-    const action = stagedAction;
-    setStagedAction(null);
+  const handleConfirmStaged = async (action: AiAction) => {
+    setStagedActions(prev => prev.slice(1));
     const result = await executeAiAction(action, pageId);
-    setActionResult({ action, success: result.success, message: result.message });
+    setActionResults(prev => [...prev, { action, success: result.success, message: result.message }]);
     if (result.success) {
       showToast(result.message, 'success');
     } else {
@@ -197,7 +202,9 @@ specifies otherwise. Suggest 2-3 connections to existing notes if relevant.`;
                 {isAiLoading && !aiResponse && <div className="spin-pulse" style={{ color: 'var(--text-secondary)' }}>Analyzing your knowledge graph...</div>}
                 <div className="markdown-body" dangerouslySetInnerHTML={{ __html: marked.parse(aiResponse) as string }} />
                 
-                {actionResult && <AiActionCard result={actionResult} />}
+                {actionResults.map((res, i) => (
+                  <AiActionCard key={i} result={res} />
+                ))}
                 
                 {!isAiLoading && (
                   <button 
@@ -205,7 +212,7 @@ specifies otherwise. Suggest 2-3 connections to existing notes if relevant.`;
                     onClick={() => {
                       setAiResponse(null);
                       setQuery('');
-                      setActionResult(null);
+                      setActionResults([]);
                       setTimeout(() => inputRef.current?.focus(), 50);
                     }}
                     style={{ marginTop: '20px' }}
@@ -254,12 +261,12 @@ specifies otherwise. Suggest 2-3 connections to existing notes if relevant.`;
         </div>
       </div>
       
-      {stagedAction && (
+      {stagedActions.length > 0 && (
         <ConfirmActionToast 
-          action={stagedAction} 
+          action={stagedActions[0]} 
           pageId={pageId}
-          onConfirm={handleConfirmStaged} 
-          onCancel={() => setStagedAction(null)} 
+          onConfirm={() => handleConfirmStaged(stagedActions[0])} 
+          onCancel={() => setStagedActions(prev => prev.slice(1))} 
         />
       )}
     </>
