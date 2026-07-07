@@ -66,7 +66,21 @@ export async function executeAiAction(
           content += `\n\n${wikiLinks}`;
         }
         
-        await updateNote(noteId, { content, tags: action.tags || [] });
+        // Since createNote returns the existing note ID if it exists (but with original content)
+        // we should append the new content to the existing note content.
+        const existingNote = await db.notes.get(noteId);
+        if (existingNote && existingNote.content && existingNote.content.trim() !== '') {
+          // If the new content is exactly the same, or we're just hitting the same note again with a tiny change,
+          // we might just append if it's not already in there to avoid duplicates
+          if (!existingNote.content.includes(action.content)) {
+            content = `${existingNote.content}\n\n${content}`;
+          } else {
+            content = existingNote.content; // Already contains it
+          }
+        }
+
+        const mergedTags = Array.from(new Set([...(existingNote?.tags || []), ...(action.tags || [])]));
+        await updateNote(noteId, { content, tags: mergedTags });
         return { success: true, message: `Created note: "${action.title}"` };
       }
       

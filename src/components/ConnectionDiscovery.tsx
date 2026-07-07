@@ -18,7 +18,7 @@ export const ConnectionDiscovery: React.FC<ConnectionDiscoveryProps> = ({ noteId
     // Reset state when noteId changes
       // eslint-disable-next-line
     setSuggestion(null);
-      // eslint-disable-next-line
+
     setDismissed(false);
   }, [noteId]);
 
