@@ -170,14 +170,14 @@
 - Fixed split-view rendering on small screens (now disabled < 1024px)
 - Fixed ghost "Open Editor" button appearing behind mobile sidebar
 - Fixed `insertText()` using wrong DOM lookup instead of ref
-- Fixed Excalidraw crash on non-JSON note content
+
 - Fixed wiki-link click listener memory leak (duplicate handlers)
 - Fixed canvas controls clipping behind iOS/Android home indicator
 - Fixed `var(--text-color)` undefined token in page selector
 - Fixed canvas help box overflow on narrow screens
 - Fixed modal button clipping behind iPhone home bar
 - Fixed AI summary panel overflowing editor area
-- Lazy-loaded Excalidraw to reduce initial bundle size
+
 
 ### 🔧 Improvements
 - Sidebar width now clamped to `clamp(340px, 30vw, 520px)` on desktop
@@ -256,7 +256,7 @@
 ## [1.15.0] - 2026-06-29
 
 ### 🏗️ Architecture
-- **Modular Settings**: Completely refactored the monolithic `SettingsModal.tsx` into tabbed components (`AiSettingsTab`, `SyncSettingsTab`, `DataSettingsTab`, `PluginSettingsTab`). Added `React.lazy` to `GraphCanvas` to reduce initial bundle load time.
+- **Modular Settings**: Completely refactored the monolithic `SettingsModal.tsx` into tabbed components (`AiSettingsTab`, `SyncSettingsTab`, `DataSettingsTab`). Added `React.lazy` to `GraphCanvas` to reduce initial bundle load time.
 
 ### 🔒 Security
 - **XSS Mitigation**: Installed DOMPurify to sanitise Markdown preview output in `EditorPanel.tsx`, mitigating Stored XSS vulnerabilities.
@@ -271,7 +271,7 @@
 ## [1.14.0] - 2026-06-28
 
 ### 🏗️ Architecture
-- **Codebase Audit**: Removed junk files, added `.env` to `.gitignore`, and scrubbed sensitive debug logs from `ocr.ts` and `syncManager.ts`.
+- **Codebase Audit**: Removed junk files, added `.env` to `.gitignore`, and scrubbed sensitive debug logs from `syncManager.ts`.
 
 ### 🔒 Security
 - **Dependency Patches**: Ran `npm audit fix` across client and `sync-server` to patch nested prototype pollution vulnerabilities.
@@ -295,9 +295,7 @@
 
 ## [1.11.0] - 2026-06-25
 
-### ✨ New Features
 
-- **Plugin Ecosystem**: Exposed `window.AetherMindApi` with global hooks for UI navigation, settings, and note management. Initialised Plugin Manager.
 
 ### 🐛 Bug Fixes
 - Fixed sidebar to consistently default to Preview Mode when opening a new node.
@@ -331,7 +329,7 @@
 
 ### ✨ New Features
 - **Web Clipper Extension**: Created a Chrome extension to save web pages directly into AetherMind.
-- **File Uploads & OCR**: Integrated image uploading with OCR text extraction.
+
 
 ## [1.8.0] - 2026-06-21
 
@@ -342,7 +340,7 @@
 ## [1.7.0] - 2026-06-20
 
 ### ✨ New Features
-- **Excalidraw Whiteboard**: Integrated Excalidraw for embedded visual whiteboards inside notes.
+
 - **Export to HTML**: Added note export as standalone HTML files.
 
 ## [1.6.0] - 2026-06-19
