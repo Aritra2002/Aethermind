@@ -269,7 +269,7 @@ Return exactly and ONLY the summary text, with no markdown code blocks or conver
 
   // Setup wiki-link clicking and PrismJS syntax highlighting in preview mode
   useEffect(() => {
-    let activeLinks: { element: HTMLAnchorElement; listener: (e: MouseEvent) => void }[] = [];
+    const activeLinks: { element: HTMLAnchorElement; listener: (e: MouseEvent) => void }[] = [];
     
     if (!editMode && previewRef.current) {
       Prism.highlightAllUnder(previewRef.current);

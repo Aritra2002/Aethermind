@@ -31,7 +31,7 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({ color, defaultColor, o
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
-      // eslint-disable-next-line
+
         setIsOpen(false);
       }
     };
@@ -45,7 +45,7 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({ color, defaultColor, o
   }, [displayColor]);
 
   const handleHexChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      // eslint-disable-next-line
+
     setHexInput(e.target.value);
     if (/^#?[0-9A-F]{6}$/i.test(e.target.value)) {
       const formatted = e.target.value.startsWith('#') ? e.target.value : `#${e.target.value}`;

@@ -225,7 +225,7 @@ export default function App() {
   // Handles creating a new note (e.g. double-click canvas or sidebar button)
   const handleCreateNote = async (x?: number, y?: number) => {
     try {
-      let title = 'New Node';
+      const title = 'New Node';
       let finalTitle = title;
       let index = 1;
       while (notes.some((n) => n.title.toLowerCase() === finalTitle.toLowerCase())) {
@@ -430,10 +430,44 @@ export default function App() {
           throw new Error('Document content is empty');
         }
 
-        setDocStatus('Running AI conceptual analysis...');
-        await new Promise(r => setTimeout(r, 500));
+        const maxChars = 15000;
+        const chunks = [];
+        let currentPos = 0;
+        while (currentPos < textContent.length) {
+          let nextPos = currentPos + maxChars;
+          if (nextPos >= textContent.length) {
+            chunks.push(textContent.slice(currentPos));
+            break;
+          }
+          const searchStart = Math.max(currentPos, nextPos - 3000);
+          const searchArea = textContent.slice(searchStart, nextPos);
+
+          let breakIndex = searchArea.lastIndexOf('\n\n');
+          if (breakIndex === -1) {
+            breakIndex = searchArea.lastIndexOf('\n');
+          }
+          if (breakIndex === -1) {
+            breakIndex = searchArea.lastIndexOf('. ');
+          }
+
+          if (breakIndex !== -1) {
+            nextPos = searchStart + breakIndex + (searchArea.substring(breakIndex).startsWith('\n\n') ? 2 : 1);
+          }
+
+          chunks.push(textContent.slice(currentPos, nextPos));
+          currentPos = nextPos;
+        }
+
+        const { parseAiResponse, executeAiAction } = await import('./utils/aiActions');
         
-        const systemPrompt = `You are a conceptual knowledge map architect. You analyze the provided document text and extract key concepts, ideas, terms, or sections.
+        // Track nodes created during this process
+        const createdNodes: { title: string; content: string }[] = [];
+
+        for (let i = 0; i < chunks.length; i++) {
+          setDocStatus(`Running AI conceptual analysis on chunk ${i + 1} of ${chunks.length}...`);
+
+          const existingNodeTitles = createdNodes.map(n => n.title).join(', ');
+          const systemPrompt = `You are a conceptual knowledge map architect. You analyze the provided document text and extract key concepts, ideas, terms, or sections.
 You must output a JSON list of actions to structure this document into a knowledge graph.
 You can create new notes and links between them.
 Output ONLY a JSON block containing the actions you want to perform. Do not include any extra text.
@@ -447,32 +481,68 @@ Format:
 ]
 \`\`\`
 `;
-        const userPrompt = `Please analyze the following document and decompose it into a structured set of notes and links:
-
+          let userPrompt = `Please analyze the following document chunk and decompose it into a structured set of notes and links.
+`;
+          if (existingNodeTitles) {
+            userPrompt += `\nFor context, the following notes already exist: ${existingNodeTitles}. You can create links to them or create new notes if necessary.\n`;
+          }
+          userPrompt += `
 --- DOCUMENT START ---
-${textContent}
+${chunks[i]}
 --- DOCUMENT END ---
 `;
-        
-        const aiResponse = await callAI(systemPrompt, userPrompt);
-        
-        setDocStatus('Structuring knowledge graph...');
-        await new Promise(r => setTimeout(r, 500));
-        
-        const { parseAiResponse, executeAiAction } = await import('./utils/aiActions');
-        const parsed = parseAiResponse(aiResponse);
-        if (!parsed || parsed.actions.length === 0) {
-          throw new Error('Failed to extract structured knowledge actions from AI response');
-        }
-        
-        setDocStatus('Finalizing connections...');
-        await new Promise(r => setTimeout(r, 500));
-        
-        await db.transaction('rw', [db.notes, db.links], async () => {
-          for (const action of parsed.actions) {
-            await executeAiAction(action, currentPageId);
+
+          const aiResponse = await callAI(systemPrompt, userPrompt);
+
+          const parsed = parseAiResponse(aiResponse);
+          if (parsed && parsed.actions.length > 0) {
+            setDocStatus(`Executing actions for chunk ${i + 1}...`);
+            await db.transaction('rw', [db.notes, db.links], async () => {
+              for (const action of parsed.actions) {
+                await executeAiAction(action, currentPageId);
+                if (action.action === 'create_note') {
+                  const existing = createdNodes.find(n => n.title === action.title);
+                  if (existing) {
+                    existing.content += `\n\n${action.content}`;
+                  } else {
+                    createdNodes.push({ title: action.title, content: action.content });
+                  }
+                }
+              }
+            });
           }
-        });
+        }
+
+        if (createdNodes.length > 1) {
+          setDocStatus('Finalizing connections across all chunks...');
+          const systemPromptLinker = `You are a conceptual knowledge map architect. Review the provided list of newly created concepts and their summaries.
+Identify missing relationships between them and output a JSON list of link actions to connect related concepts.
+Output ONLY a JSON block containing the actions. Do not include any extra text.
+
+Format:
+\`\`\`json
+[
+  { "action": "create_link", "from": "Concept A", "to": "Concept B" }
+]
+\`\`\`
+`;
+          const summaries = createdNodes.map(n => `- **${n.title}**: ${n.content.substring(0, 200)}...`).join('\n');
+          const userPromptLinker = `Please review the following concepts and generate 'create_link' actions to connect related ones:
+
+${summaries}
+`;
+          const linkResponse = await callAI(systemPromptLinker, userPromptLinker);
+          const linkParsed = parseAiResponse(linkResponse);
+          if (linkParsed && linkParsed.actions.length > 0) {
+            await db.transaction('rw', [db.notes, db.links], async () => {
+              for (const action of linkParsed.actions) {
+                if (action.action === 'create_link') {
+                  await executeAiAction(action, currentPageId);
+                }
+              }
+            });
+          }
+        }
         
         showToast('Document uploaded and structured successfully!', 'success');
       } catch (err: any) {

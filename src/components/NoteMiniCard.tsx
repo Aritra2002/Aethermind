@@ -18,7 +18,7 @@ export const NoteMiniCard: React.FC<NoteMiniCardProps> = ({ note, category, onOp
   const previewRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
-    let activeLinks: { element: HTMLAnchorElement; listener: (e: MouseEvent) => void }[] = [];
+    const activeLinks: { element: HTMLAnchorElement; listener: (e: MouseEvent) => void }[] = [];
     
     if (previewRef.current && onJumpToNote) {
       const links = previewRef.current.querySelectorAll('a');
