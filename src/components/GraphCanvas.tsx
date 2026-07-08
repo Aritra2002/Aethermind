@@ -610,9 +610,9 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
 
       if (clickedNode) {
         const note = state.notes.find(n => n.id === clickedNode.id);
-        if (note) state.onSelectNote(note);
+        if (note) setTimeout(() => state.onSelectNote(note), 0);
       } else {
-        state.onSelectNote(null);
+        setTimeout(() => state.onSelectNote(null), 0);
       }
     };
 

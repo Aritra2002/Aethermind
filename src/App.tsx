@@ -508,19 +508,17 @@ ${chunks[i]}
             const parsed = parseAiResponse(aiResponse);
             if (parsed && parsed.actions.length > 0) {
               setDocStatus(`Executing actions for chunk ${i + 1}...`);
-              await db.transaction('rw', [db.notes, db.links], async () => {
-                for (const action of parsed.actions) {
-                  await executeAiAction(action, currentPageId);
-                  if (action.action === 'create_note') {
-                    const existing = createdNodes.find(n => n.title === action.title);
-                    if (existing) {
-                      existing.content += `\n\n${action.content}`;
-                    } else {
-                      createdNodes.push({ title: action.title, content: action.content });
-                    }
+              for (const action of parsed.actions) {
+                await executeAiAction(action, currentPageId);
+                if (action.action === 'create_note') {
+                  const existing = createdNodes.find(n => n.title === action.title);
+                  if (existing) {
+                    existing.content += `\n\n${action.content}`;
+                  } else {
+                    createdNodes.push({ title: action.title, content: action.content });
                   }
                 }
-              });
+              }
             }
           } catch (chunkError: any) {
             console.error(`AI failed on chunk ${i + 1}:`, chunkError);
