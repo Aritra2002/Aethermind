@@ -942,7 +942,6 @@ ${summaries}
       <AskAiModal
         isOpen={showAskAi}
         onClose={() => setShowAskAi(false)}
-        notes={notes}
         activePageId={currentPageId}
       />
 
