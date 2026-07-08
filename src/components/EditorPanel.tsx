@@ -202,9 +202,18 @@ Current Note Content: ${content}`;
       }
 
       if (linksToAdd) {
-        const newContent = content.trim() ? `${content}\n\nRelated: ${linksToAdd}` : `Related: ${linksToAdd}`;
-        setContent(newContent);
-        await updateNote(note.id!, { content: newContent });
+        const targetTitles = linksToAdd.split(/\[\[|\]\]|,/).map(s => s.trim()).filter(Boolean);
+        for (const title of targetTitles) {
+          const targetNote = allNotes.find(n => n.title.toLowerCase() === title.toLowerCase());
+          if (targetNote && targetNote.id && note.id) {
+            // Check for existing link in either direction
+            const existingForward = await db.links.where({ sourceId: note.id, targetId: targetNote.id }).first();
+            const existingReverse = await db.links.where({ sourceId: targetNote.id, targetId: note.id }).first();
+            if (!existingForward && !existingReverse) {
+              await db.links.add({ sourceId: note.id, targetId: targetNote.id });
+            }
+          }
+        }
       }
       
     } catch (e: any) {
