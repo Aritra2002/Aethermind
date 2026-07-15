@@ -472,9 +472,15 @@ You must output a JSON list of actions to structure this document into a knowled
 You can create new notes and links between them.
 Output ONLY a JSON block containing the actions you want to perform. Do not include any extra text.
 
+CRITICAL RULES:
+- NEVER write "Related Notes", "## Related", "## Connections", or similar sections inside note content.
+- NEVER append connection/link text at the end of note content.
+- To connect notes, ALWAYS use a separate { "action": "create_link", "from": "...", "to": "..." } action.
+- Use [[Node Title]] inside content ONLY for inline contextual references, not as a list of related notes.
+- Every "linkTo" or "create_link" action must have a corresponding note that exists or will be created.
+
 Write highly detailed, comprehensive content.
 When writing notes, aggressively use rich Markdown formatting to structure the content beautifully. You MUST use the following supported syntax:
-- [[Node Title]]: Use double brackets to link to other concepts
 - **bold**, *italic*, ~~strikethrough~~ for emphasis
 - #, ##, ### for clear hierarchical headings
 - Bulleted lists (-) and numbered lists (1.) for readability
@@ -482,6 +488,7 @@ When writing notes, aggressively use rich Markdown formatting to structure the c
 - \`inline code\` and \`\`\`language code blocks \`\`\`
 - > Blockquotes for important callouts or quotes
 - [Link Text](https://...) for external hyperlinks
+- [[Node Title]] only for inline contextual references within prose (not as a footer list)
 
 Format:
 \`\`\`json

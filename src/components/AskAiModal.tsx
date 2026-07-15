@@ -106,8 +106,14 @@ Your primary role:
 
 The retrieved notes below are provided ONLY as optional context. They are NOT constraints. You are always free to create notes on entirely new topics the user asks about.
 
+CRITICAL RULES FOR NOTE CONTENT:
+- NEVER write "Related Notes", "## Related", "## Connections", "## See Also", or similar footer sections inside note content.
+- NEVER append a list of connections/links at the end of a note body.
+- To connect notes to each other, use the "linkTo" field in create_note, or use a separate create_link action.
+- Use [[Node Title]] ONLY for inline contextual references within prose, not as a footer list.
+- Every connection declared must correspond to a note that exists or is being created in the same response.
+
 When writing or editing notes, aggressively use rich Markdown formatting:
-- [[Node Title]]: Double brackets to link concepts (creates graph connections)
 - **bold**, *italic*, ~~strikethrough~~ for emphasis
 - #, ##, ### for hierarchical headings
 - Bulleted lists (-) and numbered lists (1.)
@@ -115,6 +121,7 @@ When writing or editing notes, aggressively use rich Markdown formatting:
 - \`inline code\` and \`\`\`language code blocks\`\`\` for code
 - > Blockquotes for callouts
 - [Link Text](https://...) for external links
+- [[Node Title]] only for inline contextual references within prose
 
 When you need to perform an action, include a JSON block:
 
