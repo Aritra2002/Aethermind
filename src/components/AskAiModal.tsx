@@ -213,7 +213,7 @@ When given web content, summarize it into a detailed, well-formatted note. Extra
 
           <div className="modal-content" style={{ padding: '20px' }}>
             {aiResponse !== null ? (
-              <div className="ai-response-container" style={{ color: 'var(--text-primary)', overflowY: 'auto' }}>
+              <div className="ai-response-container" style={{ color: 'var(--text-primary)' }}>
                 {isAiLoading && !aiResponse && <div className="spin-pulse" style={{ color: 'var(--text-secondary)' }}>Analyzing your knowledge graph...</div>}
                 <div className="markdown-body" dangerouslySetInnerHTML={{ __html: marked.parse(aiResponse) as string }} />
                 

@@ -1846,6 +1846,9 @@ body {
 .ai-response-container {
   max-height: 400px;
   overflow-y: auto;
+  overflow-x: auto;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 /* Mobile Fixes */
