@@ -14,9 +14,6 @@ export const exportToHtml = async (pageId: number, pageTitle: string = 'Graph') 
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AetherMind Export - ${safeTitle}</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
     --bg-color: #0A0A0A;
@@ -29,7 +26,7 @@ export const exportToHtml = async (pageId: number, pageTitle: string = 'Graph') 
   }
   * { box-sizing: border-box; }
   body { 
-    font-family: 'Outfit', -apple-system, sans-serif; 
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
     margin: 0; 
     background: var(--bg-color); 
     color: var(--text-primary); 
