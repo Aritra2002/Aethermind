@@ -20,59 +20,56 @@ export function PromptModal({ title, message, placeholder = '', defaultValue = '
       inputRef.current.focus();
     }
     
-    // Global keyboard listener for Enter/Escape
+    // Global keyboard listener for Escape
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onCancel();
-      if (e.key === 'Enter') onConfirm(value);
     };
     
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onCancel, onConfirm, value]);
+  }, [onCancel]);
 
   return (
-    <div className="modal-overlay">
-      <div className="modal-content" style={{ maxWidth: '400px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+    <div className="modal-overlay" style={{ zIndex: 'var(--z-popover, 1100)' }}>
+      <div className="settings-modal glass-panel" style={{ maxWidth: '400px' }}>
+        <div className="modal-header">
           <h3>{title}</h3>
           <button className="btn btn-icon" onClick={onCancel} aria-label="Close"><X size={16} /></button>
         </div>
         
-        <p style={{ color: 'var(--text-secondary)', marginBottom: '16px', fontSize: '0.9rem' }}>
-          {message}
-        </p>
+        <form onSubmit={(e) => { e.preventDefault(); onConfirm(value); }} className='modal-content' style={{ paddingBottom: '24px' }}>
+          <p style={{ color: 'var(--text-secondary)', marginBottom: '16px', fontSize: '0.9rem' }}>
+            {message}
+          </p>
 
-        <input
-          ref={inputRef}
-          type="text"
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          placeholder={placeholder}
-          style={{
-            width: '100%',
-            padding: '10px 12px',
-            background: 'rgba(0,0,0,0.2)',
-            border: '1px solid rgba(255,255,255,0.1)',
-            borderRadius: '6px',
-            color: 'var(--text-primary)',
-            marginBottom: '20px'
-          }}
-        />
+          <input
+            ref={inputRef}
+            type="text"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            placeholder={placeholder}
+            style={{
+              width: '100%',
+              marginBottom: '20px'
+            }}
+          />
 
-        <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-          <button 
-            className="btn btn-secondary" 
-            onClick={onCancel}
-          >
-            Cancel
-          </button>
-          <button 
-            className="btn btn-primary" 
-            onClick={() => onConfirm(value)}
-          >
-            Confirm
-          </button>
-        </div>
+          <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+            <button 
+              type="button"
+              className="btn btn-secondary" 
+              onClick={onCancel}
+            >
+              Cancel
+            </button>
+            <button 
+              type="submit"
+              className="btn btn-primary"
+            >
+              Confirm
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );

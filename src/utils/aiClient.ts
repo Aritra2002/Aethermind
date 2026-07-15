@@ -224,6 +224,9 @@ export const callAI = async (
     }
   } catch (error: unknown) {
     console.error('AI call failed:', error);
+    if (error instanceof TypeError && error.message === 'Failed to fetch' && endpoint.includes('11434')) {
+      throw new Error('Failed to connect to Ollama. This is likely a CORS issue. Please restart Ollama with the environment variable OLLAMA_ORIGINS="*" or "https://aritra2002.github.io".');
+    }
     throw error;
   }
 };

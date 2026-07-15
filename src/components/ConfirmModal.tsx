@@ -26,7 +26,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
 
   return (
     <div className="modal-overlay" style={{ zIndex: 'var(--z-popover, 1100)' }}>
-      <div className="settings-modal" style={{ maxWidth: '400px' }}>
+      <div className="settings-modal glass-panel" style={{ maxWidth: '400px' }}>
         <div className="modal-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             {isDestructive && <AlertTriangle size={20} color="#ef4444" />}

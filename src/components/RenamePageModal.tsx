@@ -33,14 +33,14 @@ export const RenamePageModal: React.FC<RenamePageModalProps> = ({
 
   return (
     <div className="modal-overlay">
-      <div className="modal-content glass-panel" style={{ maxWidth: '400px' }}>
+      <div className="settings-modal glass-panel" style={{ maxWidth: '400px' }}>
         <div className="modal-header">
           <h2>Rename Page</h2>
           <button className="btn btn-icon" onClick={onClose} aria-label="Close">
             <X size={20} />
           </button>
         </div>
-        <form onSubmit={handleSubmit} className="modal-body">
+        <form onSubmit={handleSubmit} className="modal-content" style={{ paddingBottom: '24px' }}>
           <div className="form-group">
             <label htmlFor="pageTitle">Page Title</label>
             <input

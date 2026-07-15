@@ -899,14 +899,6 @@ ${summaries}
       )}
 
       {/* Backup and settings Modal */}
-      {promptConfig && (
-        <PromptModal
-          title={promptConfig.title}
-          message={promptConfig.message}
-          onConfirm={promptConfig.onConfirm}
-          onCancel={() => setPromptConfig(null)}
-        />
-      )}
       {showSettings && (
         <SettingsModal
           onClose={() => setShowSettings(false)}
@@ -1001,14 +993,15 @@ ${summaries}
         />
       )}
       {docLoading && (
-        <div className="modal-overlay" style={{ zIndex: 99999, flexDirection: 'column', gap: '20px' }}>
+        <div className="modal-overlay !flex !items-center !justify-center !p-4" style={{ zIndex: 99999, flexDirection: 'column', gap: '20px' }}>
           <div className="premium-loader-card glass-panel" style={{
+            width: '100%',
+            maxWidth: '400px',
             padding: '40px',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
             gap: '24px',
-            maxWidth: '400px',
             textAlign: 'center',
             border: '1px solid rgba(124, 58, 237, 0.3)',
             background: 'linear-gradient(135deg, rgba(15, 20, 50, 0.9) 0%, rgba(8, 12, 35, 0.95) 100%)',

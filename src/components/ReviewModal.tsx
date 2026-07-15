@@ -94,13 +94,13 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({ onClose }) => {
 
   return (
     <div className="modal-overlay" style={{ zIndex: 'var(--z-modal, 1000)' }}>
-      <div className="modal-content review-modal glass-panel" style={{ maxWidth: '600px', width: '90%', maxHeight: '85vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div className="settings-modal review-modal glass-panel" style={{ maxWidth: '600px', width: '90%', maxHeight: '85vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <div className="modal-header">
           <h2><BrainCircuit size={20} /> Spaced Repetition Review</h2>
           <button className="btn btn-icon close-btn" onClick={onClose} aria-label="Close"><X size={20} /></button>
         </div>
 
-        <div className="modal-body" style={{ minHeight: '300px', display: 'flex', flexDirection: 'column', overflowY: 'auto', flex: 1 }}>
+        <div className="modal-content" style={{ minHeight: '300px', display: 'flex', flexDirection: 'column', overflowY: 'auto', flex: 1, paddingBottom: '24px' }}>
           {!isQueueInitialized ? (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1 }}>
               <Loader2 className="spinning" size={32} />
@@ -122,7 +122,7 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({ onClose }) => {
                   <div className="flashcard-back" style={{ padding: '20px', backgroundColor: 'var(--bg-card-hover)', borderRadius: '8px', flex: 1, overflowY: 'auto' }}
                        dangerouslySetInnerHTML={{ __html: marked.parse(currentNote.content) as string }} />
                   
-                  <div className="flashcard-actions" style={{ display: 'flex', gap: '10px', marginTop: '20px', justifyContent: 'center' }}>
+                  <div className="flashcard-actions" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '20px', justifyContent: 'center' }}>
                     <button className="btn" onClick={() => handleGrade(1)} style={{ backgroundColor: 'rgba(239, 68, 68, 0.2)', borderColor: 'rgba(239, 68, 68, 0.4)', color: '#ef4444' }}>Again (1m)</button>
                     <button className="btn" onClick={() => handleGrade(2)} style={{ backgroundColor: 'rgba(245, 158, 11, 0.2)', borderColor: 'rgba(245, 158, 11, 0.4)', color: '#f59e0b' }}>Hard (1.2x)</button>
                     <button className="btn" onClick={() => handleGrade(3)} style={{ backgroundColor: 'rgba(16, 185, 129, 0.2)', borderColor: 'rgba(16, 185, 129, 0.4)', color: '#10b981' }}>Good</button>

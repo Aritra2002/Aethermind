@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Database, Brain, Info, Calendar as CalendarIcon } from 'lucide-react';
 import packageJson from '../../../package.json';
 import { DataSettingsTab } from './DataSettingsTab';
@@ -22,7 +22,17 @@ type TabType = 'data' | 'journal' | 'ai' | 'about';
 
 export const SettingsModal: React.FC<SettingsModalProps> = (props) => {
   const [activeTab, setActiveTab] = useState<TabType>('data');
-  const isMobile = window.innerWidth < 768;
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
+  }, []);
 
   return (
     <div className="modal-overlay" id="settings-modal-overlay">

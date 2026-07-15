@@ -70,9 +70,9 @@ export const TimelineSlider: React.FC<TimelineSliderProps> = ({
         <div className="slider-container" style={{ justifyContent: 'flex-end', gap: '8px' }}>
           {onRestoreFromHistory && (
             <button
-              className="reset-timeline-btn"
+              className="restore-timeline-btn"
               onClick={onRestoreFromHistory}
-              style={{ color: 'var(--node-emerald)', display: 'flex', alignItems: 'center', gap: '4px' }}
+              style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
             >
               <RotateCcw size={12} /> Restore to this point
             </button>

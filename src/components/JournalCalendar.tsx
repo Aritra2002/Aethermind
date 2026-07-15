@@ -28,7 +28,7 @@ export const JournalCalendar: React.FC = () => {
   return (
     <div style={{ padding: '15px', background: 'var(--bg-secondary)', borderRadius: '8px', marginTop: '20px' }}>
       <h3 style={{ margin: '0 0 10px 0', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Activity Journal</h3>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(10px, 1fr))', gap: '4px', maxWidth: '100%', overflowX: 'auto' }}>
+      <div style={{ display: 'grid', gridTemplateRows: 'repeat(7, 10px)', gridAutoFlow: 'column', gap: '4px', maxWidth: '100%', overflowX: 'auto' }}>
         {days.map(day => {
           const dateStr = format(day, 'yyyy-MM-dd');
           const count = activityMap.get(dateStr) || 0;
