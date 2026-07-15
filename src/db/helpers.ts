@@ -17,7 +17,7 @@ export function extractWikiLinks(content: string): string[] {
 }
 
 // Sync links for a specific note based on its current content
-export async function syncLinksForNote(noteId: number, content: string, linkedNoteIds: number[] = []): Promise<void> {
+export async function syncLinksForNote(noteId: number, content: string, linkedNoteIds: number[] = [], preventBlankNodes: boolean = false): Promise<void> {
   await db.transaction('rw', [db.notes, db.links], async () => {
     const sourceNote = await db.notes.get(noteId);
     if (!sourceNote) return;
@@ -31,7 +31,7 @@ export async function syncLinksForNote(noteId: number, content: string, linkedNo
       const existing = await db.notes.where('title').equalsIgnoreCase(title).and(n => n.pageId === pageId).first();
       if (existing) {
         targetIds.push(existing.id!);
-      } else {
+      } else if (!preventBlankNodes) {
         const newNoteId = await db.notes.add({
           pageId,
           title,
@@ -100,7 +100,7 @@ export async function createNote(pageId: number, title: string, category = 'gene
 }
 
 // Update an existing note
-export async function updateNote(id: number, updates: Partial<Note>): Promise<void> {
+export async function updateNote(id: number, updates: Partial<Note>, preventBlankNodes: boolean = false): Promise<void> {
   await db.transaction('rw', [db.notes, db.links], async () => {
     const updatedNote = {
       ...updates,
@@ -113,7 +113,7 @@ export async function updateNote(id: number, updates: Partial<Note>): Promise<vo
     if (updates.content !== undefined || updates.linkedNoteIds !== undefined) {
       const fullNote = await db.notes.get(id);
       if (fullNote) {
-        await syncLinksForNote(id, fullNote.content, fullNote.linkedNoteIds || []);
+        await syncLinksForNote(id, fullNote.content, fullNote.linkedNoteIds || [], preventBlankNodes);
         // Recalculate embedding in the background
         if (updates.content !== undefined) {
           generateEmbedding(`${fullNote.title}\n\n${fullNote.content}`).then(emb => {

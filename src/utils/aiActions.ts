@@ -90,12 +90,7 @@ export async function executeAiAction(
         if (action.linkTo && action.linkTo.length > 0) {
           for (const title of action.linkTo) {
             let target = await db.notes.where('title').equalsIgnoreCase(title).and(n => n.pageId === pageId).first();
-            if (!target) {
-              const newId = await db.notes.add({
-                pageId, title, content: '', tags: [], category: 'general', createdAt: Date.now(), updatedAt: Date.now()
-              });
-              linkedNoteIds.push(newId);
-            } else {
+            if (target) {
               linkedNoteIds.push(target.id!);
             }
           }
@@ -103,7 +98,7 @@ export async function executeAiAction(
         linkedNoteIds = Array.from(new Set(linkedNoteIds));
 
         const mergedTags = Array.from(new Set([...(existingNote?.tags || []), ...(action.tags || [])]));
-        await updateNote(noteId, { content, tags: mergedTags, linkedNoteIds });
+        await updateNote(noteId, { content, tags: mergedTags, linkedNoteIds }, true);
         return { success: true, message: `Created note: "${action.title}"` };
       }
       
@@ -116,7 +111,7 @@ export async function executeAiAction(
         if (contentToSet !== undefined) updates.content = contentToSet;
         if (action.newTitle !== undefined) updates.title = action.newTitle;
         
-        await updateNote(note.id!, updates);
+        await updateNote(note.id!, updates, true);
         return { success: true, message: `Edited note: "${action.title}"` };
       }
       

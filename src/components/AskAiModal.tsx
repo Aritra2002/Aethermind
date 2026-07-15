@@ -8,6 +8,7 @@ import { parseAiResponse, executeAiAction, validateActionPreflight, AiAction } f
 import { fetchUrlContent } from '../utils/urlFetcher';
 import { ConfirmActionToast } from './ConfirmActionToast';
 import { useToast } from './ToastContext';
+import { createNote } from '../db/helpers';
 
 interface AskAiModalProps {
   isOpen: boolean;
@@ -157,6 +158,15 @@ When given web content, summarize it into a detailed, well-formatted note. Extra
         
         const results: { action: AiAction; success: boolean; message: string }[] = [];
         const staged: AiAction[] = [];
+
+        // Pre-pass: explicitly create shells for all create_note actions
+        // This ensures that links between nodes created in the same batch resolve
+        // correctly without triggering automatic blank-node creation.
+        for (const action of parsed.actions) {
+          if (action.action === 'create_note') {
+            await createNote(pageId, action.title);
+          }
+        }
 
         for (const action of parsed.actions) {
           if (action.action === 'create_note' || action.action === 'create_link' || action.action === 'delete_link') {
