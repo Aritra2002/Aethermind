@@ -50,6 +50,8 @@ export const DataSettingsTab: React.FC<DataSettingsTabProps> = ({
       const notes = await db.notes.toArray();
       const links = await db.links.toArray();
       const categoriesData = await db.categories.toArray();
+      const pages = await db.pages.toArray();
+      const snapshots = await db.snapshots.toArray();
 
       const backup = {
         version: 1,
@@ -57,7 +59,9 @@ export const DataSettingsTab: React.FC<DataSettingsTabProps> = ({
         timestamp: Date.now(),
         notes,
         links,
-        categories: categoriesData
+        categories: categoriesData,
+        pages,
+        snapshots
       };
 
       const jsonStr = JSON.stringify(backup, null, 2);
@@ -97,10 +101,19 @@ export const DataSettingsTab: React.FC<DataSettingsTabProps> = ({
           setShowImportConfirm(false);
           return;
         }
-        await db.transaction('rw', db.notes, db.links, db.categories, async () => {
+        await db.transaction('rw', db.notes, db.links, db.categories, db.pages, db.snapshots, async () => {
           await db.notes.clear();
           await db.links.clear();
           await db.categories.clear();
+          await db.pages.clear();
+          await db.snapshots.clear();
+          
+          if (json.pages && json.pages.length > 0) {
+            await db.pages.bulkAdd(json.pages);
+          } else {
+            await db.pages.add({ title: 'Graph', createdAt: Date.now() });
+          }
+          if (json.snapshots) await db.snapshots.bulkAdd(json.snapshots);
           if (json.notes) await db.notes.bulkAdd(json.notes);
           if (json.links) await db.links.bulkAdd(json.links);
           if (json.categories) {
@@ -154,12 +167,12 @@ export const DataSettingsTab: React.FC<DataSettingsTabProps> = ({
         <div className="action-buttons-grid">
           <button className="settings-action-btn" onClick={handleExportData}>
             <Download size={16} />
-            <span>Export Backup (JSON)</span>
+            <span>Export Full Backup (JSON)</span>
           </button>
-
+          
           <button className="settings-action-btn" onClick={() => fileInputRef.current?.click()}>
             <Upload size={16} />
-            <span>Import Backup (JSON)</span>
+            <span>Import Full Backup (JSON)</span>
           </button>
           <input
             type="file"

@@ -22,6 +22,7 @@ interface GraphCanvasProps {
   onOpenSearch?: () => void;
   onCloseSearch?: () => void;
   nlpClustering?: boolean;
+  pageTitle?: string;
 }
 
 interface SimNode extends d3.SimulationNodeDatum {
@@ -57,7 +58,8 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
   onOpenSidebar,
   onOpenSearch,
   onCloseSearch,
-  nlpClustering
+  nlpClustering,
+  pageTitle
 }) => {
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   useEffect(() => {
@@ -109,7 +111,8 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
         const url = URL.createObjectURL(content);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'aethermind-graph.zip';
+        const safePageName = pageTitle ? pageTitle.replace(/[^a-z0-9-]/gi, '-').toLowerCase() : 'graph';
+        a.download = `aethermind-${safePageName}.zip`;
         a.click();
         URL.revokeObjectURL(url);
       } catch (err) {
@@ -1011,7 +1014,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
               }}
               title="Export graph as ZIP"
             >
-              <Download size={16} /> {isMobile ? '' : 'Export'}
+              <Download size={16} /> {isMobile ? '' : 'Export ZIP'}
             </button>
           </div>
           <button

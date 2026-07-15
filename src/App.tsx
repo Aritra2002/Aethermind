@@ -762,6 +762,7 @@ ${summaries}
               onOpenSearch={() => setIsSearchOpen(!isSearchOpen)}
               onCloseSearch={() => setIsSearchOpen(false)}
               nlpClustering={nlpClustering && !historicalSnapshot}
+              pageTitle={pages.find(p => p.id === currentPageId)?.title}
             />
           </Suspense>
 
