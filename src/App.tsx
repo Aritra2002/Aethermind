@@ -75,6 +75,60 @@ export default function App() {
   // Graph Snapshot historical mode
   const [historicalSnapshot, setHistoricalSnapshot] = useState<{ notes: Note[]; links: Link[]; timestamp: number } | null>(null);
 
+  // Multi-theme state
+  const [activeTheme, setActiveTheme] = useState<string>(() => {
+    return localStorage.getItem('aethermind-theme') || 'dark';
+  });
+
+  const [customThemeColors, setCustomThemeColors] = useState(() => {
+    const saved = localStorage.getItem('aethermind-custom-themes');
+    return saved ? JSON.parse(saved) : {
+      bgPrimary: '#06071a',
+      textPrimary: '#ffffff',
+      accentPrimary: '#7c3aed'
+    };
+  });
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', activeTheme);
+    localStorage.setItem('aethermind-theme', activeTheme);
+    
+    const root = document.documentElement;
+    if (activeTheme === 'custom') {
+      // Apply the chosen custom colors
+      Object.entries(customThemeColors).forEach(([key, val]) => {
+        if (val) {
+          const cssVar = '--' + key.replace(/([A-Z])/g, '-$1').toLowerCase();
+          root.style.setProperty(cssVar, val as string);
+          
+          // If background color is customized, map it to gradients and other properties
+          if (key === 'bgPrimary') {
+            root.style.setProperty('--bg-gradient-1', val as string);
+            root.style.setProperty('--bg-gradient-2', val as string);
+            root.style.setProperty('--bg-gradient-3', val as string);
+          }
+          // If text color is customized, map it to secondary text too
+          if (key === 'textPrimary') {
+            root.style.setProperty('--text-secondary', (val as string) + 'b3'); // roughly 70% opacity
+          }
+          // If accent color is customized, map it to link highlight too
+          if (key === 'accentPrimary') {
+            root.style.setProperty('--link-highlight', val as string);
+            root.style.setProperty('--border-glow', (val as string) + '33'); // roughly 20% opacity
+          }
+        }
+      });
+    } else {
+      // Clear custom theme attributes if presets are selected
+      const allKeys = ['bgPrimary', 'textPrimary', 'accentPrimary', 'bg-gradient-1', 'bg-gradient-2', 'bg-gradient-3', 'text-secondary', 'link-highlight', 'border-glow'];
+      allKeys.forEach((key) => {
+        const cssVar = key.includes('-') ? '--' + key : '--' + key.replace(/([A-Z])/g, '-$1').toLowerCase();
+        root.style.removeProperty(cssVar);
+      });
+    }
+    localStorage.setItem('aethermind-custom-themes', JSON.stringify(customThemeColors));
+  }, [activeTheme, customThemeColors]);
+
   const handlePhysicsChange = (newConfig: { linkDistance: number; chargeStrength: number }) => {
     setPhysicsConfig(newConfig);
     localStorage.setItem('aethermind-physics', JSON.stringify(newConfig));
@@ -926,6 +980,19 @@ ${summaries}
           pageTitle={pages.find(p => p.id === currentPageId)?.title}
           onSaveSnapshot={handleSaveSnapshot}
           onViewSnapshots={handleBrowseSnapshots}
+          activeTheme={activeTheme}
+          onThemeSelect={setActiveTheme}
+          customThemeColors={customThemeColors}
+          onCustomThemeColorChange={(key, val) => {
+            setCustomThemeColors((prev: Record<string, string>) => ({ ...prev, [key]: val }));
+          }}
+          onCustomThemeReset={() => {
+            setCustomThemeColors({
+              bgPrimary: '#06071a',
+              textPrimary: '#ffffff',
+              accentPrimary: '#7c3aed'
+            });
+          }}
         />
       )}
 

@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { X, Database, Brain, Info, Calendar as CalendarIcon } from 'lucide-react';
+import { X, Database, Brain, Info, Calendar as CalendarIcon, Palette } from 'lucide-react';
 import packageJson from '../../../package.json';
 import { DataSettingsTab } from './DataSettingsTab';
 import { AiSettingsTab } from './AiSettingsTab';
 import { JournalCalendar } from '../JournalCalendar';
+import { AppearanceSettingsTab } from './AppearanceSettingsTab';
 import type { Category } from '../../db';
 
 interface SettingsModalProps {
@@ -18,9 +19,14 @@ interface SettingsModalProps {
   onViewSnapshots?: () => void;
   activePageId: number;
   pageTitle?: string;
+  activeTheme: string;
+  onThemeSelect: (theme: string) => void;
+  customThemeColors: Record<string, string>;
+  onCustomThemeColorChange: (key: string, color: string) => void;
+  onCustomThemeReset: () => void;
 }
 
-type TabType = 'data' | 'journal' | 'ai' | 'about';
+type TabType = 'data' | 'journal' | 'ai' | 'appearance' | 'about';
 
 export const SettingsModal: React.FC<SettingsModalProps> = (props) => {
   const [activeTab, setActiveTab] = useState<TabType>('data');
@@ -59,6 +65,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = (props) => {
             <button className={`tab-btn ${activeTab === 'ai' ? 'active' : ''}`} onClick={() => setActiveTab('ai')} style={{ width: isMobile ? 'auto' : '100%', justifyContent: 'flex-start', whiteSpace: 'nowrap' }}>
               <Brain size={16} /> AI Integration
             </button>
+            <button className={`tab-btn ${activeTab === 'appearance' ? 'active' : ''}`} onClick={() => setActiveTab('appearance')} style={{ width: isMobile ? 'auto' : '100%', justifyContent: 'flex-start', whiteSpace: 'nowrap' }}>
+              <Palette size={16} /> Appearance
+            </button>
             { !isMobile && <div style={{ flex: 1 }}></div> }
             <button className={`tab-btn ${activeTab === 'about' ? 'active' : ''}`} onClick={() => setActiveTab('about')} style={{ width: isMobile ? 'auto' : '100%', justifyContent: 'flex-start', whiteSpace: 'nowrap' }}>
               <Info size={16} /> About
@@ -88,6 +97,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = (props) => {
             )}
             {activeTab === 'journal' && <JournalCalendar />}
             {activeTab === 'ai' && <AiSettingsTab />}
+            {activeTab === 'appearance' && (
+              <AppearanceSettingsTab
+                activeTheme={props.activeTheme}
+                onThemeSelect={props.onThemeSelect}
+                customThemeColors={props.customThemeColors}
+                onCustomThemeColorChange={props.onCustomThemeColorChange}
+                onCustomThemeReset={props.onCustomThemeReset}
+              />
+            )}
             {activeTab === 'about' && (
               <div className="settings-section about-section" style={{ marginTop: '40px' }}>
                 <div className="about-header">

@@ -67,6 +67,168 @@
   /* Fonts */
   --font-serif: 'Playfair Display', Georgia, serif;
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+
+  /* Aesthetic parameters (Dark default) */
+  --bg-gradient-1: #0d0a2e;
+  --bg-gradient-2: #06071a;
+  --bg-gradient-3: #070d1f;
+
+  --glass-panel-bg-1: rgba(15, 20, 50, 0.85);
+  --glass-panel-bg-2: rgba(8, 12, 35, 0.9);
+  --glass-panel-border: rgba(124, 58, 237, 0.15);
+  --glass-panel-glow: rgba(124, 58, 237, 0.08);
+  --glass-panel-shadow: rgba(0, 0, 0, 0.5);
+  --glass-panel-inset-shadow: rgba(255, 255, 255, 0.06);
+
+  --input-bg: rgba(18, 24, 58, 0.6);
+  --input-border: rgba(124, 58, 237, 0.3);
+  --input-focus-bg: rgba(18, 24, 58, 0.8);
+  --input-focus-border: rgba(124, 58, 237, 0.8);
+  --input-focus-glow: rgba(124, 58, 237, 0.2);
+}
+
+/* LIGHT THEME */
+html[data-theme="light"] {
+  color-scheme: light;
+  --bg-primary: #f8fafc;
+  --bg-secondary: #f1f5f9;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --border-color: #cbd5e1;
+  --accent-primary: #4f46e5;
+  --accent-secondary: #0ea5e9;
+  --accent-gold: #eab308;
+  --glow-primary: rgba(79, 70, 229, 0.15);
+  --glow-secondary: rgba(14, 165, 233, 0.15);
+  --surface-glass: rgba(255, 255, 255, 0.75);
+  --surface-glass-heavy: rgba(248, 250, 252, 0.85);
+  --surface-glass-light: rgba(255, 255, 255, 0.5);
+  --surface-card: rgba(255, 255, 255, 0.9);
+  --border-glow: rgba(79, 70, 229, 0.1);
+  --bg-gradient-1: #f1f5f9;
+  --bg-gradient-2: #f8fafc;
+  --bg-gradient-3: #e2e8f0;
+  --glass-panel-bg-1: rgba(255, 255, 255, 0.85);
+  --glass-panel-bg-2: rgba(248, 250, 252, 0.95);
+  --glass-panel-border: rgba(79, 70, 229, 0.12);
+  --glass-panel-glow: rgba(79, 70, 229, 0.05);
+  --glass-panel-shadow: rgba(15, 23, 42, 0.08);
+  --glass-panel-inset-shadow: rgba(255, 255, 255, 0.8);
+  --input-bg: rgba(255, 255, 255, 0.8);
+  --input-border: rgba(79, 70, 229, 0.2);
+  --input-focus-bg: rgba(255, 255, 255, 0.95);
+  --input-focus-border: rgba(79, 70, 229, 0.6);
+  --input-focus-glow: rgba(79, 70, 229, 0.15);
+  --link-color: rgba(15, 23, 42, 0.15);
+  --link-highlight: #4f46e5;
+}
+
+/* SEPIA THEME */
+html[data-theme="sepia"] {
+  color-scheme: light;
+  --bg-primary: #f4ecd8;
+  --bg-secondary: #eaddca;
+  --text-primary: #5c4033;
+  --text-secondary: #8c6239;
+  --border-color: #d2b48c;
+  --accent-primary: #a0522d;
+  --accent-secondary: #cd853f;
+  --accent-gold: #b8860b;
+  --glow-primary: rgba(160, 82, 45, 0.15);
+  --glow-secondary: rgba(205, 133, 63, 0.15);
+  --surface-glass: rgba(253, 250, 242, 0.75);
+  --surface-glass-heavy: rgba(244, 236, 216, 0.85);
+  --surface-glass-light: rgba(253, 250, 242, 0.5);
+  --surface-card: rgba(253, 250, 242, 0.9);
+  --border-glow: rgba(160, 82, 45, 0.1);
+  --bg-gradient-1: #eaddca;
+  --bg-gradient-2: #f4ecd8;
+  --bg-gradient-3: #e4d5be;
+  --glass-panel-bg-1: rgba(253, 250, 242, 0.85);
+  --glass-panel-bg-2: rgba(244, 236, 216, 0.95);
+  --glass-panel-border: rgba(160, 82, 45, 0.15);
+  --glass-panel-glow: rgba(160, 82, 45, 0.05);
+  --glass-panel-shadow: rgba(92, 64, 51, 0.1);
+  --glass-panel-inset-shadow: rgba(255, 255, 255, 0.8);
+  --input-bg: rgba(253, 250, 242, 0.8);
+  --input-border: rgba(160, 82, 45, 0.25);
+  --input-focus-bg: rgba(253, 250, 242, 0.95);
+  --input-focus-border: rgba(160, 82, 45, 0.6);
+  --input-focus-glow: rgba(160, 82, 45, 0.15);
+  --link-color: rgba(92, 64, 51, 0.2);
+  --link-highlight: #a0522d;
+}
+
+/* MIDNIGHT THEME */
+html[data-theme="midnight"] {
+  color-scheme: dark;
+  --bg-primary: #020205;
+  --bg-secondary: #09090b;
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --border-color: #27272a;
+  --accent-primary: #e11d48;
+  --accent-secondary: #a855f7;
+  --accent-gold: #f59e0b;
+  --glow-primary: rgba(225, 29, 72, 0.35);
+  --glow-secondary: rgba(168, 85, 247, 0.25);
+  --surface-glass: rgba(10, 10, 12, 0.8);
+  --surface-glass-heavy: rgba(4, 4, 6, 0.9);
+  --surface-glass-light: rgba(18, 18, 24, 0.65);
+  --surface-card: rgba(15, 15, 20, 0.95);
+  --border-glow: rgba(225, 29, 72, 0.2);
+  --bg-gradient-1: #09090b;
+  --bg-gradient-2: #020205;
+  --bg-gradient-3: #000000;
+  --glass-panel-bg-1: rgba(10, 10, 12, 0.9);
+  --glass-panel-bg-2: rgba(4, 4, 6, 0.95);
+  --glass-panel-border: rgba(225, 29, 72, 0.15);
+  --glass-panel-glow: rgba(225, 29, 72, 0.05);
+  --glass-panel-shadow: rgba(0, 0, 0, 0.85);
+  --glass-panel-inset-shadow: rgba(255, 255, 255, 0.02);
+  --input-bg: rgba(10, 10, 12, 0.7);
+  --input-border: rgba(225, 29, 72, 0.25);
+  --input-focus-bg: rgba(15, 15, 18, 0.95);
+  --input-focus-border: rgba(225, 29, 72, 0.7);
+  --input-focus-glow: rgba(225, 29, 72, 0.2);
+  --link-color: rgba(255, 255, 255, 0.15);
+  --link-highlight: #e11d48;
+}
+
+/* OCEAN THEME */
+html[data-theme="ocean"] {
+  color-scheme: dark;
+  --bg-primary: #051622;
+  --bg-secondary: #0b2d45;
+  --text-primary: #e0f2fe;
+  --text-secondary: #7dd3fc;
+  --border-color: #1e3a5f;
+  --accent-primary: #0ea5e9;
+  --accent-secondary: #2dd4bf;
+  --accent-gold: #f59e0b;
+  --glow-primary: rgba(14, 165, 233, 0.35);
+  --glow-secondary: rgba(45, 212, 191, 0.25);
+  --surface-glass: rgba(11, 45, 69, 0.75);
+  --surface-glass-heavy: rgba(5, 22, 34, 0.85);
+  --surface-glass-light: rgba(19, 64, 95, 0.6);
+  --surface-card: rgba(11, 45, 69, 0.9);
+  --border-glow: rgba(14, 165, 233, 0.2);
+  --bg-gradient-1: #05263b;
+  --bg-gradient-2: #051622;
+  --bg-gradient-3: #0b2d45;
+  --glass-panel-bg-1: rgba(11, 45, 69, 0.85);
+  --glass-panel-bg-2: rgba(5, 22, 34, 0.9);
+  --glass-panel-border: rgba(14, 165, 233, 0.15);
+  --glass-panel-glow: rgba(14, 165, 233, 0.08);
+  --glass-panel-shadow: rgba(0, 0, 0, 0.6);
+  --glass-panel-inset-shadow: rgba(255, 255, 255, 0.05);
+  --input-bg: rgba(11, 45, 69, 0.6);
+  --input-border: rgba(14, 165, 233, 0.3);
+  --input-focus-bg: rgba(11, 45, 69, 0.8);
+  --input-focus-border: rgba(14, 165, 233, 0.8);
+  --input-focus-glow: rgba(14, 165, 233, 0.25);
+  --link-color: rgba(125, 211, 252, 0.2);
+  --link-highlight: #2dd4bf;
 }
 
 * {
@@ -76,8 +238,8 @@
 }
 
 body {
-  background: radial-gradient(ellipse at 20% 50%, #0d0a2e 0%, #06071a 60%),
-              radial-gradient(ellipse at 80% 20%, #070d1f 0%, transparent 50%);
+  background: radial-gradient(ellipse at 20% 50%, var(--bg-gradient-1) 0%, var(--bg-gradient-2) 60%),
+              radial-gradient(ellipse at 80% 20%, var(--bg-gradient-3) 0%, transparent 50%);
   background-color: var(--bg-primary);
   color: var(--text-primary);
   font-family: var(--font-sans);
@@ -104,12 +266,12 @@ body {
 /* Glassmorphism panels */
 .glass-panel {
   animation: fadeScaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  background: linear-gradient(135deg, rgba(15, 20, 50, 0.85) 0%, rgba(8, 12, 35, 0.9) 100%);
+  background: linear-gradient(135deg, var(--glass-panel-bg-1) 0%, var(--glass-panel-bg-2) 100%);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(124, 58, 237, 0.15);
+  border: 1px solid var(--glass-panel-border);
   border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 0 0 1px rgba(124, 58, 237, 0.08);
+  box-shadow: 0 8px 32px var(--glass-panel-shadow), inset 0 1px 0 var(--glass-panel-inset-shadow), 0 0 0 1px var(--glass-panel-glow);
 }
 
 /* Animations */
@@ -152,8 +314,8 @@ body {
 
 /* Stylish inputs */
 input[type="text"], input[type="number"], .note-textarea, .chat-input, .prompt-textarea, .search-input {
-  background: rgba(18, 24, 58, 0.6);
-  border: 1px solid rgba(124, 58, 237, 0.3);
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
   border-radius: 8px;
   color: var(--text-primary);
   padding: 10px 14px;
@@ -163,10 +325,10 @@ input[type="text"], input[type="number"], .note-textarea, .chat-input, .prompt-t
 }
 
 input[type="text"]:focus, input[type="number"]:focus, .note-textarea:focus, .chat-input:focus, .prompt-textarea:focus, .search-input:focus {
-  border-color: rgba(124, 58, 237, 0.8);
-  background: rgba(18, 24, 58, 0.8);
+  border-color: var(--input-focus-border);
+  background: var(--input-focus-bg);
   outline: none;
-  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.2), inset 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 0 0 3px var(--input-focus-glow), inset 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 input::placeholder, textarea::placeholder {

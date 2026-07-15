@@ -26,6 +26,13 @@ describe('SettingsModal Responsive isMobile check', () => {
       categories: [],
       nlpClustering: false,
       onNlpClusteringChange: vi.fn(),
+      activePageId: 1,
+      pageTitle: 'Test Page',
+      activeTheme: 'dark',
+      onThemeSelect: vi.fn(),
+      customThemeColors: {},
+      onCustomThemeColorChange: vi.fn(),
+      onCustomThemeReset: vi.fn(),
     };
 
     const container = document.createElement('div');

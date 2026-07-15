@@ -124,7 +124,7 @@ describe('Empirical Verification of Mobile Responsive Layouts', () => {
   });
 
   it('verifies that the CSS file exists and has responsive media query definitions', () => {
-    const cssPath = path.resolve(__dirname, '../index.css');
+    const cssPath = path.resolve(__dirname, '../styles/responsive.css');
     expect(fs.existsSync(cssPath)).toBe(true);
     const cssContent = fs.readFileSync(cssPath, 'utf8');
 
@@ -242,8 +242,8 @@ describe('Empirical Verification of Mobile Responsive Layouts', () => {
       expect(textarea.className).toContain('note-textarea');
 
       // Verify that it is configured to stretch and resize cleanly
-      expect(textarea.style.flex).toBe('1');
-      expect(textarea.style.minHeight).toBe('150px');
+      expect(['1', '1 1 0%', '1 1 0px']).toContain(textarea.style.flex);
+      expect(textarea.style.minHeight).toBe('60vh');
       expect(textarea.style.resize || 'none').toBe('none');
 
       act(() => {

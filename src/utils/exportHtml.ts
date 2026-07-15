@@ -8,6 +8,32 @@ export const exportToHtml = async (pageId: number, pageTitle: string = 'Graph') 
   
   const safeTitle = pageTitle.replace(/[^a-z0-9-]/gi, ' ').trim();
   
+  const currentTheme = localStorage.getItem('aethermind-theme') || 'dark';
+  let customThemeCSS = '';
+  try {
+    const custom = JSON.parse(localStorage.getItem('aethermind-custom-themes') || '{}');
+    if (custom && Object.keys(custom).length > 0) {
+      const bg = custom.bgPrimary || '#06071a';
+      const text = custom.textPrimary || '#ffffff';
+      const textSec = text + 'b3';
+      const accent = custom.accentPrimary || '#7c3aed';
+      
+      customThemeCSS = `
+  html[data-theme="custom"] {
+    --bg-color: ${bg};
+    --surface-color: ${bg};
+    --surface-hover: rgba(255, 255, 255, 0.05);
+    --text-primary: ${text};
+    --text-secondary: ${textSec};
+    --accent: ${accent};
+    --border-color: rgba(255, 255, 255, 0.08);
+  }
+  `;
+    }
+  } catch (e) {
+    console.error("Failed to read custom theme config", e);
+  }
+  
   let html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -15,15 +41,53 @@ export const exportToHtml = async (pageId: number, pageTitle: string = 'Graph') 
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AetherMind Export - ${safeTitle}</title>
 <style>
-  :root {
-    --bg-color: #0A0A0A;
-    --surface-color: #1C1C1C;
-    --surface-hover: #2A2A2A;
-    --text-primary: #F5F5F0;
-    --text-secondary: #8F8F8F;
-    --accent: #B59A5F;
-    --border-color: rgba(255, 255, 255, 0.05);
+  /* Preset theme configurations */
+  :root, html[data-theme="dark"] {
+    --bg-color: #06071a;
+    --surface-color: rgba(15, 20, 40, 0.75);
+    --surface-hover: rgba(25, 35, 60, 0.6);
+    --text-primary: #ffffff;
+    --text-secondary: #d1d5db;
+    --accent: #7c3aed;
+    --border-color: rgba(255, 255, 255, 0.08);
   }
+  html[data-theme="light"] {
+    --bg-color: #f8fafc;
+    --surface-color: #ffffff;
+    --surface-hover: #f1f5f9;
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+    --accent: #4f46e5;
+    --border-color: #cbd5e1;
+  }
+  html[data-theme="sepia"] {
+    --bg-color: #f4ecd8;
+    --surface-color: #fdfaf2;
+    --surface-hover: #eaddca;
+    --text-primary: #5c4033;
+    --text-secondary: #8c6239;
+    --accent: #a0522d;
+    --border-color: #d2b48c;
+  }
+  html[data-theme="midnight"] {
+    --bg-color: #020205;
+    --surface-color: #09090b;
+    --surface-hover: #18181b;
+    --text-primary: #f8fafc;
+    --text-secondary: #94a3b8;
+    --accent: #e11d48;
+    --border-color: #27272a;
+  }
+  html[data-theme="ocean"] {
+    --bg-color: #051622;
+    --surface-color: #0b2d45;
+    --surface-hover: #13405f;
+    --text-primary: #e0f2fe;
+    --text-secondary: #7dd3fc;
+    --accent: #0ea5e9;
+    --border-color: #1e3a5f;
+  }
+  ${customThemeCSS}
   * { box-sizing: border-box; }
   body { 
     font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
@@ -205,6 +269,17 @@ export const exportToHtml = async (pageId: number, pageTitle: string = 'Graph') 
     <div class="sidebar-header">
       <h1>${safeTitle}</h1>
       <p>Exported on ${new Date().toLocaleString()}</p>
+      <div class="theme-selector-container" style="margin-top: 15px; display: flex; align-items: center; gap: 8px;">
+        <label for="themeSelect" style="font-size: 0.75rem; color: var(--text-secondary);">Theme:</label>
+        <select id="themeSelect" style="background: var(--bg-color); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 6px; padding: 4px 8px; font-size: 0.8rem; cursor: pointer; font-family: inherit; flex: 1; outline: none;">
+          <option value="dark">Dark Space</option>
+          <option value="light">Light Clean</option>
+          <option value="sepia">Sepia Warm</option>
+          <option value="midnight">Midnight</option>
+          <option value="ocean">Ocean Tide</option>
+          <option value="custom">Custom</option>
+        </select>
+      </div>
     </div>
     <div class="search-container">
       <input type="text" id="searchInput" class="search-input" placeholder="Search notes...">
@@ -253,6 +328,20 @@ export const exportToHtml = async (pageId: number, pageTitle: string = 'Graph') 
     </div>
   </div>
   <script>
+    // Theme switcher persistence controller
+    const themeSelect = document.getElementById('themeSelect');
+    const savedTheme = localStorage.getItem('aethermind-export-theme') || '${currentTheme}';
+
+    // Set initial theme
+    document.documentElement.setAttribute('data-theme', savedTheme);
+    themeSelect.value = savedTheme;
+
+    themeSelect.addEventListener('change', (e) => {
+      const selectedTheme = e.target.value;
+      document.documentElement.setAttribute('data-theme', selectedTheme);
+      localStorage.setItem('aethermind-export-theme', selectedTheme);
+    });
+
     // Search functionality
     const searchInput = document.getElementById('searchInput');
     const tocItems = document.querySelectorAll('.toc-item');

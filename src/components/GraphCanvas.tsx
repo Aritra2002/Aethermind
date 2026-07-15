@@ -72,6 +72,56 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
   const [dimensions, setDimensions] = useState({ width: 600, height: 600 });
   const [transform, setTransform] = useState(d3.zoomIdentity);
   const isNodeDraggingRef = useRef(false);
+
+  // Cached Theme Colors mechanism to prevent style recalculation layout thrashing
+  const themeColorsRef = useRef({
+    bgPrimary: '#06071a',
+    textPrimary: '#ffffff',
+    textSecondary: '#d1d5db',
+    linkColor: 'rgba(255, 255, 255, 0.25)',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    activeRing: 'rgba(255, 255, 255, 0.4)',
+    pinnedRing: '#ffffff'
+  });
+
+  useEffect(() => {
+    const updateThemeColors = () => {
+      const styles = getComputedStyle(document.documentElement);
+      
+      const bgPrimary = styles.getPropertyValue('--bg-primary').trim() || '#06071a';
+      const textPrimary = styles.getPropertyValue('--text-primary').trim() || '#ffffff';
+      const textSecondary = styles.getPropertyValue('--text-secondary').trim() || '#d1d5db';
+      const linkColor = styles.getPropertyValue('--link-color').trim() || 'rgba(255, 255, 255, 0.25)';
+      const borderColor = styles.getPropertyValue('--border-color').trim() || 'rgba(255, 255, 255, 0.08)';
+      
+      // Determine if context is light background for ring contrast
+      const isLightBg = textPrimary === '#0f172a' || textPrimary === '#5c4033' || bgPrimary === '#f8fafc' || bgPrimary === '#f4ecd8' || styles.getPropertyValue('color-scheme').trim() === 'light';
+      const activeRing = isLightBg ? 'rgba(0, 0, 0, 0.3)' : 'rgba(255, 255, 255, 0.4)';
+      const pinnedRing = isLightBg ? '#000000' : '#ffffff';
+
+      themeColorsRef.current = {
+        bgPrimary,
+        textPrimary,
+        textSecondary,
+        linkColor,
+        borderColor,
+        activeRing,
+        pinnedRing
+      };
+    };
+
+    updateThemeColors();
+
+    const observer = new MutationObserver(() => {
+      updateThemeColors();
+    });
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-theme', 'style']
+    });
+
+    return () => observer.disconnect();
+  }, []);
   const [showHelp, setShowHelp] = useState(false);
   const [tooltip, setTooltip] = useState<{
     visible: boolean;
@@ -124,16 +174,30 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
     if (format === 'png') {
       const canvas = canvasRef.current;
       if (!canvas) return;
-      canvas.toBlob(blob => {
-        if (blob) {
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = 'aethermind-graph.png';
-          a.click();
-          URL.revokeObjectURL(url);
-        }
-      });
+      
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = canvas.width;
+      tempCanvas.height = canvas.height;
+      const tempCtx = tempCanvas.getContext('2d');
+      if (tempCtx) {
+        // Paint solid background color from active theme
+        tempCtx.fillStyle = themeColorsRef.current.bgPrimary;
+        tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+        
+        // Render simulation canvas content on top
+        tempCtx.drawImage(canvas, 0, 0);
+        
+        tempCanvas.toBlob(blob => {
+          if (blob) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'aethermind-graph.png';
+            a.click();
+            URL.revokeObjectURL(url);
+          }
+        });
+      }
     } else {
       const sim = simulationRef.current;
       if (!sim) return;
@@ -141,14 +205,15 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
       const linkForce = sim.force('link') as d3.ForceLink<SimNode, d3.SimulationLinkDatum<SimNode>>;
       const currentLinks = linkForce ? (linkForce.links() as { source: SimNode; target: SimNode }[]) : [];
       
-      let svgStr = `<svg xmlns="http://www.w3.org/2000/svg" width="${dimensions.width}" height="${dimensions.height}" style="background-color: #06071a;">`;
+      const colors = themeColorsRef.current;
+      let svgStr = `<svg xmlns="http://www.w3.org/2000/svg" width="${dimensions.width}" height="${dimensions.height}" style="background-color: ${colors.bgPrimary};">`;
       svgStr += `<g transform="translate(${transform.x}, ${transform.y}) scale(${transform.k})">`;
       
       currentLinks.forEach(link => {
         const source = link.source;
         const target = link.target;
         if (source.x === undefined || source.y === undefined || target.x === undefined || target.y === undefined) return;
-        svgStr += `<line x1="${source.x}" y1="${source.y}" x2="${target.x}" y2="${target.y}" stroke="rgba(255,255,255,0.25)" stroke-width="1.5" />`;
+        svgStr += `<line x1="${source.x}" y1="${source.y}" x2="${target.x}" y2="${target.y}" stroke="${colors.linkColor}" stroke-width="1.5" />`;
       });
       
       currentNodes.forEach(node => {
@@ -156,7 +221,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
         const categoryObj = categories.find(c => c.id === node.category);
         const color = node.color || categoryObj?.color || '#818cf8';
         svgStr += `<circle cx="${node.x}" cy="${node.y}" r="${node.radius}" fill="${color}" />`;
-        svgStr += `<text x="${node.x}" y="${node.y + 16}" fill="#e5e7eb" font-family="Inter" font-size="12" font-weight="500" text-anchor="middle" dominant-baseline="hanging">${node.title.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</text>`;
+        svgStr += `<text x="${node.x}" y="${node.y + 16}" fill="${colors.textSecondary}" font-family="Inter" font-size="12" font-weight="500" text-anchor="middle" dominant-baseline="hanging">${node.title.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</text>`;
       });
       
       svgStr += `</g></svg>`;
@@ -399,10 +464,12 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
 
         // Styling
         if (source.isDimmed || target.isDimmed) {
-          ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+          ctx.strokeStyle = themeColorsRef.current.linkColor;
           ctx.lineWidth = 1;
           ctx.setLineDash([]);
+          ctx.globalAlpha = 0.1;
         } else if (isConnectionActive) {
+          ctx.globalAlpha = 1.0;
           // Glow highlighting for connected notes
           const activeColor = activeNote?.color || categories.find(c => c.id === activeNote?.category)?.color || '#818cf8';
           ctx.strokeStyle = activeColor;
@@ -412,12 +479,14 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
           ctx.setLineDash([6, 4]);
           ctx.lineDashOffset = -dashOffset;
         } else {
-          ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+          ctx.globalAlpha = 0.6;
+          ctx.strokeStyle = themeColorsRef.current.linkColor;
           ctx.lineWidth = 1.5;
           ctx.setLineDash([]);
         }
 
         ctx.stroke();
+        ctx.globalAlpha = 1.0;
       });
 
       // Reset dash for nodes drawing
@@ -456,7 +525,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
 
         // Draw pinned ring
         if (node.fx !== null && node.fx !== undefined) {
-          ctx.strokeStyle = '#ffffff';
+          ctx.strokeStyle = themeColorsRef.current.pinnedRing;
           ctx.lineWidth = 1.5;
           ctx.beginPath();
           ctx.arc(node.x, node.y, isActive ? node.radius + 8 : node.radius + 4, 0, 2 * Math.PI);
@@ -466,7 +535,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
         // Draw Active Ring highlight
         if (isActive) {
           ctx.shadowBlur = 0;
-          ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+          ctx.strokeStyle = themeColorsRef.current.activeRing;
           ctx.lineWidth = 2;
           ctx.beginPath();
           ctx.arc(node.x, node.y, node.radius + 10, 0, 2 * Math.PI);
@@ -477,12 +546,12 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
         ctx.shadowBlur = 0; // Clear shadow properties for text
         ctx.shadowColor = 'transparent';
         ctx.font = '500 12px Inter';
-        ctx.fillStyle = isActive ? '#ffffff' : '#e5e7eb';
+        ctx.fillStyle = isActive ? themeColorsRef.current.textPrimary : themeColorsRef.current.textSecondary;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
 
         // Text Stroke background for readability
-        ctx.strokeStyle = '#0b0f19';
+        ctx.strokeStyle = themeColorsRef.current.bgPrimary;
         ctx.lineWidth = 3;
         ctx.strokeText(node.title, node.x, node.y + (isActive ? 24 : 16));
         ctx.fillText(node.title, node.x, node.y + (isActive ? 24 : 16));

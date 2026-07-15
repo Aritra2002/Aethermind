@@ -188,7 +188,7 @@ export const DataSettingsTab: React.FC<DataSettingsTabProps> = ({
 
           <button className="settings-action-btn" onClick={() => exportToHtml(activePageId, pageTitle)}>
             <Globe size={16} />
-            <span>Publish to Web (HTML)</span>
+            <span>Export to HTML</span>
           </button>
 
           <button className="settings-action-btn danger-btn" onClick={handleResetDatabase}>

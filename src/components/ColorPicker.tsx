@@ -19,9 +19,18 @@ interface ColorPickerProps {
   defaultColor: string;
   onChange: (color: string) => void;
   onReset: () => void;
+  title?: string;
+  resetLabel?: string;
 }
 
-export const ColorPicker: React.FC<ColorPickerProps> = ({ color, defaultColor, onChange, onReset }) => {
+export const ColorPicker: React.FC<ColorPickerProps> = ({ 
+  color, 
+  defaultColor, 
+  onChange, 
+  onReset,
+  title = "Node Color",
+  resetLabel = "Reset to Category Default"
+}) => {
   const [isOpen, setIsOpen] = useState(false);
   const [hexInput, setHexInput] = useState(color || defaultColor);
   const popoverRef = useRef<HTMLDivElement>(null);
@@ -56,10 +65,10 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({ color, defaultColor, o
   return (
     <div className="color-picker-container" ref={popoverRef}>
       <button 
-        className="color-picker-trigger" 
+      className="color-picker-trigger" 
         onClick={() => setIsOpen(!isOpen)}
         style={{ backgroundColor: displayColor }}
-        title="Change Node Color"
+        title={title}
       >
         <Palette size={12} className="color-picker-icon" style={{ mixBlendMode: 'difference', color: '#fff' }} />
       </button>
@@ -67,7 +76,7 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({ color, defaultColor, o
       {isOpen && (
         <div className="color-picker-popover glass-panel">
           <div className="color-picker-header">
-            <span>Node Color</span>
+            <span>{title}</span>
             <button className="icon-btn" onClick={() => setIsOpen(false)} aria-label="Close color picker"><X size={14} /></button>
           </div>
           
@@ -107,7 +116,7 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({ color, defaultColor, o
 
           {color && (
             <button className="color-reset-btn" onClick={() => { onReset(); setIsOpen(false); }}>
-              Reset to Category Default
+              {resetLabel}
             </button>
           )}
         </div>
