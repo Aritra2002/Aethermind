@@ -2,15 +2,17 @@ import { db } from '../db';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 
-export const exportToHtml = async () => {
-  const notes = await db.notes.toArray();
+export const exportToHtml = async (pageId: number, pageTitle: string = 'Graph') => {
+  const notes = await db.notes.where('pageId').equals(pageId).toArray();
   const categories = await db.categories.toArray();
+  
+  const safeTitle = pageTitle.replace(/[^a-z0-9-]/gi, ' ').trim();
   
   let html = `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>AetherMind Export</title>
+<title>AetherMind Export - ${safeTitle}</title>
 <style>
   body { font-family: sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; background: #0f172a; color: #f8fafc; }
   h1, h2, h3 { color: #818cf8; }
@@ -21,7 +23,7 @@ export const exportToHtml = async () => {
 </style>
 </head>
 <body>
-<h1>AetherMind Export</h1>
+<h1>AetherMind Export: ${safeTitle}</h1>
 <p>Exported on ${new Date().toLocaleString()}</p>
 <hr/>
 `;
@@ -56,7 +58,8 @@ export const exportToHtml = async () => {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `AetherMind_Export_${new Date().toISOString().split('T')[0]}.html`;
+  const fileNameTitle = pageTitle.replace(/[^a-z0-9-]/gi, '-').toLowerCase();
+  a.download = `AetherMind_Export_${fileNameTitle}_${new Date().toISOString().split('T')[0]}.html`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);

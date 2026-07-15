@@ -16,6 +16,8 @@ interface SettingsModalProps {
   onNlpClusteringChange: (val: boolean) => void;
   onSaveSnapshot?: () => void;
   onViewSnapshots?: () => void;
+  activePageId: number;
+  pageTitle?: string;
 }
 
 type TabType = 'data' | 'journal' | 'ai' | 'about';
@@ -71,7 +73,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = (props) => {
           </button>
           
           <div style={{ flex: 1, padding: isMobile ? '56px 16px 16px 16px' : '24px 24px 24px 32px', overflowY: 'auto' }}>
-            {activeTab === 'data' && <DataSettingsTab {...props} />}
+            {activeTab === 'data' && (
+              <DataSettingsTab 
+                onClose={props.onClose} 
+                onRefreshData={props.onRefreshData} 
+                physicsConfig={props.physicsConfig}
+                onPhysicsChange={props.onPhysicsChange}
+                categories={props.categories}
+                nlpClustering={props.nlpClustering}
+                onNlpClusteringChange={props.onNlpClusteringChange}
+                activePageId={props.activePageId}
+                pageTitle={props.pageTitle}
+              />
+            )}
             {activeTab === 'journal' && <JournalCalendar />}
             {activeTab === 'ai' && <AiSettingsTab />}
             {activeTab === 'about' && (

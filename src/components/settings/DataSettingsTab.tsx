@@ -11,6 +11,8 @@ import { useToast } from '../ToastContext';
 interface DataSettingsTabProps {
   onClose: () => void;
   onRefreshData: () => void;
+  activePageId: number;
+  pageTitle?: string;
   physicsConfig: { linkDistance: number; chargeStrength: number };
   onPhysicsChange: (config: { linkDistance: number; chargeStrength: number }) => void;
   categories: Category[];
@@ -23,6 +25,8 @@ interface DataSettingsTabProps {
 export const DataSettingsTab: React.FC<DataSettingsTabProps> = ({
   onClose,
   onRefreshData,
+  activePageId,
+  pageTitle = 'Graph',
   physicsConfig,
   onPhysicsChange,
   categories,
@@ -182,7 +186,7 @@ export const DataSettingsTab: React.FC<DataSettingsTabProps> = ({
             onChange={handleImportData}
           />
 
-          <button className="settings-action-btn" onClick={exportToHtml}>
+          <button className="settings-action-btn" onClick={() => exportToHtml(activePageId, pageTitle)}>
             <Globe size={16} />
             <span>Publish to Web (HTML)</span>
           </button>

@@ -922,6 +922,8 @@ ${summaries}
             setNlpClustering(val);
             localStorage.setItem('aethermind-nlp-clustering', String(val));
           }}
+          activePageId={currentPageId}
+          pageTitle={pages.find(p => p.id === currentPageId)?.title}
           onSaveSnapshot={handleSaveSnapshot}
           onViewSnapshots={handleBrowseSnapshots}
         />
