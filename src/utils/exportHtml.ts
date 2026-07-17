@@ -330,9 +330,6 @@ export const exportToHtml = async (pageId: number, pageTitle: string = 'Graph') 
           <span style="color: var(--text-primary); opacity: 0.7;">Accent Color</span>
           <input type="color" id="customAccent" class="custom-color-picker">
         </div>
-        <div style="font-size: 0.65rem; color: var(--text-primary); opacity: 0.5; margin-top: 4px; line-height: 1.3; text-align: center; border-top: 1px solid var(--border-color); padding-top: 8px; width: 100%;">
-          Tip: Drag the picker pointer inside the color square to change from white/black.
-        </div>
       </div>
     </div>
     <div class="search-container">
@@ -481,6 +478,45 @@ export const exportToHtml = async (pageId: number, pageTitle: string = 'Graph') 
         applyCustomThemeStyles();
       }
     };
+
+    // UX Helpers to prevent native Hue slider from getting stuck on pure white/black
+    let originalTextVal = null;
+    customText.addEventListener('click', () => {
+      const val = customText.value.toLowerCase();
+      if (val === '#ffffff' || val === '#000000') {
+        originalTextVal = val;
+        const fallbackAccent = (currentCustom.accent === '#ffffff' || currentCustom.accent === '#000000') ? '#7c3aed' : currentCustom.accent;
+        customText.value = fallbackAccent;
+      }
+    });
+    customText.addEventListener('blur', () => {
+      if (originalTextVal !== null) {
+        customText.value = originalTextVal;
+        originalTextVal = null;
+      }
+    });
+    customText.addEventListener('change', () => {
+      originalTextVal = null;
+    });
+
+    let originalBgVal = null;
+    customBg.addEventListener('click', () => {
+      const val = customBg.value.toLowerCase();
+      if (val === '#ffffff' || val === '#000000') {
+        originalBgVal = val;
+        const fallbackAccent = (currentCustom.accent === '#ffffff' || currentCustom.accent === '#000000') ? '#7c3aed' : currentCustom.accent;
+        customBg.value = fallbackAccent;
+      }
+    });
+    customBg.addEventListener('blur', () => {
+      if (originalBgVal !== null) {
+        customBg.value = originalBgVal;
+        originalBgVal = null;
+      }
+    });
+    customBg.addEventListener('change', () => {
+      originalBgVal = null;
+    });
 
     customBg.addEventListener('input', (e) => handleColorChange('bg', e.target.value));
     customBg.addEventListener('change', (e) => handleColorChange('bg', e.target.value));
