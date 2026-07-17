@@ -474,6 +474,7 @@ export const exportToHtml = async (pageId: number, pageTitle: string = 'Graph') 
 
     // Handle Custom Color Pickers
     const handleColorChange = (key, val) => {
+      if (currentCustom[key] === val) return;
       currentCustom[key] = val;
       safeStorage.setItem('aethermind-export-custom-' + key, val);
       if (themeSelect.value === 'custom') {
@@ -482,8 +483,13 @@ export const exportToHtml = async (pageId: number, pageTitle: string = 'Graph') 
     };
 
     customBg.addEventListener('input', (e) => handleColorChange('bg', e.target.value));
+    customBg.addEventListener('change', (e) => handleColorChange('bg', e.target.value));
+
     customText.addEventListener('input', (e) => handleColorChange('text', e.target.value));
+    customText.addEventListener('change', (e) => handleColorChange('text', e.target.value));
+
     customAccent.addEventListener('input', (e) => handleColorChange('accent', e.target.value));
+    customAccent.addEventListener('change', (e) => handleColorChange('accent', e.target.value));
 
     // Initial theme apply
     updateTheme(savedTheme);
