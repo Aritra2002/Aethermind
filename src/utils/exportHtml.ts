@@ -2,6 +2,16 @@ import { db } from '../db';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 
+const normalizeHex = (colorStr: string, fallback: string): string => {
+  if (!colorStr) return fallback;
+  const trimmed = colorStr.trim();
+  if (/^#[0-9a-f]{6}$/i.test(trimmed)) return trimmed;
+  if (/^#[0-9a-f]{3}$/i.test(trimmed)) {
+    return '#' + trimmed[1] + trimmed[1] + trimmed[2] + trimmed[2] + trimmed[3] + trimmed[3];
+  }
+  return fallback;
+};
+
 export const exportToHtml = async (pageId: number, pageTitle: string = 'Graph') => {
   const notes = await db.notes.where('pageId').equals(pageId).toArray();
   const categories = await db.categories.toArray();
@@ -17,9 +27,9 @@ export const exportToHtml = async (pageId: number, pageTitle: string = 'Graph') 
   try {
     const custom = JSON.parse(localStorage.getItem('aethermind-custom-themes') || '{}');
     if (custom && Object.keys(custom).length > 0) {
-      bg = custom.bgPrimary || '#06071a';
-      text = custom.textPrimary || '#ffffff';
-      accent = custom.accentPrimary || '#7c3aed';
+      bg = normalizeHex(custom.bgPrimary, '#06071a');
+      text = normalizeHex(custom.textPrimary, '#ffffff');
+      accent = normalizeHex(custom.accentPrimary, '#7c3aed');
       link = custom.linkColor || '#ffffff4d';
       const textSec = text + 'b3';
       
@@ -365,6 +375,15 @@ export const exportToHtml = async (pageId: number, pageTitle: string = 'Graph') 
       }
     };
 
+    const isValidHex = (val) => {
+      return typeof val === 'string' && /^#[0-9a-fA-F]{6}$/.test(val.trim());
+    };
+
+    const getStoredColor = (key, fallback) => {
+      const val = safeStorage.getItem(key);
+      return isValidHex(val) ? val.trim() : fallback;
+    };
+
     // Theme switcher persistence controller
     const themeSelect = document.getElementById('themeSelect');
     const savedTheme = safeStorage.getItem('aethermind-export-theme') || '${currentTheme}';
@@ -375,9 +394,9 @@ export const exportToHtml = async (pageId: number, pageTitle: string = 'Graph') 
 
     // Load custom colors from export file's local storage or fallback to baked-in colors
     let currentCustom = {
-      bg: safeStorage.getItem('aethermind-export-custom-bg') || '${bg}',
-      text: safeStorage.getItem('aethermind-export-custom-text') || '${text}',
-      accent: safeStorage.getItem('aethermind-export-custom-accent') || '${accent}'
+      bg: getStoredColor('aethermind-export-custom-bg', '${bg}'),
+      text: getStoredColor('aethermind-export-custom-text', '${text}'),
+      accent: getStoredColor('aethermind-export-custom-accent', '${accent}')
     };
 
     customBg.value = currentCustom.bg;
@@ -391,6 +410,7 @@ export const exportToHtml = async (pageId: number, pageTitle: string = 'Graph') 
       root.style.setProperty('--text-primary', currentCustom.text);
       root.style.setProperty('--text-secondary', currentCustom.text + 'b3');
       root.style.setProperty('--accent', currentCustom.accent);
+      root.style.color = currentCustom.text;
 
       if (document.body) {
         document.body.style.setProperty('--bg-color', currentCustom.bg);
@@ -398,6 +418,7 @@ export const exportToHtml = async (pageId: number, pageTitle: string = 'Graph') 
         document.body.style.setProperty('--text-primary', currentCustom.text);
         document.body.style.setProperty('--text-secondary', currentCustom.text + 'b3');
         document.body.style.setProperty('--accent', currentCustom.accent);
+        document.body.style.color = currentCustom.text;
       }
     };
 
@@ -416,6 +437,7 @@ export const exportToHtml = async (pageId: number, pageTitle: string = 'Graph') 
         root.style.removeProperty('--text-primary');
         root.style.removeProperty('--text-secondary');
         root.style.removeProperty('--accent');
+        root.style.removeProperty('color');
 
         if (document.body) {
           document.body.style.removeProperty('--bg-color');
@@ -423,6 +445,7 @@ export const exportToHtml = async (pageId: number, pageTitle: string = 'Graph') 
           document.body.style.removeProperty('--text-primary');
           document.body.style.removeProperty('--text-secondary');
           document.body.style.removeProperty('--accent');
+          document.body.style.removeProperty('color');
         }
         builder.style.display = 'none';
       }
