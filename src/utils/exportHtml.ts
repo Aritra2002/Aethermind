@@ -490,10 +490,13 @@ export const exportToHtml = async (pageId: number, pageTitle: string = 'Graph') 
       }
     });
     customText.addEventListener('blur', () => {
-      if (originalTextVal !== null) {
-        customText.value = originalTextVal;
-        originalTextVal = null;
-      }
+      setTimeout(() => {
+        if (originalTextVal !== null) {
+          customText.value = originalTextVal;
+          handleColorChange('text', originalTextVal);
+          originalTextVal = null;
+        }
+      }, 50);
     });
     customText.addEventListener('change', () => {
       originalTextVal = null;
@@ -509,10 +512,13 @@ export const exportToHtml = async (pageId: number, pageTitle: string = 'Graph') 
       }
     });
     customBg.addEventListener('blur', () => {
-      if (originalBgVal !== null) {
-        customBg.value = originalBgVal;
-        originalBgVal = null;
-      }
+      setTimeout(() => {
+        if (originalBgVal !== null) {
+          customBg.value = originalBgVal;
+          handleColorChange('bg', originalBgVal);
+          originalBgVal = null;
+        }
+      }, 50);
     });
     customBg.addEventListener('change', () => {
       originalBgVal = null;
