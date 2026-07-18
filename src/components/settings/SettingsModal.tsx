@@ -44,7 +44,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = (props) => {
 
   return (
     <div className="modal-overlay" id="settings-modal-overlay">
-      <div className="settings-modal full-settings-modal glass-panel" style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', width: '800px', maxWidth: '95vw', height: '80vh', padding: 0, overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
+      <div className="settings-modal full-settings-modal glass-panel" style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', width: '1000px', maxWidth: '95vw', height: '80vh', padding: 0, overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
         
         {/* Settings Sidebar */}
         <div style={{ width: isMobile ? '100%' : '220px', borderRight: isMobile ? 'none' : '1px solid var(--border-color)', borderBottom: isMobile ? '1px solid var(--border-color)' : 'none', display: 'flex', flexDirection: isMobile ? 'row' : 'column', background: 'rgba(0,0,0,0.2)', flexShrink: 0, overflowX: isMobile ? 'auto' : 'hidden' }}>
@@ -76,12 +76,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = (props) => {
         </div>
 
         {/* Settings Content */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative', minHeight: 0 }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative', minHeight: 0, minWidth: 0 }}>
           <button className="btn btn-icon close-btn" onClick={props.onClose} aria-label="Close settings" style={{ position: 'absolute', top: '16px', right: '16px', zIndex: 'var(--z-controls, 20)' }}>
             <X size={18} />
           </button>
           
-          <div style={{ flex: 1, padding: isMobile ? '56px 16px 16px 16px' : '24px 24px 24px 32px', overflowY: 'auto' }}>
+          <div style={{ 
+            flex: 1, 
+            padding: activeTab === 'journal' 
+              ? (isMobile ? '56px 0 0 0' : '0') 
+              : (isMobile ? '56px 16px 16px 16px' : '24px 24px 24px 32px'), 
+            overflowY: 'auto',
+            scrollbarGutter: 'stable'
+          }}>
             {activeTab === 'data' && (
               <DataSettingsTab 
                 onClose={props.onClose} 

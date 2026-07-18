@@ -1,4 +1,5 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, type Note, type Link } from './db';
 import { seedDatabase, createNote, syncLinksForNote } from './db/helpers';
@@ -18,6 +19,7 @@ import { PromptModal } from './components/PromptModal';
 import { MobileNav } from './components/MobileNav';
 import { NoteMiniCard } from './components/NoteMiniCard';
 import { DiscoveryDigestModal } from './components/DiscoveryDigestModal';
+import { Dropdown } from './components/ui/Dropdown';
 
 import { Brain, Plus, Settings, Calendar, Sparkles, Edit2, Trash2, Loader2, Compass, FileArchive, FileUp } from 'lucide-react';
 import { callAI } from './utils/aiClient';
@@ -197,8 +199,8 @@ export default function App() {
     try {
       const id = await saveSnapshot(currentPageId);
       showToast(`Snapshot saved (ID: ${id})`, 'success');
-    } catch (e: any) {
-      showToast("Failed to save snapshot: " + e.message, "error");
+    } catch (e: unknown) {
+      showToast("Failed to save snapshot: " + (e instanceof Error ? e.message : String(e)), "error");
     }
   };
 
@@ -226,8 +228,8 @@ export default function App() {
               setHistoricalSnapshot(null);
               setActiveNoteId(null);
               showToast("Snapshot restored!", "success");
-            } catch (e: any) {
-              showToast("Restore failed: " + e.message, "error");
+            } catch (e: unknown) {
+              showToast("Restore failed: " + (e instanceof Error ? e.message : String(e)), "error");
             }
           }
           return;
@@ -259,8 +261,8 @@ export default function App() {
       setHistoricalSnapshot(null);
       setActiveNoteId(null);
       showToast("Restored to historical point!", "success");
-    } catch (e: any) {
-      showToast("Restore failed: " + e.message, "error");
+    } catch (e: unknown) {
+      showToast("Restore failed: " + (e instanceof Error ? e.message : String(e)), "error");
     }
   };
 
@@ -300,7 +302,7 @@ export default function App() {
   const activeNote = notes.find((n) => n.id === activeNoteId) || null;
   const secondaryNote = notes.find((n) => n.id === secondaryNoteId) || null;
 
-  const handleSelectNote = async (note: any | null) => {
+  const handleSelectNote = async (note: Note | null) => {
     if (note) {
       if (activeNoteId && activeNoteId !== note.id && isSidebarOpen) {
         // If we already have one open, maybe we want to split? 
@@ -342,8 +344,8 @@ export default function App() {
 
       setActiveNoteId(newId);
       setIsSidebarOpen(true);
-    } catch (e: any) {
-      showToast(`Could not create note: ${e.message}`, 'error');
+    } catch (e: unknown) {
+      showToast(`Could not create note: ${e instanceof Error ? e.message : String(e)}`, 'error');
     }
   };
 
@@ -364,8 +366,8 @@ export default function App() {
       }
       setActiveNoteId(null);
       setHistoricalSnapshot(null);
-    } catch (e: any) {
-      showToast("Failed to delete page: " + e.message, "error");
+    } catch (e: unknown) {
+      showToast("Failed to delete page: " + (e instanceof Error ? e.message : String(e)), "error");
     } finally {
       setShowDeletePageConfirm(false);
     }
@@ -383,8 +385,8 @@ export default function App() {
         const newId = await createNote(currentPageId, title);
         setActiveNoteId(newId);
         setIsSidebarOpen(true);
-      } catch (err: any) {
-        showToast(`Error opening note: ${err.message}`, 'error');
+      } catch (err: unknown) {
+        showToast(`Error opening note: ${err instanceof Error ? err.message : String(err)}`, 'error');
       }
     }
   };
@@ -492,8 +494,8 @@ export default function App() {
         });
 
         showToast('ZIP imported successfully!', 'success');
-      } catch (err: any) {
-        showToast(`Failed to import ZIP: ${err.message}`, 'error');
+      } catch (err: unknown) {
+        showToast(`Failed to import ZIP: ${err instanceof Error ? err.message : String(err)}`, 'error');
       }
     };
     input.click();
@@ -627,9 +629,9 @@ ${chunks[i]}
                 }
               }
             }
-          } catch (chunkError: any) {
+          } catch (chunkError: unknown) {
             console.error(`AI failed on chunk ${i + 1}:`, chunkError);
-            showToast(`Skipped chunk ${i + 1} due to AI error: ${chunkError.message}`, 'error');
+            showToast(`Skipped chunk ${i + 1} due to AI error: ${chunkError instanceof Error ? chunkError.message : String(chunkError)}`, 'error');
             // Continue processing the next chunks instead of aborting the whole document
           }
         }
@@ -666,8 +668,8 @@ ${summaries}
         }
         
         showToast('Document uploaded and structured successfully!', 'success');
-      } catch (err: any) {
-        showToast(`Failed to upload document: ${err.message}`, 'error');
+      } catch (err: unknown) {
+        showToast(`Failed to upload document: ${err instanceof Error ? err.message : String(err)}`, 'error');
       } finally {
         setDocLoading(false);
         setDocStatus('');
@@ -707,16 +709,12 @@ ${summaries}
               <Brain size={24} className="logo-icon" />
             </div>
             <div className="page-selector" style={{ display: 'flex', alignItems: 'center', margin: '0 auto', gap: '4px' }}>
-              <select 
-                value={currentPageId} 
-                onChange={e => setCurrentPageId(Number(e.target.value))}
-                className="page-select-dropdown"
+              <Dropdown
+                value={currentPageId}
+                onChange={(val) => setCurrentPageId(Number(val))}
+                options={pages.map(p => ({ value: p.id!, label: p.title }))}
                 style={{ maxWidth: '120px' }}
-              >
-                {pages.map(p => (
-                  <option key={p.id} value={p.id} style={{ background: '#111827' }}>{p.title}</option>
-                ))}
-              </select>
+              />
               <button className="page-action-btn" onClick={() => setShowRenamePage(true)} title="Rename Page">
                 <Edit2 size={14} />
               </button>
@@ -733,15 +731,12 @@ ${summaries}
               <h1>AetherMind</h1>
             </div>
             <div className="page-selector" style={{ display: 'flex', alignItems: 'center', marginLeft: '16px', gap: '8px', borderLeft: '1px solid var(--border-color)', paddingLeft: '16px' }}>
-              <select 
-                value={currentPageId} 
-                onChange={e => setCurrentPageId(Number(e.target.value))}
-                className="page-select-dropdown"
-              >
-                {pages.map(p => (
-                  <option key={p.id} value={p.id} style={{ background: '#111827' }}>{p.title}</option>
-                ))}
-              </select>
+              <Dropdown
+                value={currentPageId}
+                onChange={(val) => setCurrentPageId(Number(val))}
+                options={pages.map(p => ({ value: p.id!, label: p.title }))}
+                style={{ minWidth: '150px' }}
+              />
             </div>
             <div className="header-controls" style={{ marginLeft: 'auto' }}>
               <button className="header-btn icon-only-btn" onClick={() => setShowReview(true)} title="Review">
@@ -779,15 +774,12 @@ ${summaries}
               <h1>AetherMind</h1>
             </div>
             <div className="page-selector" style={{ display: 'flex', alignItems: 'center', marginLeft: '16px', gap: '8px', borderLeft: '1px solid var(--border-color)', paddingLeft: '16px' }}>
-              <select 
-                value={currentPageId} 
-                onChange={e => setCurrentPageId(Number(e.target.value))}
-                className="page-select-dropdown"
-              >
-                {pages.map(p => (
-                  <option key={p.id} value={p.id} style={{ background: '#111827' }}>{p.title}</option>
-                ))}
-              </select>
+              <Dropdown
+                value={currentPageId}
+                onChange={(val) => setCurrentPageId(Number(val))}
+                options={pages.map(p => ({ value: p.id!, label: p.title }))}
+                style={{ minWidth: '150px' }}
+              />
               <button className="page-action-btn" onClick={() => setShowRenamePage(true)} title="Rename Page">
                 <Edit2 size={14} />
               </button>
@@ -878,17 +870,20 @@ ${summaries}
         </div>
 
         {/* Right Side: Markdown Editor Sidebar panel */}
-        <div 
-          className={`right-sidebar ${isSidebarOpen ? 'open' : ''}`}
-          style={{ 
-            '--sidebar-width': `${sidebarWidth}px`,
-            display: 'flex',
-            flexDirection: 'row'
-          } as React.CSSProperties}
-        >
+        <AnimatePresence>
           {isSidebarOpen && (
-            <div className="sidebar-resizer" onMouseDown={startResizing} style={{ left: 0, touchAction: 'none' }} />
-          )}
+            <motion.div 
+              initial={{ width: 0, opacity: 0 }}
+              animate={{ width: sidebarWidth, opacity: 1 }}
+              exit={{ width: 0, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              className={`right-sidebar open`}
+              style={{ 
+                display: 'flex',
+                flexDirection: 'row'
+              } as React.CSSProperties}
+            >
+              <div className="sidebar-resizer" onMouseDown={startResizing} style={{ left: 0, touchAction: 'none' }} />
 
           <div style={{ flex: 1, minWidth: 0, minHeight: 0, height: '100%' }}>
             <EditorPanel
@@ -924,7 +919,9 @@ ${summaries}
               />
             </div>
           )}
-        </div>
+        </motion.div>
+        )}
+        </AnimatePresence>
       </main>
 
       {viewport === 'sm' && activeNote && !isSidebarOpen && (

@@ -4,8 +4,6 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { act } from 'react';
 import { AppearanceSettingsTab } from '../components/settings/AppearanceSettingsTab';
-import { SettingsModal } from '../components/settings/SettingsModal';
-import { ToastProvider } from '../components/ToastContext';
 import { GraphCanvas } from '../components/GraphCanvas';
 
 const customGlobal = globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean };

@@ -41,7 +41,6 @@ global.localStorage = localStorageMock;
 // Mock DB
 vi.mock('../db', () => {
   const countMock = vi.fn().mockResolvedValue(1);
-  const toArrayMock = vi.fn().mockResolvedValue([]);
   return {
     db: {
       notes: {

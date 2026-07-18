@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Calendar, RotateCcw, Clock } from 'lucide-react';
 import type { Note, Link } from '../db';
 
@@ -19,31 +19,15 @@ export const TimelineSlider: React.FC<TimelineSliderProps> = ({
   onRestoreFromHistory,
   onExitHistory
 }) => {
-  const [value, setValue] = useState<number>(Date.now());
-  const [minDate, setMinDate] = useState<number>(Date.now() - 30 * 24 * 60 * 60 * 1000);
-  const [maxDate, setMaxDate] = useState<number>(Date.now());
-
-  useEffect(() => {
-    if (notes.length === 0) return;
-    const timestamps = notes.map(n => n.createdAt);
-    const min = Math.min(...timestamps);
-    const max = Math.max(...timestamps);
-    setMinDate(min - 1000 * 60);
-    setMaxDate(max + 1000 * 60);
-    if (!dateRange) {
-      setValue(max + 1000 * 60);
-    }
-  }, [notes]);
-
-  useEffect(() => {
-    if (!dateRange) {
-      setValue(maxDate);
-    }
-  }, [dateRange, maxDate]);
+  // eslint-disable-next-line react-hooks/purity
+  const timestamps = notes.length > 0 ? notes.map(n => n.createdAt) : [Date.now()];
+  const minDate = Math.min(...timestamps) - 1000 * 60;
+  const maxDate = Math.max(...timestamps) + 1000 * 60;
+  
+  const value = dateRange ? dateRange[1] : maxDate;
 
   const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = Number(e.target.value);
-    setValue(val);
     setDateRange([minDate, val]);
   };
 

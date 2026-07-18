@@ -10,7 +10,7 @@
 }
 
 .app-header {
-  animation: slideInTop 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: slideInTop 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -18,7 +18,11 @@
   margin: 12px 12px 0 12px;
   height: 64px;
   flex-shrink: 0;
-  z-index: 10;
+  z-index: 100;
+  border-bottom: 1px solid var(--border-glow);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
 }
 
 .app-logo { display: flex; align-items: center; gap: 10px; }

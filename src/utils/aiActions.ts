@@ -89,7 +89,7 @@ export async function executeAiAction(
         let linkedNoteIds = existingNote?.linkedNoteIds || [];
         if (action.linkTo && action.linkTo.length > 0) {
           for (const title of action.linkTo) {
-            let target = await db.notes.where('title').equalsIgnoreCase(title).and(n => n.pageId === pageId).first();
+            const target = await db.notes.where('title').equalsIgnoreCase(title).and(n => n.pageId === pageId).first();
             if (target) {
               linkedNoteIds.push(target.id!);
             }
@@ -107,7 +107,7 @@ export async function executeAiAction(
         if (!note) return { success: false, message: `Note "${action.title}" not found.` };
         
         const updates: Record<string, unknown> = {};
-        const contentToSet = action.newContent !== undefined ? action.newContent : (action as any).content;
+        const contentToSet = action.newContent !== undefined ? action.newContent : ('content' in action ? (action as { content?: string }).content : undefined);
         if (contentToSet !== undefined) updates.content = contentToSet;
         if (action.newTitle !== undefined) updates.title = action.newTitle;
         
@@ -173,7 +173,7 @@ export async function validateActionPreflight(action: AiAction, pageId: number) 
   }
   
   if (action.action === 'edit_note') {
-    const contentToCheck = action.newContent !== undefined ? action.newContent : (action as any).content;
+    const contentToCheck = action.newContent !== undefined ? action.newContent : ('content' in action ? (action as { content?: string }).content : undefined);
     if (contentToCheck !== undefined) {
       if (contentToCheck.trim().length <= 10) {
         return { blocked: true, message: `Edit rejected: new content is too short or empty.` };

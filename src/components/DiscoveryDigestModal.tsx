@@ -15,12 +15,6 @@ export const DiscoveryDigestModal: React.FC<DiscoveryDigestModalProps> = ({ isOp
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    if (isOpen && !digest && !isLoading) {
-      generateDigest();
-    }
-  }, [isOpen]);
-
   const generateDigest = async () => {
     try {
       setIsLoading(true);
@@ -49,12 +43,21 @@ export const DiscoveryDigestModal: React.FC<DiscoveryDigestModalProps> = ({ isOp
       await callAI(systemPrompt, userPrompt, (text) => {
         setDigest(text);
       });
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Error generating digest');
     } finally {
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (isOpen && !digest && !isLoading) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      generateDigest();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
+
 
   if (!isOpen) return null;
 

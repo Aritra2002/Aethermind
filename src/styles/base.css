@@ -271,13 +271,23 @@ body {
 
 /* Glassmorphism panels */
 .glass-panel {
-  animation: fadeScaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: fadeScaleIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   background: linear-gradient(135deg, var(--glass-panel-bg-1) 0%, var(--glass-panel-bg-2) 100%);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
   border: 1px solid var(--glass-panel-border);
-  border-radius: 12px;
-  box-shadow: 0 8px 32px var(--glass-panel-shadow), inset 0 1px 0 var(--glass-panel-inset-shadow), 0 0 0 1px var(--glass-panel-glow);
+  border-radius: 16px;
+  box-shadow: 0 12px 40px var(--glass-panel-shadow), inset 0 1px 0 var(--glass-panel-inset-shadow), inset 0 -1px 0 rgba(0,0,0,0.2), 0 0 0 1px var(--glass-panel-glow);
+  position: relative;
+  overflow: hidden;
+}
+
+.glass-panel::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.15), transparent);
 }
 
 /* Animations */

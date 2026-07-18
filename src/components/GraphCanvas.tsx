@@ -529,8 +529,14 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
         if (!node.isDimmed) {
           // Heatmap effect: more visits = larger/brighter glow
           const heatmapIntensity = Math.min(20, node.visits * 2);
-          ctx.shadowBlur = isActive ? 18 + heatmapIntensity : 8 + heatmapIntensity;
+          
+          // Animated futuristic bloom
+          const time = Date.now() / 1000;
+          const pulsingBloom = Math.sin(time * 2 + node.id) * 6;
+          
+          ctx.shadowBlur = isActive ? 24 + pulsingBloom + heatmapIntensity : 12 + (pulsingBloom/2) + heatmapIntensity;
           ctx.shadowColor = color; // Aura matches node color
+          ctx.globalCompositeOperation = 'lighter';
         }
 
         // Draw Circle
@@ -538,6 +544,8 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
         ctx.arc(node.x, node.y, isActive ? node.radius + 4 : node.radius, 0, 2 * Math.PI);
         ctx.fillStyle = color;
         ctx.fill();
+        
+        ctx.globalCompositeOperation = 'source-over';
 
         // Draw pinned ring
         if (node.fx !== null && node.fx !== undefined) {

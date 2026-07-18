@@ -54,6 +54,7 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({ onClose }) => {
           }
         }
       }
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setReviewQueue(queue);
       setIsQueueInitialized(true);
     }

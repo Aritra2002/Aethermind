@@ -15,6 +15,7 @@ import { ConfirmModal } from './ConfirmModal';
 import { useToast } from './ToastContext';
 import { cosineSimilarity } from '../utils/vectorSearch';
 import { ConnectionDiscovery } from './ConnectionDiscovery';
+import { Dropdown } from './ui/Dropdown';
 
 interface EditorPanelProps {
   note: Note | null;
@@ -47,6 +48,7 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
   
   // Force preview mode when opening a different note
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setEditMode(false);
   }, [note?.id]);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -63,6 +65,7 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
   // Load note values when selected note changes
   useEffect(() => {
     if (note) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setTitle(note.title);
       setContent(note.content);
       setCategory(note.category || 'general');
@@ -90,14 +93,13 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
     try {
       const cleanTitle = title.trim();
       await updateNote(note.id!, { title: cleanTitle });
-    } catch (err: any) {
-      showToast(err.message || 'Error updating title', 'error');
+    } catch (err: unknown) {
+      showToast(err instanceof Error ? err.message : 'Error updating title', 'error');
       setTitle(note.title); // Reset on error
     }
   };
 
-  const handleCategoryChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const val = e.target.value;
+  const handleCategoryChange = async (val: string) => {
     setCategory(val);
     if (note) {
       await updateNote(note.id!, { category: val });
@@ -166,7 +168,8 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
     if (!note) return;
     try {
       setIsAiLoading(true);
-      const allTitles = allNotes.map(n => n.title).filter(t => t !== note.title);
+      const pageNotes = allNotes.filter(n => n.pageId === note.pageId);
+      const allTitles = pageNotes.map(n => n.title).filter(t => t !== note.title);
 
       const systemPrompt = `You are an AI assistant for a personal knowledge graph.
 Given a note's title, its content, and a list of existing note titles in the graph, suggest:
@@ -203,8 +206,9 @@ Current Note Content: ${content}`;
 
       if (linksToAdd) {
         const targetTitles = linksToAdd.split(/\[\[|\]\]|,/).map(s => s.trim()).filter(Boolean);
+        const pageNotes = allNotes.filter(n => n.pageId === note.pageId);
         for (const title of targetTitles) {
-          const targetNote = allNotes.find(n => n.title.toLowerCase() === title.toLowerCase());
+          const targetNote = pageNotes.find(n => n.title.toLowerCase() === title.toLowerCase());
           if (targetNote && targetNote.id && note.id) {
             // Check for existing link in either direction
             const existingForward = await db.links.where({ sourceId: note.id, targetId: targetNote.id }).first();
@@ -216,8 +220,8 @@ Current Note Content: ${content}`;
         }
       }
       
-    } catch (e: any) {
-      showToast(e.message, 'error');
+    } catch (e: unknown) {
+      showToast(e instanceof Error ? e.message : 'Error', 'error');
     } finally {
       setIsAiLoading(false);
     }
@@ -237,8 +241,8 @@ Return exactly and ONLY the summary text, with no markdown code blocks or conver
       const response = await callAI(systemPrompt, userPrompt);
       
       setAiSummary(response.trim());
-    } catch (e: any) {
-      showToast(e.message, 'error');
+    } catch (e: unknown) {
+      showToast(e instanceof Error ? e.message : 'Error', 'error');
     } finally {
       setIsAiLoading(false);
       setSlashMenuPos(null);
@@ -350,9 +354,10 @@ Return exactly and ONLY the summary text, with no markdown code blocks or conver
               width: '100%'
             }}
             onClick={() => {
+              const pageNotes = allNotes.filter(n => n.pageId === 1); // fallback to page 1 if no note, but normally onJumpToNote handles page scope
               let newTitle = "New Node";
               let counter = 1;
-              while (allNotes.some(n => n.title.toLowerCase() === newTitle.toLowerCase())) {
+              while (pageNotes.some(n => n.title.toLowerCase() === newTitle.toLowerCase())) {
                 newTitle = `New Node (${counter})`;
                 counter++;
               }
@@ -407,16 +412,12 @@ Return exactly and ONLY the summary text, with no markdown code blocks or conver
         <div className="meta-row">
           <div className="meta-field">
             <Folder size={14} className="meta-icon" />
-            <select
-              id="editor-note-category"
-              className="meta-select"
+            <Dropdown
               value={category}
-              onChange={handleCategoryChange}
-            >
-              {categories.map(cat => (
-                <option key={cat.id} value={cat.id}>{cat.label}</option>
-              ))}
-            </select>
+              onChange={(val) => handleCategoryChange(val as string)}
+              options={categories.map(cat => ({ value: cat.id, label: cat.label }))}
+              style={{ minWidth: '130px' }}
+            />
           </div>
 
           <div className="meta-field">
@@ -519,7 +520,7 @@ Return exactly and ONLY the summary text, with no markdown code blocks or conver
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
               {allNotes
-                .filter(n => n.id !== note.id && n.embedding)
+                .filter(n => n.pageId === note.pageId && n.id !== note.id && n.embedding)
                 .map(n => ({ note: n, score: cosineSimilarity(note.embedding!, n.embedding!) }))
                 .filter(({ score }) => score > 0.4)
                 .sort((a, b) => b.score - a.score)
@@ -531,8 +532,8 @@ Return exactly and ONLY the summary text, with no markdown code blocks or conver
                     <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', marginLeft: '2px' }}>{Math.round(score * 100)}%</span>
                   </div>
                 ))}
-              {allNotes.filter(n => n.id !== note.id && n.embedding).length > 0 &&
-                allNotes.filter(n => n.id !== note.id && n.embedding).map(n => ({ note: n, score: cosineSimilarity(note.embedding!, n.embedding!) })).filter(({ score }) => score > 0.4).length === 0 && (
+              {allNotes.filter(n => n.pageId === note.pageId && n.id !== note.id && n.embedding).length > 0 &&
+                allNotes.filter(n => n.pageId === note.pageId && n.id !== note.id && n.embedding).map(n => ({ note: n, score: cosineSimilarity(note.embedding!, n.embedding!) })).filter(({ score }) => score > 0.4).length === 0 && (
                 <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>No strong semantic matches.</span>
               )}
             </div>
@@ -544,26 +545,24 @@ Return exactly and ONLY the summary text, with no markdown code blocks or conver
             <h4 style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
               Connections
             </h4>
-            <select 
-              className="connect-select"
+            <Dropdown
+              isSearchable={true}
               value=""
-              onChange={async (e) => {
-                const targetId = parseInt(e.target.value, 10);
+              onChange={async (val) => {
+                const targetId = parseInt(val as string, 10);
                 if (targetId && note?.id) {
                   const currentIds = note.linkedNoteIds || [];
                   if (!currentIds.includes(targetId)) {
                     await updateNote(note.id, { linkedNoteIds: [...currentIds, targetId] });
                   }
-                  e.target.value = '';
                 }
               }}
-              style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', borderRadius: '6px', padding: '4px 8px', fontSize: '12px', cursor: 'pointer', outline: 'none' }}
-            >
-              <option value="">Add Connection...</option>
-              {allNotes.filter(n => n.id !== note.id && !connectedNodeIds.has(n.id!)).map(n => (
-                <option key={n.id} value={n.id}>{n.title}</option>
-              ))}
-            </select>
+              options={[
+                { value: "", label: "Add Connection..." },
+                ...allNotes.filter(n => n.pageId === note.pageId && n.id !== note.id && !connectedNodeIds.has(n.id!)).map(n => ({ value: n.id!.toString(), label: n.title }))
+              ]}
+              style={{ width: '220px' }}
+            />
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
             {connectedNodeIds.size === 0 ? (

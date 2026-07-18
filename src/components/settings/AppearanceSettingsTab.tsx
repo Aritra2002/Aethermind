@@ -98,36 +98,22 @@ export const AppearanceSettingsTab: React.FC<AppearanceSettingsTabProps> = ({
             {/* Font Style Selection */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0' }}>
               <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Font Style</span>
-              <select
+              <Dropdown
                 value={customThemeColors.fontFamily || 'sans'}
-                onChange={(e) => onCustomThemeColorChange('fontFamily', e.target.value)}
-                style={{
-                  background: 'rgba(0, 0, 0, 0.3)',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: '6px',
-                  color: 'var(--text-primary)',
-                  padding: '4px 8px',
-                  fontSize: '0.8rem',
-                  outline: 'none',
-                  cursor: 'pointer'
-                }}
-              >
-                <optgroup label="Modern Sans-Serif" style={{ background: '#18181b', color: '#fff' }}>
-                  <option value="sans">Plus Jakarta Sans</option>
-                  <option value="inter">Inter</option>
-                  <option value="outfit">Outfit</option>
-                </optgroup>
-                <optgroup label="Classic Serif" style={{ background: '#18181b', color: '#fff' }}>
-                  <option value="serif">Playfair Display</option>
-                  <option value="lora">Lora</option>
-                  <option value="merriweather">Merriweather</option>
-                  <option value="cinzel">Cinzel</option>
-                </optgroup>
-                <optgroup label="Developer Monospace" style={{ background: '#18181b', color: '#fff' }}>
-                  <option value="jetbrains-mono">JetBrains Mono</option>
-                  <option value="fira-code">Fira Code</option>
-                </optgroup>
-              </select>
+                onChange={(val) => onCustomThemeColorChange('fontFamily', val as string)}
+                options={[
+                  { value: 'sans', label: 'Plus Jakarta Sans' },
+                  { value: 'inter', label: 'Inter' },
+                  { value: 'outfit', label: 'Outfit' },
+                  { value: 'serif', label: 'Playfair Display' },
+                  { value: 'lora', label: 'Lora' },
+                  { value: 'merriweather', label: 'Merriweather' },
+                  { value: 'cinzel', label: 'Cinzel' },
+                  { value: 'jetbrains-mono', label: 'JetBrains Mono' },
+                  { value: 'fira-code', label: 'Fira Code' }
+                ]}
+                style={{ minWidth: '160px' }}
+              />
             </div>
           </div>
         </div>

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { getAIConfig, setAIConfig, detectModels } from '../../utils/aiClient';
 import type { AIConfig } from '../../utils/aiClient';
+import { Dropdown } from '../ui/Dropdown';
 
 export const AiSettingsTab: React.FC = () => {
   const [aiConfig, setLocalAIConfig] = useState<AIConfig>(() => getAIConfig());
@@ -44,10 +45,10 @@ export const AiSettingsTab: React.FC = () => {
       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '16px' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Provider</label>
-          <select
+          <Dropdown
             value={aiConfig.provider || 'openai'}
-            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
-              const newProvider = e.target.value as AIConfig['provider'];
+            onChange={(val) => {
+              const newProvider = val as AIConfig['provider'];
               const newConfig = { ...aiConfig, provider: newProvider };
               if (newProvider === 'anthropic') { newConfig.baseUrl = 'https://api.anthropic.com'; newConfig.model = 'claude-3-5-sonnet-20240620'; }
               else if (newProvider === 'deepseek') { newConfig.baseUrl = 'https://api.deepseek.com'; newConfig.model = 'deepseek-chat'; }
@@ -60,16 +61,16 @@ export const AiSettingsTab: React.FC = () => {
               setLocalAIConfig(newConfig);
               setAIConfig(newConfig);
             }}
-            style={{ background: 'var(--input-bg)', border: '1px solid var(--input-border)', padding: '8px', borderRadius: '4px', color: 'var(--text-primary)', fontSize: '0.85rem', outline: 'none', width: '100%' }}
-          >
-            <option value="anthropic" style={{ background: 'var(--bg-primary)', color: 'var(--text-primary)' }}>Anthropic</option>
-            <option value="deepseek" style={{ background: 'var(--bg-primary)', color: 'var(--text-primary)' }}>DeepSeek</option>
-            <option value="openai" style={{ background: 'var(--bg-primary)', color: 'var(--text-primary)' }}>OpenAI</option>
-            <option value="google" style={{ background: 'var(--bg-primary)', color: 'var(--text-primary)' }}>Google</option>
-            <option value="openrouter" style={{ background: 'var(--bg-primary)', color: 'var(--text-primary)' }}>OpenRouter</option>
-            <option value="vercel" style={{ background: 'var(--bg-primary)', color: 'var(--text-primary)' }}>Vercel AI Gateway</option>
-            <option value="custom" style={{ background: 'var(--bg-primary)', color: 'var(--text-primary)' }}>Custom Provider</option>
-          </select>
+            options={[
+              { value: 'anthropic', label: 'Anthropic' },
+              { value: 'deepseek', label: 'DeepSeek' },
+              { value: 'openai', label: 'OpenAI' },
+              { value: 'google', label: 'Google' },
+              { value: 'openrouter', label: 'OpenRouter' },
+              { value: 'vercel', label: 'Vercel AI Gateway' },
+              { value: 'custom', label: 'Custom Provider' }
+            ]}
+          />
           <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
             {aiConfig.provider === 'anthropic' && 'Direct access to Claude models, including Pro and Max'}
             {aiConfig.provider === 'deepseek' && 'DeepSeek models for reasoning and coding tasks'}
@@ -142,17 +143,12 @@ export const AiSettingsTab: React.FC = () => {
           </div>
           
           {['custom', 'openrouter', 'openai', 'deepseek'].includes(aiConfig.provider) && availableModels.length > 0 ? (
-            <select
+            <Dropdown
+              isSearchable={true}
               value={aiConfig.model || ''}
-              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleAiConfigChange('model', e.target.value)}
-              style={{ background: 'var(--input-bg)', border: '1px solid var(--input-border)', padding: '8px', borderRadius: '4px', color: 'var(--text-primary)' }}
-            >
-              {availableModels.map(m => (
-                <option key={m.id} value={m.id} style={{ background: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
-                  {m.name || m.id}
-                </option>
-              ))}
-            </select>
+              onChange={(val) => handleAiConfigChange('model', val as string)}
+              options={availableModels.map(m => ({ value: m.id, label: m.name || m.id }))}
+            />
           ) : (
             <input
               type="text"

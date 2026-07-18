@@ -18,8 +18,14 @@ export const RenamePageModal: React.FC<RenamePageModalProps> = ({
   const [title, setTitle] = useState(currentTitle);
 
   useEffect(() => {
-    if (isOpen) setTitle(currentTitle);
-  }, [isOpen, currentTitle]);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setTitle(currentTitle);
+  }, [currentTitle]);
+
+  const handleClose = () => {
+    setTitle(currentTitle);
+    onClose();
+  };
 
   if (!isOpen) return null;
 
@@ -36,7 +42,7 @@ export const RenamePageModal: React.FC<RenamePageModalProps> = ({
       <div className="settings-modal glass-panel" style={{ maxWidth: '400px' }}>
         <div className="modal-header">
           <h2>Rename Page</h2>
-          <button className="btn btn-icon" onClick={onClose} aria-label="Close">
+          <button className="btn btn-icon" onClick={handleClose} aria-label="Close">
             <X size={20} />
           </button>
         </div>
@@ -54,7 +60,7 @@ export const RenamePageModal: React.FC<RenamePageModalProps> = ({
             />
           </div>
           <div className="modal-actions" style={{ marginTop: '16px', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-            <button type="button" className="btn btn-secondary" onClick={onClose}>
+            <button type="button" className="btn btn-secondary" onClick={handleClose}>
               Cancel
             </button>
             <button type="submit" className="btn btn-primary" disabled={!title.trim()}>

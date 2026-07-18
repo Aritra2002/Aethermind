@@ -52,6 +52,7 @@ export const AskAiModal: React.FC<AskAiModalProps> = ({ isOpen, onClose, activeP
 
   useEffect(() => {
     if (isOpen) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setQuery('');
       setAiResponse(null);
       setIsAiLoading(false);
@@ -86,8 +87,8 @@ export const AskAiModal: React.FC<AskAiModalProps> = ({ isOpen, onClose, activeP
             setIsAiLoading(false);
             return;
           }
-        } catch (e: any) {
-          showToast(e.message, 'error');
+        } catch (e: unknown) {
+          showToast(e instanceof Error ? e.message : 'Error fetching URL', 'error');
           setIsAiLoading(false);
           return;
         }
@@ -185,8 +186,8 @@ When given web content, summarize it into a detailed, well-formatted note. Extra
         setStagedActions(staged);
       }
       
-    } catch (e: any) {
-      setAiResponse(`Error: ${e.message}`);
+    } catch (e: unknown) {
+      setAiResponse(`Error: ${e instanceof Error ? e.message : 'Unknown error'}`);
     } finally {
       setIsAiLoading(false);
     }

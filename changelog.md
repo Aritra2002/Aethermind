@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.28.1] - 2026-07-18
+
+### 🎨 UI/UX
+- **Dropdown Refinements**: Redesigned all dropdown menus using a flexbox container layout. Dropdowns with search input functionality now correctly prevent text overlapping by dynamically sharing space with the chevron arrow.
+- **Smart Combobox Behavior**: Selecting an item from a searchable dropdown no longer aggressively clears the input text. Clicking the input now auto-highlights the text for easy overwriting, matching native OS combobox behavior.
+- **Dynamic Width Precision**: Adjusted the year dropdown to scale its width perfectly with the typed text, ensuring no characters are cut off.
+- **Connection Menu Scalability**: Widened the "Add Connection" dropdown to 220px to comfortably accommodate longer note titles without clipping.
+
 ## [1.28.0] - 2026-07-18
 
 ### ✨ Features

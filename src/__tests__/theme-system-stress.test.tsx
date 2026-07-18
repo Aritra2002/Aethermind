@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { exportToHtml } from '../utils/exportHtml';
 
 // Mock localStorage
@@ -84,23 +84,21 @@ describe('Theme System & Offline Export Stress Tests', () => {
   });
 
   it('verifies offline exportHtml output structure and theme switcher script positioning (FOUT Risk)', async () => {
-    let capturedHtml = '';
-    
     // Mock URL object methods
-    const mockCreateObjectURL = vi.fn((blob: Blob) => {
+    const mockCreateObjectURL = vi.fn(() => {
       // In JS, Blob text can be read asynchronously, but for testing we can hook into Blob.text()
       return 'blob:mock-url';
     });
     
     const mockRevokeObjectURL = vi.fn();
     
-    global.URL.createObjectURL = mockCreateObjectURL as any;
-    global.URL.revokeObjectURL = mockRevokeObjectURL as any;
+    global.URL.createObjectURL = mockCreateObjectURL as unknown as typeof global.URL.createObjectURL;
+    global.URL.revokeObjectURL = mockRevokeObjectURL as unknown as typeof global.URL.revokeObjectURL;
     
     // Mock document.createElement & click to intercept the download
     const mockClick = vi.fn();
-    const mockAppendChild = vi.spyOn(document.body, 'appendChild');
-    const mockRemoveChild = vi.spyOn(document.body, 'removeChild');
+    vi.spyOn(document.body, 'appendChild');
+    vi.spyOn(document.body, 'removeChild');
     
     const originalCreateElement = document.createElement.bind(document);
     vi.spyOn(document, 'createElement').mockImplementation((tagName: string) => {
