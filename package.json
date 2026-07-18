@@ -1,8 +1,8 @@
 {
-  "name": "personal-knowledge-graph",
+  "name": "aethermind",
   "private": true,
   "version": "1.28.0",
-  "homepage": "https://aritra2002.github.io/personal-knowledge-graph",
+  "homepage": "https://aritra2002.github.io/aethermind",
   "type": "module",
   "scripts": {
     "dev": "vite",

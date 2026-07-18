@@ -65,8 +65,8 @@
 Clone the repository and install the primary frontend dependencies:
 
 ```bash
-git clone https://github.com/Aritra2002/personal-knowledge-graph.git
-cd personal-knowledge-graph
+git clone https://github.com/Aritra2002/Aethermind.git
+cd Aethermind
 npm install
 ```
 

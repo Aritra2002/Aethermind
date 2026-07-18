@@ -191,7 +191,7 @@ export async function seedDatabase(): Promise<void> {
     {
       pageId: 1,
       title: 'Markdown Syntax',
-      content: 'AetherMind supports rich formatting via standard markdown.\n\n### Formatting Examples:\n- **Bold text** and *italic text*\n- [AetherMind File Links](file:///e:/Lab/personal-knowledge-graph/PRD.md)\n- Lists:\n  1. First item\n  2. Second item\n\n### Code Blocks:\n```javascript\nconst hello = "AetherMind";\nconsole.log(`Welcome to ${hello}`);\n```\n\nYou can also link notes simply by typing their name inside double brackets. Try adding `[[New Ideas]]` somewhere in this file.',
+      content: 'AetherMind supports rich formatting via standard markdown.\n\n### Formatting Examples:\n- **Bold text** and *italic text*\n- [AetherMind File Links](file:///e:/Lab/Aethermind/PRD.md)\n- Lists:\n  1. First item\n  2. Second item\n\n### Code Blocks:\n```javascript\nconst hello = "AetherMind";\nconsole.log(`Welcome to ${hello}`);\n```\n\nYou can also link notes simply by typing their name inside double brackets. Try adding `[[New Ideas]]` somewhere in this file.',
       tags: ['markdown', 'editor'],
       category: 'work',
       createdAt: Date.now() - 60000,
