@@ -1,6 +1,7 @@
 import React from 'react';
 import { ColorPicker } from '../ColorPicker';
 import { Sparkles, Sun, Eye, Moon, Compass, Paintbrush } from 'lucide-react';
+import { Dropdown } from '../ui/Dropdown';
 
 interface AppearanceSettingsTabProps {
   activeTheme: string;
@@ -100,7 +101,7 @@ export const AppearanceSettingsTab: React.FC<AppearanceSettingsTabProps> = ({
               <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Font Style</span>
               <Dropdown
                 value={customThemeColors.fontFamily || 'sans'}
-                onChange={(val) => onCustomThemeColorChange('fontFamily', val as string)}
+                onChange={(val: string | number) => onCustomThemeColorChange('fontFamily', val as string)}
                 options={[
                   { value: 'sans', label: 'Plus Jakarta Sans' },
                   { value: 'inter', label: 'Inter' },

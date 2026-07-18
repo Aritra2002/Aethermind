@@ -307,9 +307,9 @@ export default function App() {
       if (activeNoteId && activeNoteId !== note.id && isSidebarOpen) {
         // If we already have one open, maybe we want to split? 
         // For now, selecting from graph replaces primary unless we specifically split.
-        setActiveNoteId(note.id);
+        setActiveNoteId(note.id!);
       } else {
-        setActiveNoteId(note.id);
+        setActiveNoteId(note.id!);
         if (viewport !== 'sm') {
           setIsSidebarOpen(true);
         }
