@@ -116,9 +116,18 @@ export default function App() {
         const val = customThemeColors[key] || defaults[key];
         
         if (key === 'fontFamily') {
-          const fontVal = val === 'serif'
-            ? "'Playfair Display', Georgia, serif"
-            : "'Plus Jakarta Sans', system-ui, -apple-system, sans-serif";
+          const fontMap: Record<string, string> = {
+            'sans': "'Plus Jakarta Sans', system-ui, -apple-system, sans-serif",
+            'inter': "'Inter', system-ui, -apple-system, sans-serif",
+            'outfit': "'Outfit', system-ui, -apple-system, sans-serif",
+            'serif': "'Playfair Display', Georgia, serif",
+            'lora': "'Lora', Georgia, serif",
+            'merriweather': "'Merriweather', Georgia, serif",
+            'cinzel': "'Cinzel', serif",
+            'jetbrains-mono': "'JetBrains Mono', monospace",
+            'fira-code': "'Fira Code', monospace"
+          };
+          const fontVal = fontMap[val] || fontMap['sans'];
           root.style.setProperty('--font-sans', fontVal);
         } else {
           const cssVar = '--' + key.replace(/([A-Z])/g, '-$1').toLowerCase();

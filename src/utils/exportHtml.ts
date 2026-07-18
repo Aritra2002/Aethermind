@@ -36,11 +36,20 @@ export const exportToHtml = async (pageId: number, pageTitle: string = 'Graph') 
       accent = normalizeHex(custom.accentPrimary, '#7c3aed');
       accentSec = normalizeHex(custom.accentSecondary, '#06b6d4');
       link = custom.linkColor || '#ffffff4d';
-      font = custom.fontFamily === 'serif' ? 'serif' : 'sans';
+      font = custom.fontFamily || 'sans';
       
-      const fontVal = font === 'serif'
-        ? "'Playfair Display', Georgia, serif"
-        : "'Plus Jakarta Sans', system-ui, -apple-system, sans-serif";
+      const fontMap: Record<string, string> = {
+        'sans': "'Plus Jakarta Sans', system-ui, -apple-system, sans-serif",
+        'inter': "'Inter', system-ui, -apple-system, sans-serif",
+        'outfit': "'Outfit', system-ui, -apple-system, sans-serif",
+        'serif': "'Playfair Display', Georgia, serif",
+        'lora': "'Lora', Georgia, serif",
+        'merriweather': "'Merriweather', Georgia, serif",
+        'cinzel': "'Cinzel', serif",
+        'jetbrains-mono': "'JetBrains Mono', monospace",
+        'fira-code': "'Fira Code', monospace"
+      };
+      const fontVal = fontMap[font] || fontMap['sans'];
       
       customThemeCSS = `
   html[data-theme="custom"] {
@@ -364,8 +373,21 @@ export const exportToHtml = async (pageId: number, pageTitle: string = 'Graph') 
         <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.75rem;">
           <span style="color: var(--text-primary); opacity: 0.7;">Font Style</span>
           <select id="customFont" style="background: rgba(0,0,0,0.2); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); font-size: 0.7rem; padding: 2px 6px; outline: none; cursor: pointer; font-family: inherit;">
-            <option value="sans">Modern Sans</option>
-            <option value="serif">Classic Serif</option>
+            <optgroup label="Modern Sans-Serif" style="background: #18181b; color: #fff;">
+              <option value="sans">Plus Jakarta Sans</option>
+              <option value="inter">Inter</option>
+              <option value="outfit">Outfit</option>
+            </optgroup>
+            <optgroup label="Classic Serif" style="background: #18181b; color: #fff;">
+              <option value="serif">Playfair Display</option>
+              <option value="lora">Lora</option>
+              <option value="merriweather">Merriweather</option>
+              <option value="cinzel">Cinzel</option>
+            </optgroup>
+            <optgroup label="Developer Monospace" style="background: #18181b; color: #fff;">
+              <option value="jetbrains-mono">JetBrains Mono</option>
+              <option value="fira-code">Fira Code</option>
+            </optgroup>
           </select>
         </div>
       </div>
@@ -484,9 +506,18 @@ export const exportToHtml = async (pageId: number, pageTitle: string = 'Graph') 
       root.style.setProperty('--accent', currentCustom.accent);
       root.style.setProperty('--border-color', currentCustom.link);
       
-      const fontVal = currentCustom.font === 'serif' 
-        ? "'Playfair Display', Georgia, serif" 
-        : "'Plus Jakarta Sans', system-ui, -apple-system, sans-serif";
+      const fontMap = {
+        'sans': "'Plus Jakarta Sans', system-ui, -apple-system, sans-serif",
+        'inter': "'Inter', system-ui, -apple-system, sans-serif",
+        'outfit': "'Outfit', system-ui, -apple-system, sans-serif",
+        'serif': "'Playfair Display', Georgia, serif",
+        'lora': "'Lora', Georgia, serif",
+        'merriweather': "'Merriweather', Georgia, serif",
+        'cinzel': "'Cinzel', serif",
+        'jetbrains-mono': "'JetBrains Mono', monospace",
+        'fira-code': "'Fira Code', monospace"
+      };
+      const fontVal = fontMap[currentCustom.font] || fontMap['sans'];
       root.style.setProperty('--font-family', fontVal);
 
       if (document.body) {

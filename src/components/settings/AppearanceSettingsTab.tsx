@@ -112,8 +112,21 @@ export const AppearanceSettingsTab: React.FC<AppearanceSettingsTabProps> = ({
                   cursor: 'pointer'
                 }}
               >
-                <option value="sans">Modern Sans-Serif</option>
-                <option value="serif">Editorial Serif</option>
+                <optgroup label="Modern Sans-Serif" style={{ background: '#18181b', color: '#fff' }}>
+                  <option value="sans">Plus Jakarta Sans</option>
+                  <option value="inter">Inter</option>
+                  <option value="outfit">Outfit</option>
+                </optgroup>
+                <optgroup label="Classic Serif" style={{ background: '#18181b', color: '#fff' }}>
+                  <option value="serif">Playfair Display</option>
+                  <option value="lora">Lora</option>
+                  <option value="merriweather">Merriweather</option>
+                  <option value="cinzel">Cinzel</option>
+                </optgroup>
+                <optgroup label="Developer Monospace" style={{ background: '#18181b', color: '#fff' }}>
+                  <option value="jetbrains-mono">JetBrains Mono</option>
+                  <option value="fira-code">Fira Code</option>
+                </optgroup>
               </select>
             </div>
           </div>
