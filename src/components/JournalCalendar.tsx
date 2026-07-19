@@ -46,6 +46,16 @@ export const JournalCalendar: React.FC<JournalCalendarProps> = ({ onSelectNote }
     setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1));
     setSelectedDate(null);
   };
+
+  const handlePrevYear = () => {
+    setCurrentMonth(new Date(currentMonth.getFullYear() - 1, currentMonth.getMonth(), 1));
+    setSelectedDate(null);
+  };
+
+  const handleNextYear = () => {
+    setCurrentMonth(new Date(currentMonth.getFullYear() + 1, currentMonth.getMonth(), 1));
+    setSelectedDate(null);
+  };
   
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
@@ -95,7 +105,7 @@ export const JournalCalendar: React.FC<JournalCalendarProps> = ({ onSelectNote }
       onClick={() => setSelectedDate(null)}
       style={{ padding: '24px 32px', display: 'flex', flexDirection: 'column', gap: '20px', position: 'relative', width: '100%', height: '100%' }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', paddingRight: '32px' }}>
+      <div className="journal-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', paddingRight: '32px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Calendar size={18} style={{ color: 'var(--accent-secondary)' }} />
           <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-primary)', letterSpacing: '0.5px' }}>
@@ -103,47 +113,71 @@ export const JournalCalendar: React.FC<JournalCalendarProps> = ({ onSelectNote }
           </h3>
         </div>
         
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <button 
-            className="btn btn-icon btn-ghost" 
-            onClick={() => handlePrevMonth()} 
-            aria-label="Previous Month"
-            style={{ minHeight: 'auto', padding: '6px' }}
-          >
-            <ChevronLeft size={16} />
-          </button>
-          
-          <Dropdown
-            value={currentMonth.getMonth()}
-            onChange={(val) => { setCurrentMonth(setMonth(currentMonth, val as number)); setSelectedDate(null); }}
-            options={Array.from({ length: 12 }).map((_, i) => ({ value: i, label: format(new Date(2020, i, 1), 'MMMM') }))}
-            style={{ width: '120px' }}
-          />
+        <div className="journal-controls" style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+          {/* Month Navigation */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <button 
+              className="btn btn-icon btn-ghost" 
+              onClick={() => handlePrevMonth()} 
+              aria-label="Previous Month"
+              style={{ minHeight: 'auto', padding: '6px' }}
+            >
+              <ChevronLeft size={16} />
+            </button>
+            
+            <Dropdown
+              value={currentMonth.getMonth()}
+              onChange={(val) => { setCurrentMonth(setMonth(currentMonth, val as number)); setSelectedDate(null); }}
+              options={Array.from({ length: 12 }).map((_, i) => ({ value: i, label: format(new Date(2020, i, 1), 'MMMM') }))}
+              style={{ width: '120px' }}
+            />
 
-          <button 
-            className="btn btn-icon btn-ghost" 
-            onClick={() => handleNextMonth()} 
-            aria-label="Next Month"
-            style={{ minHeight: 'auto', padding: '6px' }}
-          >
-            <ChevronRight size={16} />
-          </button>
-          
-          <Dropdown
-            isSearchable={true}
-            allowCustomValue={true}
-            dynamicWidth={true}
-            value={currentMonth.getFullYear()}
-            onChange={(val) => handleYearSubmit(val)}
-            options={(() => {
-              const startYear = 2026;
-              const currentYearObj = new Date().getFullYear();
-              const endYear = Math.round((currentYearObj + 100) / 100) * 100;
-              const numYears = endYear - startYear + 1;
-              return Array.from({ length: numYears }).map((_, i) => ({ value: startYear + i, label: (startYear + i).toString() }));
-            })()}
-            style={{ width: 'max-content', minWidth: '90px' }}
-          />
+            <button 
+              className="btn btn-icon btn-ghost" 
+              onClick={() => handleNextMonth()} 
+              aria-label="Next Month"
+              style={{ minHeight: 'auto', padding: '6px' }}
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
+
+          {/* Year Navigation */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <button 
+              className="btn btn-icon btn-ghost" 
+              onClick={() => handlePrevYear()} 
+              aria-label="Previous Year"
+              style={{ minHeight: 'auto', padding: '6px' }}
+            >
+              <ChevronLeft size={16} />
+            </button>
+            
+            <Dropdown
+              isSearchable={true}
+              allowCustomValue={true}
+              dynamicWidth={true}
+              value={currentMonth.getFullYear()}
+              onChange={(val) => handleYearSubmit(val)}
+              options={(() => {
+                const startYear = 2026;
+                const currentYearObj = new Date().getFullYear();
+                const endYear = Math.round((currentYearObj + 100) / 100) * 100;
+                const numYears = endYear - startYear + 1;
+                return Array.from({ length: numYears }).map((_, i) => ({ value: startYear + i, label: (startYear + i).toString() }));
+              })()}
+              style={{ width: 'max-content', minWidth: '90px' }}
+            />
+
+            <button 
+              className="btn btn-icon btn-ghost" 
+              onClick={() => handleNextYear()} 
+              aria-label="Next Year"
+              style={{ minHeight: 'auto', padding: '6px' }}
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
         </div>
       </div>
       

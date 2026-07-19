@@ -4,11 +4,12 @@
 
 ### ✨ Features
 - **Interactive Activity Journal**: Clicking on a note in the Activity Journal list now closes the settings modal and opens the full editor drawer.
-- **Activity Journal Month Navigation**: Added previous and next month chevron buttons next to the dropdown menu to quickly scrub months before and after.
+- **Activity Journal Navigation Polish**: Added dedicated previous and next chevron buttons around both the **Month** and **Year** dropdowns to allow swift chronological navigation.
 - **Node Connection Context**: Displays styled badges showing which page each note belongs to. Displays a detailed links list (`🔗 Connected to: [Note Name]`) showing links/connections between the notes created on the selected date.
 - **History Timeline & Scrubber**: Added exact datetime input capability to the scrubber, fixed default node inception date, and visually forced custom datetime formats on the native date picker.
 
 ### 🎨 UI/UX
+- **Responsive Activity Journal Header**: Restructured the calendar header layout and added CSS overrides to stack the title and dropdown controls vertically on mobile viewports (< 768px), preventing horizontal clipping and ensuring full visibility of navigation chevrons.
 - **Mobile Sidebar Layout & z-index**: Elevated mobile right-sidebar `z-index` to 105 to float on top of the app header, making the close button and editor action header fully visible and clickable.
 - **Natural Sheet Animations**: Removed conflicting CSS transform transitions on mobile, and configured Framer Motion spring parameters to animate the sidebar sliding up/down on mobile and resizing width-wise on desktop.
 - **Editor Body Heights**: Resolved scrolling clipping by changing the editor body height to `flex: 1` and `min-height: 0`. Removed double scrollbars in preview mode so the preview content, related notes, and connections scroll together as a single container.

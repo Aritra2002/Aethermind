@@ -87,6 +87,17 @@
   .confirm-action-toast { left: 16px !important; right: 16px !important; width: auto !important; bottom: calc(var(--mobile-nav-height, 60px) + env(safe-area-inset-bottom, 0px) + 16px) !important; }
   .sidebar-tab-trigger { display: none !important; }
   .hide-on-mobile { display: none !important; }
+  .journal-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 12px;
+    padding-right: 0 !important;
+  }
+  .journal-controls {
+    width: 100%;
+    justify-content: flex-start;
+    gap: 8px !important;
+  }
 }
 
 /* Tablets (768–1023px) */
