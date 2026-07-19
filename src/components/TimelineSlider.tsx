@@ -41,6 +41,20 @@ export const TimelineSlider: React.FC<TimelineSliderProps> = ({
     });
   };
 
+  const getDatetimeLocalString = (timestamp: number) => {
+    const d = new Date(timestamp);
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
+
+  const handleDateInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = new Date(e.target.value).getTime();
+    if (!isNaN(val)) {
+      const clampedVal = Math.max(minDate, Math.min(maxDate, val));
+      setDateRange([minDate, clampedVal]);
+    }
+  };
+
   if (historicalSnapshot) {
     return (
       <div className="timeline-slider-panel glass-panel" style={{ borderColor: 'var(--node-amber)' }}>
@@ -81,11 +95,29 @@ export const TimelineSlider: React.FC<TimelineSliderProps> = ({
   return (
     <div className="timeline-slider-panel glass-panel" id="timeline-slider-panel-root">
       <div className="timeline-info">
-        <div className="timeline-info-content" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div className="timeline-info-content" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
           <Calendar size={14} className="timeline-icon" />
           <span className="timeline-label">History Scrubber:</span>
-          <span className="timeline-dates">
-            {formatDate(minDate)} - {formatDate(value)}
+          <span className="timeline-dates" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            {formatDate(minDate)} - 
+            <input 
+              type="datetime-local" 
+              value={getDatetimeLocalString(value)}
+              min={getDatetimeLocalString(minDate)}
+              max={getDatetimeLocalString(maxDate)}
+              onChange={handleDateInputChange}
+              className="timeline-date-input"
+              style={{
+                background: 'rgba(0,0,0,0.2)',
+                border: '1px solid rgba(255,255,255,0.1)',
+                color: 'var(--text-primary)',
+                padding: '2px 8px',
+                borderRadius: '4px',
+                fontSize: '0.85rem',
+                outline: 'none',
+                fontFamily: 'inherit'
+              }}
+            />
           </span>
         </div>
         {dateRange && (
