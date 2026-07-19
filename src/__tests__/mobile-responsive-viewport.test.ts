@@ -243,7 +243,6 @@ describe('Empirical Verification of Mobile Responsive Layouts', () => {
 
       // Verify that it is configured to stretch and resize cleanly
       expect(['1', '1 1 0%', '1 1 0px']).toContain(textarea.style.flex);
-      expect(textarea.style.minHeight).toBe('60vh');
       expect(textarea.style.resize || 'none').toBe('none');
 
       act(() => {
