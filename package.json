@@ -1,7 +1,7 @@
 {
   "name": "Aethermind",
   "private": true,
-  "version": "1.28.2",
+  "version": "1.28.3",
   "homepage": "https://aritra2002.github.io/Aethermind",
   "type": "module",
   "scripts": {

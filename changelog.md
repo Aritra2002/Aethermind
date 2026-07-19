@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.28.3] - 2026-07-20
+
+### ✨ Features & Improvements
+- **Time Travel Prop Forwarding**: Fixed a prop-forwarding issue where the "Save Snapshot Now" and "Browse Snapshots" buttons were completely missing in Settings due to handlers not being passed down to the `DataSettingsTab` component.
+- **Provider Settings Initialization**: Fixed OpenAI configuration defaults (Base URL, default Model) not loading on first load of the AI Settings tab until the provider dropdown was actively toggled.
+- **Mobile First-Load Usability**: Configured the sidebar/editor to start closed by default on mobile viewports (< 768px) to prevent confusing new users with a full-screen empty markdown editor instead of the visual force graph.
+
+### 🎨 UI/UX Layout Polish
+- **Grid-Aligned Data Management**: Swapped the vertical action button list in the settings data tab for a clean 2x2 grid layout.
+- **Slimmer Graph Automation Row**: Reduced the padding and height of the local ML clustering action button and NLP clustering toggle row for a tighter, less bulky aesthetic.
+- **Textarea Responsive Resizing**: Replaced static heights on the markdown editor section with responsive flex styles, ensuring the textarea shrinks and expands perfectly to fit the sidebar area across different mobile device widths without scroll overlapping.
+
 ## [1.28.2] - 2026-07-19
 
 ### ✨ Features
