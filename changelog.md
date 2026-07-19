@@ -9,7 +9,8 @@
 - **History Timeline & Scrubber**: Added exact datetime input capability to the scrubber, fixed default node inception date, and visually forced custom datetime formats on the native date picker.
 
 ### 🎨 UI/UX
-- **Responsive Activity Journal Header**: Restructured the calendar header layout and added CSS overrides to stack the title and dropdown controls vertically on mobile viewports (< 768px), preventing horizontal clipping and ensuring full visibility of navigation chevrons.
+- **Responsive Activity Journal Header**: Restructured the calendar header layout and added CSS overrides to stack the title and dropdown controls vertically on mobile viewports (< 768px), preventing horizontal clipping. Used custom inline styled chevron buttons to bypass any CSS class collisions and ensure buttons are always displayed.
+- **Mobile UI Element Scaling**: Scaled down the base font size of the application to `14px` on mobile viewports (< 768px) to reduce the overall bulkiness. Tightened the layout grid padding, gaps, day block border radius, and list card heights inside the Activity Journal.
 - **Mobile Sidebar Layout & z-index**: Elevated mobile right-sidebar `z-index` to 105 to float on top of the app header, making the close button and editor action header fully visible and clickable.
 - **Natural Sheet Animations**: Removed conflicting CSS transform transitions on mobile, and configured Framer Motion spring parameters to animate the sidebar sliding up/down on mobile and resizing width-wise on desktop.
 - **Editor Body Heights**: Resolved scrolling clipping by changing the editor body height to `flex: 1` and `min-height: 0`. Removed double scrollbars in preview mode so the preview content, related notes, and connections scroll together as a single container.

@@ -98,6 +98,27 @@
     justify-content: flex-start;
     gap: 8px !important;
   }
+  /* Scale down all UI on mobile */
+  html {
+    font-size: 14px !important;
+  }
+  .journal-calendar-container {
+    padding: 16px 20px !important;
+    gap: 12px !important;
+  }
+  .journal-grid, .journal-grid-header {
+    gap: 8px !important;
+  }
+  .journal-day-block {
+    border-radius: 6px !important;
+  }
+  .journal-day-block span {
+    font-size: 0.85rem !important;
+  }
+  .journal-note-card {
+    padding: 8px 10px !important;
+    gap: 8px !important;
+  }
 }
 
 /* Tablets (768–1023px) */

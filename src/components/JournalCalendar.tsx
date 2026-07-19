@@ -103,6 +103,7 @@ export const JournalCalendar: React.FC<JournalCalendarProps> = ({ onSelectNote }
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       onClick={() => setSelectedDate(null)}
+      className="journal-calendar-container"
       style={{ padding: '24px 32px', display: 'flex', flexDirection: 'column', gap: '20px', position: 'relative', width: '100%', height: '100%' }}
     >
       <div className="journal-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', paddingRight: '32px' }}>
@@ -117,10 +118,27 @@ export const JournalCalendar: React.FC<JournalCalendarProps> = ({ onSelectNote }
           {/* Month Navigation */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <button 
-              className="btn btn-icon btn-ghost" 
               onClick={() => handlePrevMonth()} 
               aria-label="Previous Month"
-              style={{ minHeight: 'auto', padding: '6px' }}
+              style={{ 
+                background: 'rgba(255, 255, 255, 0.05)', 
+                border: '1px solid rgba(255, 255, 255, 0.1)', 
+                borderRadius: '6px', 
+                color: 'var(--text-primary)', 
+                padding: '6px', 
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '32px',
+                height: '32px',
+                minWidth: '32px',
+                minHeight: '32px',
+                aspectRatio: '1',
+                outline: 'none',
+                boxShadow: 'none',
+                transition: 'all 0.2s ease'
+              }}
             >
               <ChevronLeft size={16} />
             </button>
@@ -133,10 +151,27 @@ export const JournalCalendar: React.FC<JournalCalendarProps> = ({ onSelectNote }
             />
 
             <button 
-              className="btn btn-icon btn-ghost" 
               onClick={() => handleNextMonth()} 
               aria-label="Next Month"
-              style={{ minHeight: 'auto', padding: '6px' }}
+              style={{ 
+                background: 'rgba(255, 255, 255, 0.05)', 
+                border: '1px solid rgba(255, 255, 255, 0.1)', 
+                borderRadius: '6px', 
+                color: 'var(--text-primary)', 
+                padding: '6px', 
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '32px',
+                height: '32px',
+                minWidth: '32px',
+                minHeight: '32px',
+                aspectRatio: '1',
+                outline: 'none',
+                boxShadow: 'none',
+                transition: 'all 0.2s ease'
+              }}
             >
               <ChevronRight size={16} />
             </button>
@@ -145,10 +180,27 @@ export const JournalCalendar: React.FC<JournalCalendarProps> = ({ onSelectNote }
           {/* Year Navigation */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <button 
-              className="btn btn-icon btn-ghost" 
               onClick={() => handlePrevYear()} 
               aria-label="Previous Year"
-              style={{ minHeight: 'auto', padding: '6px' }}
+              style={{ 
+                background: 'rgba(255, 255, 255, 0.05)', 
+                border: '1px solid rgba(255, 255, 255, 0.1)', 
+                borderRadius: '6px', 
+                color: 'var(--text-primary)', 
+                padding: '6px', 
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '32px',
+                height: '32px',
+                minWidth: '32px',
+                minHeight: '32px',
+                aspectRatio: '1',
+                outline: 'none',
+                boxShadow: 'none',
+                transition: 'all 0.2s ease'
+              }}
             >
               <ChevronLeft size={16} />
             </button>
@@ -170,10 +222,27 @@ export const JournalCalendar: React.FC<JournalCalendarProps> = ({ onSelectNote }
             />
 
             <button 
-              className="btn btn-icon btn-ghost" 
               onClick={() => handleNextYear()} 
               aria-label="Next Year"
-              style={{ minHeight: 'auto', padding: '6px' }}
+              style={{ 
+                background: 'rgba(255, 255, 255, 0.05)', 
+                border: '1px solid rgba(255, 255, 255, 0.1)', 
+                borderRadius: '6px', 
+                color: 'var(--text-primary)', 
+                padding: '6px', 
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '32px',
+                height: '32px',
+                minWidth: '32px',
+                minHeight: '32px',
+                aspectRatio: '1',
+                outline: 'none',
+                boxShadow: 'none',
+                transition: 'all 0.2s ease'
+              }}
             >
               <ChevronRight size={16} />
             </button>
@@ -196,13 +265,13 @@ export const JournalCalendar: React.FC<JournalCalendarProps> = ({ onSelectNote }
             maxWidth: '500px'
           }}
         >
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '12px', marginBottom: '4px' }}>
+          <div className="journal-grid-header" style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '12px', marginBottom: '4px' }}>
             {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
               <div key={day} style={{ textAlign: 'center', fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px' }}>{day}</div>
             ))}
           </div>
           
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '12px' }}>
+          <div className="journal-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '12px' }}>
             {emptyDays.map(id => (
               <div key={id} style={{ aspectRatio: '1/1' }} />
             ))}
@@ -218,6 +287,7 @@ export const JournalCalendar: React.FC<JournalCalendarProps> = ({ onSelectNote }
                   whileHover={{ scale: 1.1, zIndex: 10, transition: { duration: 0.2 } }}
                   onClick={() => setSelectedDate(dateStr)}
                   title={`${dateStr}: ${count} notes across all pages`}
+                  className="journal-day-block"
                   style={{
                     aspectRatio: '1/1',
                     backgroundColor: style.bg,
@@ -280,6 +350,7 @@ export const JournalCalendar: React.FC<JournalCalendarProps> = ({ onSelectNote }
                       return (
                         <div 
                           key={note.id} 
+                          className="journal-note-card"
                           onMouseEnter={() => setHoveredNoteId(note.id!)}
                           onMouseLeave={() => setHoveredNoteId(null)}
                           onClick={() => onSelectNote && onSelectNote(note.title)}
