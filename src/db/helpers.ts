@@ -168,6 +168,8 @@ export async function seedDatabase(): Promise<void> {
   const notesCount = await db.notes.count();
   if (notesCount > 0) return; // Database already seeded with notes
 
+  const fixedTimestamp = new Date('2026-06-01T19:24:00+05:30').getTime();
+
   // Seed default notes
   const notes: Note[] = [
     {
@@ -176,8 +178,8 @@ export async function seedDatabase(): Promise<void> {
       content: 'Welcome to **AetherMind**! This is your local-first personal knowledge graph and mind mapper.\n\nHere, you can create nodes, jot down markdown notes, and connect ideas visually using wiki-style links. \n\nClick on the node [[Interactive Graph]] to learn how to navigate the network, or check [[Markdown Syntax]] to see how text renders.',
       tags: ['intro', 'guide'],
       category: 'general',
-      createdAt: Date.now() - 100000,
-      updatedAt: Date.now() - 100000
+      createdAt: fixedTimestamp,
+      updatedAt: fixedTimestamp
     },
     {
       pageId: 1,
@@ -185,8 +187,8 @@ export async function seedDatabase(): Promise<void> {
       content: 'The panel on the left is a dynamic, force-directed network graph of your notes. \n\n### Navigation Controls:\n- **Drag** nodes to pin them in place.\n- **Double-Click** a pinned node to release it back to the simulation.\n- **Scroll** to zoom in and out of the canvas.\n- **Click** a node to open it in this editing sidebar.\n- **Double-Click** empty canvas space to create a brand new floating note.\n\nRead more about organizing files in [[Organizing Notes]].',
       tags: ['graph', 'guide'],
       category: 'work',
-      createdAt: Date.now() - 80000,
-      updatedAt: Date.now() - 80000
+      createdAt: fixedTimestamp + 1000,
+      updatedAt: fixedTimestamp + 1000
     },
     {
       pageId: 1,
@@ -194,8 +196,8 @@ export async function seedDatabase(): Promise<void> {
       content: 'AetherMind supports rich formatting via standard markdown.\n\n### Formatting Examples:\n- **Bold text** and *italic text*\n- [AetherMind File Links](file:///e:/Lab/Aethermind/PRD.md)\n- Lists:\n  1. First item\n  2. Second item\n\n### Code Blocks:\n```javascript\nconst hello = "AetherMind";\nconsole.log(`Welcome to ${hello}`);\n```\n\nYou can also link notes simply by typing their name inside double brackets. Try adding `[[New Ideas]]` somewhere in this file.',
       tags: ['markdown', 'editor'],
       category: 'work',
-      createdAt: Date.now() - 60000,
-      updatedAt: Date.now() - 60000
+      createdAt: fixedTimestamp + 2000,
+      updatedAt: fixedTimestamp + 2000
     },
     {
       pageId: 1,
@@ -203,8 +205,8 @@ export async function seedDatabase(): Promise<void> {
       content: 'To help keep your mind mapper structured, you can assign categories and tags to your notes:\n\n- **Categories**: Colors nodes on the canvas. Try toggling between "work", "personal", and "ideas".\n- **Tags**: Click tags in the search selector on the left to highlight specific categories and dim out unrelated nodes.\n- **Timeline**: Drag the slider at the bottom to scrub through your node history.',
       tags: ['organization', 'tags'],
       category: 'personal',
-      createdAt: Date.now() - 40000,
-      updatedAt: Date.now() - 40000
+      createdAt: fixedTimestamp + 3000,
+      updatedAt: fixedTimestamp + 3000
     }
   ];
 

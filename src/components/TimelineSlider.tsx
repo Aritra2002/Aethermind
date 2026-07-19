@@ -32,13 +32,19 @@ export const TimelineSlider: React.FC<TimelineSliderProps> = ({
   };
 
   const formatDate = (timestamp: number) => {
-    return new Date(timestamp).toLocaleDateString(undefined, {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    const d = new Date(timestamp);
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const month = months[d.getMonth()];
+    // Although the user asked for "Jul 15", they didn't specify 0-padding for days. But 0-padding hours is specified. Let's pad just in case or just toString() for day since "Jul 15" has 2 digits natively. Actually, let's just use 2-digit day.
+    const dayStr = d.getDate().toString();
+    const year = d.getFullYear();
+    let hours = d.getHours();
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12;
+    hours = hours ? hours : 12;
+    const paddedHours = hours.toString().padStart(2, '0');
+    const minutes = d.getMinutes().toString().padStart(2, '0');
+    return `${month} ${dayStr}, ${year}, ${paddedHours}:${minutes} ${ampm}`;
   };
 
   const getDatetimeLocalString = (timestamp: number) => {
