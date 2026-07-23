@@ -4,6 +4,7 @@ import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
   base: '/Aethermind/',
+  server: { host: '0.0.0.0' },
   plugins: [
     react(),
     VitePWA({

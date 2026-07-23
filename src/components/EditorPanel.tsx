@@ -46,6 +46,7 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
   const [tagsInput, setTagsInput] = useState('');
   const [editMode, setEditMode] = useState<boolean>(false);
   const [isAiLoading, setIsAiLoading] = useState(false);
+  const aiAvailable = !!(localStorage.getItem('aiApiKey') || localStorage.getItem('aiProvider') === 'custom');
   
   // Force preview mode when opening a different note
   useEffect(() => {
@@ -672,7 +673,7 @@ Return exactly and ONLY the summary text, with no markdown code blocks or conver
         </div>
       )}
       
-      {!editMode && content.trim().length > 50 && note.id && (
+      {!editMode && content.trim().length > 50 && note.id && aiAvailable && (
         <ConnectionDiscovery noteId={note.id} content={content} />
       )}
     </div>

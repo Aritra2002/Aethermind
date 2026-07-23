@@ -844,15 +844,17 @@ Format:
             />
           </Suspense>
 
-          {/* Floating Timeline Slider scrubber */}
-          <TimelineSlider
-            notes={historicalSnapshot ? historicalSnapshot.notes : notes}
-            dateRange={historicalSnapshot ? null : dateRange}
-            setDateRange={setDateRange}
-            historicalSnapshot={historicalSnapshot}
-            onRestoreFromHistory={historicalSnapshot ? handleRestoreFromHistory : undefined}
-            onExitHistory={historicalSnapshot ? () => setHistoricalSnapshot(null) : undefined}
-          />
+          {/* Floating Timeline Slider scrubber — hidden on mobile when a note is open */}
+          {(viewport !== 'sm' || !activeNote) && (
+            <TimelineSlider
+              notes={historicalSnapshot ? historicalSnapshot.notes : notes}
+              dateRange={historicalSnapshot ? null : dateRange}
+              setDateRange={setDateRange}
+              historicalSnapshot={historicalSnapshot}
+              onRestoreFromHistory={historicalSnapshot ? handleRestoreFromHistory : undefined}
+              onExitHistory={historicalSnapshot ? () => setHistoricalSnapshot(null) : undefined}
+            />
+          )}
         </div>
 
         {/* Right Side: Markdown Editor Sidebar panel */}

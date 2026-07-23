@@ -20,8 +20,10 @@ export const JournalCalendar: React.FC<JournalCalendarProps> = ({ onSelectNote }
 
 
   const currentYearObj = new Date().getFullYear();
-  const startYear = currentYearObj - 1;
-  const endYear = Math.round((currentYearObj + 100) / 100) * 100;
+  const rangeSize = 200;
+  const halfRange = Math.floor(rangeSize / 2);
+  const startYear = Math.max(2026, currentMonth.getFullYear() - halfRange);
+  const endYear = Math.min(startYear + rangeSize, currentYearObj);
 
   const isPrevMonthDisabled = currentMonth.getFullYear() === startYear && currentMonth.getMonth() === 0;
   const isNextMonthDisabled = currentMonth.getFullYear() === endYear && currentMonth.getMonth() === 11;
@@ -38,7 +40,7 @@ export const JournalCalendar: React.FC<JournalCalendarProps> = ({ onSelectNote }
     }
 
     const y = parseInt(val);
-    if (!isNaN(y) && y >= startYear && y <= endYear) {
+    if (!isNaN(y) && y >= 2026 && y <= currentYearObj) {
       setCurrentMonth(setYear(currentMonth, y));
       setSelectedDate(null);
     }
@@ -118,15 +120,15 @@ export const JournalCalendar: React.FC<JournalCalendarProps> = ({ onSelectNote }
       className="journal-calendar-container"
       style={{ padding: '24px 32px', display: 'flex', flexDirection: 'column', gap: '20px', position: 'relative', width: '100%', height: '100%' }}
     >
-      <div className="journal-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', paddingRight: '32px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <div className="journal-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: '16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
           <Calendar size={18} style={{ color: 'var(--accent-secondary)' }} />
           <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-primary)', letterSpacing: '0.5px' }}>
             Activity Journal
           </h3>
         </div>
         
-        <div className="journal-controls" style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+        <div className="journal-controls" style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'nowrap', flexShrink: 0 }}>
           {/* Month Navigation */}
           <div className="journal-nav-group" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <button 
@@ -230,19 +232,14 @@ export const JournalCalendar: React.FC<JournalCalendarProps> = ({ onSelectNote }
             <Dropdown
               className="journal-dropdown-year"
               isSearchable={true}
-              allowCustomValue={false}
-              dynamicWidth={true}
+              allowCustomValue={true}
               value={currentMonth.getFullYear()}
               onChange={(val) => handleYearSubmit(val)}
               options={(() => {
-                const noteYears = notes.length > 0 ? Math.min(...notes.filter(n => n.createdAt).map(n => new Date(n.createdAt!).getFullYear())) : 2026;
-                const startYear = noteYears;
-                const currentYearObj = new Date().getFullYear();
-                const endYear = Math.round((currentYearObj + 100) / 100) * 100;
-                const numYears = endYear - startYear + 1;
-                return Array.from({ length: numYears }).map((_, i) => ({ value: startYear + i, label: (startYear + i).toString() }));
+                const optCount = Math.max(0, endYear - startYear + 1);
+                return Array.from({ length: optCount }).map((_, i) => ({ value: startYear + i, label: (startYear + i).toString() }));
               })()}
-              style={{ width: 'max-content', minWidth: '90px' }}
+              style={{ width: `${currentMonth.getFullYear().toString().length * 10 + 80}px` }}
             />
 
             <button 

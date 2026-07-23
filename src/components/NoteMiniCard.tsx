@@ -84,6 +84,7 @@ export const NoteMiniCard: React.FC<NoteMiniCardProps> = ({ note, category, onOp
   return (
     <div 
       className="note-mini-card"
+      style={{ padding: '16px' }}
     >
       <div 
         onTouchStart={handleTouchStart}
