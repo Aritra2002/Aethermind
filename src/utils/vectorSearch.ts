@@ -43,10 +43,9 @@ const tfidfEmbed = (tokens: string[]): number[] => {
 const initTransformer = async (): Promise<FeatureExtractionPipeline | null> => {
   try {
     if (!transformersModule) {
-      const tf = await import('@xenova/transformers');
-      tf.env.allowLocalModels = false;
-      tf.env.useBrowserCache = false;
-      transformersModule = tf;
+      transformersModule = await import('@xenova/transformers');
+      transformersModule.env.allowLocalModels = false;
+      transformersModule.env.useBrowserCache = false;
     }
     const pipe = await transformersModule.pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2') as unknown as FeatureExtractionPipeline;
     return pipe;
