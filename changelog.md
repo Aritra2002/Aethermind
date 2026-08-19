@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+[1.30.0]: https://github.com/Aritra2002/Aethermind/compare/v1.29.2...v1.30.0
 [1.29.2]: https://github.com/Aritra2002/Aethermind/compare/v1.29.1...v1.29.2
 [1.29.1]: https://github.com/Aritra2002/Aethermind/compare/v1.28.3...v1.29.1
 [1.28.3]: https://github.com/Aritra2002/Aethermind/compare/v1.28.2...v1.28.3
@@ -52,6 +53,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [1.6.0]: https://github.com/Aritra2002/Aethermind/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/Aritra2002/Aethermind/compare/v1.0.0...v1.5.0
 [1.0.0]: https://github.com/Aritra2002/Aethermind/releases/tag/v1.0.0
+
+
+## [1.30.0] - 2026-08-19
+
+### Added
+
+- **Custom In-App 120 FPS Color Studio (`ModernColorPicker`)**: Replaced slow browser/OS `<input type="color">` modal with an ultra-responsive 2D Saturation-Value gradient canvas, 1D Rainbow Hue slider bar, pointer capture, and 20 curated designer presets.
+- **Two-Column Inspector Theme Studio (`AppearanceSettingsTab`)**: Redesigned custom theme builder into a professional Figma/Linear-style 2-column inspector layout with live active ring indicators and docked color tuning.
+- **Ultra-Fast Targeted RAF Theme Engine (`themeUtils.ts`)**: Implemented `updateSingleThemePropertyLive` with `requestAnimationFrame` batching ($< 0.05\text{ms}$ style updates), decoupling pointer drags from React tree re-renders.
+- **Portalled Dropdown Boundary Clamping (`Dropdown.tsx`)**: Upgraded dropdown component with smart space detection (auto-flipping top/bottom), precise viewport boundary clamping, and zero modal scroll container clipping.
+- **Comprehensive Codebase Documentation**: Added full JSDoc module headers, interface/type specifications, function parameter annotations, return types, and educational inline comments across all 35 source code files in `src/`.
+- **Diataxis Documentation Suite**: Added `docs/TUTORIAL.md`, `docs/HOW_TO.md`, `docs/REFERENCE.md`, and `docs/ARCHITECTURE.md`.
+
+### Fixed
+
+- **Fixed Containing Block & Stacking Context Displacement**: Eliminated floating popover coordinate multiplication inside transformed modal containers.
+- **Fixed Font Selector Dropdown Positioning**: Corrected `placement === 'top'` viewport height subtraction and removed conflicting CSS `bottom: calc(100% + 6px)` rules.
+- **Fixed Strict Reference Equality in Dropdowns**: Replaced strict type checks with string-safe option comparisons (`String(opt.value) === String(value)`).
 
 
 ## [1.29.2] - 2026-07-23

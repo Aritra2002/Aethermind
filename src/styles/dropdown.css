@@ -1,3 +1,7 @@
+/* ============================================================
+   dropdown.css — Dropdown component styles
+   ============================================================ */
+
 .dropdown-container {
   position: relative;
   display: inline-block;
@@ -9,75 +13,71 @@
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  background: rgba(0, 0, 0, 0.3);
+  background: var(--input-bg);
   color: var(--text-primary);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  padding: 8px 12px;
-  border-radius: 6px;
+  border: 1px solid var(--input-border);
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   outline: none;
   font-family: inherit;
-  font-size: 0.95rem;
-  transition: all 0.2s ease;
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: border-color 160ms var(--ease-out),
+              background 160ms var(--ease-out),
+              box-shadow 160ms var(--ease-out);
   user-select: none;
 }
 
 .dropdown-trigger:hover {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(255, 255, 255, 0.2);
+  background: var(--input-focus-bg);
+  border-color: var(--accent-primary);
 }
 
 .dropdown-trigger:focus-within,
 .dropdown-trigger.is-open {
-  border-color: var(--accent-primary, #7c3aed);
-  box-shadow: 0 0 10px rgba(124, 58, 237, 0.2);
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px var(--input-focus-glow);
 }
 
 .dropdown-input {
-  background: transparent;
-  border: none;
+  background: transparent !important;
+  border: none !important;
   color: var(--text-primary);
   outline: none;
   flex: 1;
   min-width: 0;
   font-family: inherit;
-  font-size: 0.95rem;
+  font-size: 0.85rem;
+  padding: 0 !important;
+  box-shadow: none !important;
 }
 
 /* Neutralize Bootstrap's .dropdown-menu interference */
 .dropdown-menu:not(.dropdown-menu-bs) {
-  position: absolute;
-  top: calc(100% + 8px);
-  left: 0;
-  width: 100%;
-  min-width: 120px;
-  max-height: 250px;
+  min-width: 160px;
+  max-height: 260px;
   overflow-y: auto;
-  background: rgba(15, 15, 20, 0.85);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
+  background: var(--surface-card);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
   padding: 6px;
   z-index: 100000;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--shadow-xl, 0 12px 36px rgba(0, 0, 0, 0.45));
   display: flex;
   flex-direction: column;
   gap: 2px;
+  box-sizing: border-box;
   
   /* Scrollbar */
   scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
-}
-
-.dropdown-menu.placement-top {
-  top: auto;
-  bottom: calc(100% + 8px);
-  box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.5);
+  scrollbar-color: var(--border-color) transparent;
 }
 
 .dropdown-menu::-webkit-scrollbar {
-  width: 6px;
+  width: 5px;
 }
 
 .dropdown-menu::-webkit-scrollbar-track {
@@ -85,39 +85,43 @@
 }
 
 .dropdown-menu::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 10px;
+  background: var(--border-color);
+  border-radius: var(--radius-pill);
 }
 
 .dropdown-menu::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.3);
+  background: var(--text-muted);
 }
 
 .dropdown-option {
-  padding: 8px 12px;
-  border-radius: 4px;
+  padding: 7px 10px;
+  border-radius: var(--radius-xs);
   cursor: pointer;
   color: var(--text-secondary);
-  font-size: 0.9rem;
-  transition: all 0.2s ease;
+  font-size: 0.85rem;
+  transition: background 120ms ease, color 120ms ease;
   user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .dropdown-option:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--surface-pill-bg);
   color: var(--text-primary);
 }
 
 .dropdown-option.is-selected {
-  background: rgba(124, 58, 237, 0.1);
-  color: var(--accent-primary, #7c3aed);
-  font-weight: 500;
+  background: var(--glow-primary);
+  color: var(--accent-primary);
+  font-weight: 600;
 }
 
 .dropdown-empty {
-  padding: 8px 12px;
-  color: var(--text-secondary);
-  font-size: 0.9rem;
+  padding: 10px;
+  color: var(--text-muted);
+  font-size: 0.825rem;
   text-align: center;
   font-style: italic;
 }
+

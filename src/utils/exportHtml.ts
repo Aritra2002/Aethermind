@@ -1,7 +1,25 @@
+/**
+ * @file exportHtml.ts
+ * @description Standalone HTML export generator for AetherMind graph workspaces.
+ * Compiles notes, categories, tags, bidirectional wiki-links (`[[Title]]`), and markdown content
+ * into a single self-contained, offline-compatible HTML file.
+ * The exported document includes an interactive table of contents (TOC), full-text live filtering,
+ * deep-linking anchor scrolling with pulse animations, multiple preset themes (Dark, Light, Sepia,
+ * Midnight, Ocean), and a live custom CSS theme builder with color pickers and font customization.
+ */
+
 import { db } from '../db';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 
+/**
+ * Validates and normalizes 3-digit or 6-digit hexadecimal color codes into standard 6-digit hex string.
+ *
+ * @param colorStr - Input color string (e.g. '#fff' or '#7c3aed').
+ * @param fallback - Default fallback hex color string if normalization fails.
+ *
+ * @returns Normalized 6-digit hex color string `#rrggbb`.
+ */
 const normalizeHex = (colorStr: string, fallback: string): string => {
   if (!colorStr) return fallback;
   const trimmed = colorStr.trim();
@@ -12,11 +30,23 @@ const normalizeHex = (colorStr: string, fallback: string): string => {
   return fallback;
 };
 
+/**
+ * Generates an interactive, standalone HTML documentation export for all notes within a workspace page,
+ * and initiates an automatic browser file download.
+ *
+ * @param pageId - Primary key ID of the workspace page to export.
+ * @param pageTitle - Optional title for the workspace page (defaults to 'Graph').
+ *
+ * @returns A promise that resolves when the export blob has been constructed and download triggered.
+ */
 export const exportToHtml = async (pageId: number, pageTitle: string = 'Graph') => {
+  // Fetch all notes and category definitions belonging to the active page
   const notes = await db.notes.where('pageId').equals(pageId).toArray();
   const categories = await db.categories.toArray();
   
+  // Sanitize title for safe embedding in HTML document header and filename
   const safeTitle = pageTitle.replace(/[^a-z0-9-]/gi, ' ').trim();
+
   
   const currentTheme = localStorage.getItem('aethermind-theme') || 'dark';
   let bg = '#06071a';
@@ -345,7 +375,7 @@ export const exportToHtml = async (pageId: number, pageTitle: string = 'Graph') 
           <option value="custom">Custom</option>
         </select>
       </div>
-      <div id="customThemeBuilder" style="display: none; margin-top: 15px; padding: 12px; background: rgba(0,0,0,0.1); border-radius: 8px; border: 1px solid var(--border-color); flex-direction: column; gap: 10px;">
+      <div id="customThemeBuilder" style="display: none; margin-top: 15px; padding: 12px; background: var(--surface-hover); border-radius: 8px; border: 1px solid var(--border-color); flex-direction: column; gap: 10px;">
         <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.75rem;">
           <span style="color: var(--text-primary); opacity: 0.7;">Background</span>
           <input type="color" id="customBg" class="custom-color-picker">
@@ -372,7 +402,7 @@ export const exportToHtml = async (pageId: number, pageTitle: string = 'Graph') 
         </div>
         <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.75rem;">
           <span style="color: var(--text-primary); opacity: 0.7;">Font Style</span>
-          <select id="customFont" style="background: rgba(0,0,0,0.2); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); font-size: 0.7rem; padding: 2px 6px; outline: none; cursor: pointer; font-family: inherit;">
+          <select id="customFont" style="background: var(--surface-hover); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); font-size: 0.7rem; padding: 2px 6px; outline: none; cursor: pointer; font-family: inherit;">
             <optgroup label="Modern Sans-Serif" style="background: #18181b; color: #fff;">
               <option value="sans">Plus Jakarta Sans</option>
               <option value="inter">Inter</option>

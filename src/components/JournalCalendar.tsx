@@ -1,3 +1,11 @@
+/**
+ * @file JournalCalendar.tsx
+ * @description Interactive Activity Journal calendar for AetherMind.
+ * Visualizes note creation history and velocity across days and months with a GitHub-style heatmap,
+ * full month/year navigation, and an expandable daily breakdown card showing created notes and interconnections.
+ * @module components/JournalCalendar
+ */
+
 import React, { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db';
@@ -6,30 +14,65 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Calendar, FileText, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Dropdown } from './ui/Dropdown';
 
+/**
+ * Props for the {@link JournalCalendar} component.
+ *
+ * @interface JournalCalendarProps
+ * @property {(title: string) => void} [onSelectNote] - Optional callback triggered when a note item within a selected date is clicked.
+ */
 interface JournalCalendarProps {
   onSelectNote?: (title: string) => void;
 }
 
+/**
+ * JournalCalendar Component
+ *
+ * Displays a calendar grid representing note creation activity for the currently selected month and year.
+ * Highlights days based on activity frequency with glowing ambient indicators, and lets users drill down
+ * to view the specific notes, their parent pages, and connected nodes for any given date.
+ *
+ * @component
+ * @param {JournalCalendarProps} props - Component properties.
+ * @returns {React.ReactElement} The rendered calendar view.
+ */
 export const JournalCalendar: React.FC<JournalCalendarProps> = ({ onSelectNote }) => {
+  /** Reactive query for all notes stored across all pages in the workspace. */
   const notes = useLiveQuery(() => db.notes.toArray()) || [];
+
+  /** Reactive query for all workspace pages. */
   const pages = useLiveQuery(() => db.pages.toArray()) || [];
+
+  /** Reactive query for all graph link connections. */
   const links = useLiveQuery(() => db.links.toArray()) || [];
+
+  /** Currently selected calendar date string in `yyyy-MM-dd` format, or `null`. */
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+
+  /** Date object representing the month and year currently being viewed. */
   const [currentMonth, setCurrentMonth] = useState(new Date());
+
+  /** ID of the note currently being hovered over in the expanded daily detail view. */
   const [hoveredNoteId, setHoveredNoteId] = useState<number | null>(null);
 
-
+  // Year range constraints
   const currentYearObj = new Date().getFullYear();
   const rangeSize = 200;
   const halfRange = Math.floor(rangeSize / 2);
   const startYear = Math.max(2026, currentMonth.getFullYear() - halfRange);
   const endYear = Math.min(startYear + rangeSize, currentYearObj);
 
+  // Navigation boundary flags
   const isPrevMonthDisabled = currentMonth.getFullYear() === startYear && currentMonth.getMonth() === 0;
   const isNextMonthDisabled = currentMonth.getFullYear() === endYear && currentMonth.getMonth() === 11;
   const isPrevYearDisabled = currentMonth.getFullYear() === startYear;
   const isNextYearDisabled = currentMonth.getFullYear() === endYear;
 
+  /**
+   * Handles year selection or manual year input from the dropdown.
+   * Clamps selected year within allowable bounds.
+   *
+   * @param {string | number} valStr - The target year value.
+   */
   const handleYearSubmit = (valStr: string | number) => {
     const val = valStr.toString();
     
@@ -39,74 +82,93 @@ export const JournalCalendar: React.FC<JournalCalendarProps> = ({ onSelectNote }
       return;
     }
 
-    const y = parseInt(val);
+    const y = parseInt(val, 10);
     if (!isNaN(y) && y >= 2026 && y <= currentYearObj) {
       setCurrentMonth(setYear(currentMonth, y));
       setSelectedDate(null);
     }
   };
 
+  /** Navigates to the preceding month. */
   const handlePrevMonth = () => {
     if (isPrevMonthDisabled) return;
     setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1));
     setSelectedDate(null);
   };
 
+  /** Navigates to the succeeding month. */
   const handleNextMonth = () => {
     if (isNextMonthDisabled) return;
     setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1));
     setSelectedDate(null);
   };
 
+  /** Navigates to the preceding year. */
   const handlePrevYear = () => {
     if (isPrevYearDisabled) return;
     setCurrentMonth(new Date(currentMonth.getFullYear() - 1, currentMonth.getMonth(), 1));
     setSelectedDate(null);
   };
 
+  /** Navigates to the succeeding year. */
   const handleNextYear = () => {
     if (isNextYearDisabled) return;
     setCurrentMonth(new Date(currentMonth.getFullYear() + 1, currentMonth.getMonth(), 1));
     setSelectedDate(null);
   };
   
+  // Date intervals for the calendar month grid
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
   const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
   
+  // Weekday offset for grid alignment (Sunday = 0, Saturday = 6)
   const startDayOfWeek = getDay(monthStart);
   const emptyDays = Array.from({ length: startDayOfWeek }).map((_, i) => `empty-${i}`);
 
-  // Group notes by creation date
+  /**
+   * Group notes by creation date (yyyy-MM-dd) to compute daily note density.
+   */
   const activityMap = new Map<string, number>();
   notes.forEach(note => {
     const dateStr = format(new Date(note.createdAt), 'yyyy-MM-dd');
     activityMap.set(dateStr, (activityMap.get(dateStr) || 0) + 1);
   });
 
+  /**
+   * Computes background color, glow shadow, and border for a calendar day block
+   * based on note creation volume.
+   *
+   * @param {number} count - Number of notes created on this date.
+   * @param {boolean} isSelected - Whether this date block is currently selected by the user.
+   * @returns {{ bg: string; shadow: string; border: string }} CSS styling parameters.
+   */
   const getStyle = (count: number, isSelected: boolean) => {
-    let base = { bg: 'rgba(255, 255, 255, 0.05)', shadow: 'none', border: '1px solid rgba(255, 255, 255, 0.02)' };
+    let base = { bg: 'var(--surface-pill-bg)', shadow: 'none', border: '1px solid var(--border-subtle)' };
     if (count === 1) base = { bg: 'var(--node-work)', shadow: '0 0 8px var(--node-work)', border: '1px solid rgba(255,255,255,0.2)' };
     if (count === 2) base = { bg: 'var(--node-personal)', shadow: '0 0 10px var(--node-personal)', border: '1px solid rgba(255,255,255,0.4)' };
     if (count > 2) base = { bg: 'var(--node-ideas)', shadow: '0 0 12px var(--node-ideas)', border: '1px solid rgba(255,255,255,0.6)' };
     
     if (isSelected) {
-      base.border = '2px solid white';
-      base.shadow = `0 0 16px ${base.bg !== 'rgba(255, 255, 255, 0.05)' ? base.bg : 'rgba(255,255,255,0.5)'}`;
+      base.border = '2px solid var(--text-primary)';
+      base.shadow = `0 0 16px ${base.bg !== 'var(--surface-pill-bg)' ? base.bg : 'var(--glow-primary)'}`;
     }
     return base;
   };
 
+  /** Framer motion container animation configuration for staggered child appearances. */
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: { opacity: 1, transition: { staggerChildren: 0.005, delayChildren: 0.05 } }
   };
 
+  /** Framer motion child item animation configuration with spring physics. */
   const itemVariants = {
     hidden: { scale: 0, opacity: 0 },
     visible: { scale: 1, opacity: 1, transition: { type: "spring" as const, stiffness: 300, damping: 20 } }
   };
 
+  /** Filter and sort notes belonging to the selected date by creation timestamp. */
   const selectedNotes = selectedDate 
     ? notes.filter(n => format(new Date(n.createdAt), 'yyyy-MM-dd') === selectedDate).sort((a,b) => b.createdAt - a.createdAt)
     : [];
@@ -120,6 +182,7 @@ export const JournalCalendar: React.FC<JournalCalendarProps> = ({ onSelectNote }
       className="journal-calendar-container"
       style={{ padding: '24px 32px', display: 'flex', flexDirection: 'column', gap: '20px', position: 'relative', width: '100%', height: '100%' }}
     >
+      {/* Calendar Header with Title and Month/Year Navigators */}
       <div className="journal-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: '16px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
           <Calendar size={18} style={{ color: 'var(--accent-secondary)' }} />
@@ -129,7 +192,7 @@ export const JournalCalendar: React.FC<JournalCalendarProps> = ({ onSelectNote }
         </div>
         
         <div className="journal-controls" style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'nowrap', flexShrink: 0 }}>
-          {/* Month Navigation */}
+          {/* Month Navigation Group */}
           <div className="journal-nav-group" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <button 
               className="journal-nav-btn"
@@ -137,10 +200,10 @@ export const JournalCalendar: React.FC<JournalCalendarProps> = ({ onSelectNote }
               disabled={isPrevMonthDisabled}
               aria-label="Previous Month"
               style={{ 
-                background: 'rgba(255, 255, 255, 0.05)', 
-                border: '1px solid rgba(255, 255, 255, 0.1)', 
+                background: 'var(--surface-pill-bg)', 
+                border: '1px solid var(--border-color)', 
                 borderRadius: '6px', 
-                color: isPrevMonthDisabled ? 'rgba(255, 255, 255, 0.2)' : 'var(--text-primary)', 
+                color: isPrevMonthDisabled ? 'var(--text-muted)' : 'var(--text-primary)', 
                 padding: '6px', 
                 cursor: isPrevMonthDisabled ? 'not-allowed' : 'pointer',
                 display: 'inline-flex',
@@ -174,10 +237,10 @@ export const JournalCalendar: React.FC<JournalCalendarProps> = ({ onSelectNote }
               disabled={isNextMonthDisabled}
               aria-label="Next Month"
               style={{ 
-                background: 'rgba(255, 255, 255, 0.05)', 
-                border: '1px solid rgba(255, 255, 255, 0.1)', 
+                background: 'var(--surface-pill-bg)', 
+                border: '1px solid var(--border-color)', 
                 borderRadius: '6px', 
-                color: isNextMonthDisabled ? 'rgba(255, 255, 255, 0.2)' : 'var(--text-primary)', 
+                color: isNextMonthDisabled ? 'var(--text-muted)' : 'var(--text-primary)', 
                 padding: '6px', 
                 cursor: isNextMonthDisabled ? 'not-allowed' : 'pointer',
                 display: 'inline-flex',
@@ -198,7 +261,7 @@ export const JournalCalendar: React.FC<JournalCalendarProps> = ({ onSelectNote }
             </button>
           </div>
 
-          {/* Year Navigation */}
+          {/* Year Navigation Group */}
           <div className="journal-nav-group" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <button 
               className="journal-nav-btn"
@@ -206,10 +269,10 @@ export const JournalCalendar: React.FC<JournalCalendarProps> = ({ onSelectNote }
               disabled={isPrevYearDisabled}
               aria-label="Previous Year"
               style={{ 
-                background: 'rgba(255, 255, 255, 0.05)', 
-                border: '1px solid rgba(255, 255, 255, 0.1)', 
+                background: 'var(--surface-pill-bg)', 
+                border: '1px solid var(--border-color)', 
                 borderRadius: '6px', 
-                color: isPrevYearDisabled ? 'rgba(255, 255, 255, 0.2)' : 'var(--text-primary)', 
+                color: isPrevYearDisabled ? 'var(--text-muted)' : 'var(--text-primary)', 
                 padding: '6px', 
                 cursor: isPrevYearDisabled ? 'not-allowed' : 'pointer',
                 display: 'inline-flex',
@@ -248,10 +311,10 @@ export const JournalCalendar: React.FC<JournalCalendarProps> = ({ onSelectNote }
               disabled={isNextYearDisabled}
               aria-label="Next Year"
               style={{ 
-                background: 'rgba(255, 255, 255, 0.05)', 
-                border: '1px solid rgba(255, 255, 255, 0.1)', 
+                background: 'var(--surface-pill-bg)', 
+                border: '1px solid var(--border-color)', 
                 borderRadius: '6px', 
-                color: isNextYearDisabled ? 'rgba(255, 255, 255, 0.2)' : 'var(--text-primary)', 
+                color: isNextYearDisabled ? 'var(--text-muted)' : 'var(--text-primary)', 
                 padding: '6px', 
                 cursor: isNextYearDisabled ? 'not-allowed' : 'pointer',
                 display: 'inline-flex',
@@ -274,6 +337,7 @@ export const JournalCalendar: React.FC<JournalCalendarProps> = ({ onSelectNote }
         </div>
       </div>
       
+      {/* Calendar Grid Section */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', alignItems: 'center' }}>
         <motion.div 
           variants={containerVariants}
@@ -289,12 +353,14 @@ export const JournalCalendar: React.FC<JournalCalendarProps> = ({ onSelectNote }
             maxWidth: '500px'
           }}
         >
+          {/* Weekday Labels Header */}
           <div className="journal-grid-header" style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '12px', marginBottom: '4px' }}>
             {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
               <div key={day} style={{ textAlign: 'center', fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px' }}>{day}</div>
             ))}
           </div>
           
+          {/* Month Day Cells */}
           <div className="journal-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '12px' }}>
             {emptyDays.map(id => (
               <div key={id} style={{ aspectRatio: '1/1' }} />
@@ -341,6 +407,7 @@ export const JournalCalendar: React.FC<JournalCalendarProps> = ({ onSelectNote }
           </div>
         </motion.div>
 
+        {/* Selected Date Detail Drawer */}
         <AnimatePresence>
           {selectedDate && (
             <motion.div 
@@ -353,15 +420,16 @@ export const JournalCalendar: React.FC<JournalCalendarProps> = ({ onSelectNote }
             >
               <div 
                 onClick={(e) => e.stopPropagation()}
-                style={{ display: 'flex', flexDirection: 'column', gap: '12px', background: 'rgba(0,0,0,0.2)', padding: '16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)', width: '100%' }}
+                style={{ display: 'flex', flexDirection: 'column', gap: '12px', background: 'var(--card-nested-bg)', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-color)', width: '100%' }}
               >
-                <div style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '8px' }}>
+                <div style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
                   <h4 style={{ margin: 0, fontSize: '1rem', color: 'var(--text-primary)' }}>{format(new Date(selectedDate), 'MMMM do, yyyy')}</h4>
                   <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
                     {selectedNotes.length} note{selectedNotes.length !== 1 ? 's' : ''} created across all pages
                   </div>
                 </div>
 
+                {/* Notes List for Selected Date */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '320px', overflowY: 'auto', scrollbarGutter: 'stable', paddingRight: '8px' }}>
                   {selectedNotes.length > 0 ? (
                     selectedNotes.map(note => {
@@ -436,4 +504,5 @@ export const JournalCalendar: React.FC<JournalCalendarProps> = ({ onSelectNote }
     </motion.div>
   );
 };
+
 

@@ -1,7 +1,27 @@
+/**
+ * @file SearchBar.tsx
+ * @description Floating search and filter panel overlay for the AetherMind graph canvas.
+ * Allows users to filter active graph notes by keyword, category colors, and multi-select tag chips.
+ * @module components/SearchBar
+ */
+
 import React from 'react';
 import { Search, X } from 'lucide-react';
 import type { Note, Category } from '../db';
 
+/**
+ * Props for the {@link SearchBar} component.
+ *
+ * @interface SearchBarProps
+ * @property {string} searchQuery - The active text search string.
+ * @property {(query: string) => void} setSearchQuery - Callback to update the search query string.
+ * @property {string[]} selectedTags - Array of tag names currently selected for filtering.
+ * @property {(tags: string[]) => void} setSelectedTags - Callback to update the array of selected filter tags.
+ * @property {Note[]} notes - List of all notes in the active page (used to extract unique tags).
+ * @property {Category[]} categories - List of defined categories for displaying the visual legend.
+ * @property {boolean} [isOpen=true] - Whether the search filter panel is currently open/visible.
+ * @property {() => void} [onClose] - Optional callback triggered to close the search overlay.
+ */
 interface SearchBarProps {
   searchQuery: string;
   setSearchQuery: (query: string) => void;
@@ -13,6 +33,16 @@ interface SearchBarProps {
   onClose?: () => void;
 }
 
+/**
+ * SearchBar Component
+ *
+ * Renders a glassmorphic sidebar panel over the graph canvas.
+ * Enables live graph filtering through search queries, category reference dots, and clickable tag pills.
+ *
+ * @component
+ * @param {SearchBarProps} props - Component properties.
+ * @returns {React.ReactElement} The rendered search and filter panel.
+ */
 export const SearchBar: React.FC<SearchBarProps> = ({
   searchQuery,
   setSearchQuery,
@@ -23,7 +53,9 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   isOpen = true,
   onClose
 }) => {
-  // Extract all unique tags across all notes
+  /**
+   * Extracts and deduplicates all unique tags across the current set of notes.
+   */
   const allTags = React.useMemo(() => {
     const tagsSet = new Set<string>();
     notes.forEach(note => {
@@ -36,6 +68,11 @@ export const SearchBar: React.FC<SearchBarProps> = ({
     return Array.from(tagsSet);
   }, [notes]);
 
+  /**
+   * Toggles the selection state of a filter tag.
+   *
+   * @param {string} tag - The tag name to toggle.
+   */
   const toggleTag = (tag: string) => {
     if (selectedTags.includes(tag)) {
       setSelectedTags(selectedTags.filter(t => t !== tag));
@@ -44,6 +81,9 @@ export const SearchBar: React.FC<SearchBarProps> = ({
     }
   };
 
+  /**
+   * Clears both the search query input and all selected tag filters.
+   */
   const clearAllFilters = () => {
     setSearchQuery('');
     setSelectedTags([]);
@@ -55,13 +95,18 @@ export const SearchBar: React.FC<SearchBarProps> = ({
       <div className="search-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
         <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.9rem' }}>Search & Filter</span>
         {onClose && (
-          <button className="icon-only-btn" onClick={onClose} aria-label="Close search panel" style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '4px' }}>
+          <button 
+            className="icon-only-btn" 
+            onClick={onClose} 
+            aria-label="Close search panel" 
+            style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '4px' }}
+          >
             <X size={16} />
           </button>
         )}
       </div>
 
-      {/* Search Input */}
+      {/* Text Search Input Field */}
       <div className="search-bar-container">
         <Search size={16} className="search-icon" />
         <input
@@ -79,7 +124,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
         )}
       </div>
 
-      {/* Legend & Categories */}
+      {/* Category Visual Legend */}
       <div className="category-legend">
         {categories.map(cat => (
           <div key={cat.id} className="legend-item">
@@ -89,7 +134,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
         ))}
       </div>
 
-      {/* Tag Cloud */}
+      {/* Tag Cloud Filter Chips */}
       {allTags.length > 0 && (
         <div className="tag-cloud">
           <h4>Filter by Tags:</h4>
@@ -119,3 +164,4 @@ export const SearchBar: React.FC<SearchBarProps> = ({
     </div>
   );
 };
+

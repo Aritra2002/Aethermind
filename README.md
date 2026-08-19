@@ -4,7 +4,7 @@
   <p><strong>A Next-Generation, Local-First Personal Knowledge Graph</strong></p>
 
   <p>
-    <img src="https://img.shields.io/badge/version-1.29.2-blue.svg?style=flat-square" alt="Version" />
+    <img src="https://img.shields.io/badge/version-1.30.0-blue.svg?style=flat-square" alt="Version" />
     <img src="https://img.shields.io/badge/license-AGPLv3-red.svg?style=flat-square" alt="AGPLv3 License" />
     <img src="https://img.shields.io/badge/React-19-61DAFB.svg?style=flat-square&logo=react" alt="React" />
     <img src="https://img.shields.io/badge/TypeScript-3178C6.svg?style=flat-square&logo=typescript" alt="TypeScript" />

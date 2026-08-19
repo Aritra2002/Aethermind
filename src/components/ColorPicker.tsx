@@ -1,26 +1,32 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Palette, X } from 'lucide-react';
+/**
+ * ============================================================================
+ * ColorPicker.tsx — Note & Category Color Popover Trigger
+ * ============================================================================
+ * 
+ * Architectural Purpose:
+ * Provides an unobtrusive color trigger button that opens the ModernColorPicker
+ * popover with exact right-anchored positioning. Used inside the Note Editor
+ * and Category customization rows.
+ */
 
-const PRESET_COLORS = [
-  '#818cf8', // Indigo (General)
-  '#34d399', // Emerald (Work)
-  '#fbbf24', // Amber (Ideas)
-  '#f43f5e', // Rose
-  '#2dd4bf', // Teal
-  '#a855f7', // Purple
-  '#3b82f6', // Blue
-  '#ec4899', // Pink
-  '#f97316', // Orange
-  '#eab308'  // Yellow
-];
+import React, { useState, useRef, useEffect } from 'react';
+import { Palette } from 'lucide-react';
+import { ModernColorPicker } from './ui/ModernColorPicker';
 
 interface ColorPickerProps {
+  /** Current assigned color */
   color: string;
+  /** Category or default fallback color */
   defaultColor: string;
+  /** Callback fired when user selects or tunes a color */
   onChange: (color: string) => void;
+  /** Callback to reset to category default */
   onReset: () => void;
+  /** Accessible label / tooltip */
   title?: string;
+  /** Text label for reset button */
   resetLabel?: string;
+  /** Popover horizontal alignment anchor */
   align?: 'left' | 'right';
 }
 
@@ -28,28 +34,19 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({
   color, 
   defaultColor, 
   onChange, 
-  onReset,
+  onReset: _onReset,
   title = "Node Color",
-  resetLabel = "Reset to Category Default",
-  align = 'left'
+  align = 'right'
 }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [hexInput, setHexInput] = useState(color || defaultColor);
-  const popoverRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const displayColor = color || defaultColor;
 
+  // Dismiss popover on outside mousedown
   useEffect(() => {
-    if (isOpen && popoverRef.current) {
-      const rect = popoverRef.current.getBoundingClientRect();
-      const spaceBelow = window.innerHeight - rect.bottom;
-      if (spaceBelow < 200) {
-        (popoverRef.current.querySelector('.color-picker-popover') as HTMLElement)?.style.setProperty('top', 'auto');
-        (popoverRef.current.querySelector('.color-picker-popover') as HTMLElement)?.style.setProperty('bottom', 'calc(100% + 8px)');
-      }
-    }
     const handleClickOutside = (e: MouseEvent) => {
-      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setIsOpen(false);
       }
     };
@@ -57,24 +54,12 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isOpen]);
 
-  useEffect(() => {
-      // eslint-disable-next-line
-    setHexInput(displayColor);
-  }, [displayColor]);
-
-  const handleHexChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-
-    setHexInput(e.target.value);
-    if (/^#?[0-9A-F]{6}$/i.test(e.target.value)) {
-      const formatted = e.target.value.startsWith('#') ? e.target.value : `#${e.target.value}`;
-      onChange(formatted);
-    }
-  };
-
   return (
-    <div className="color-picker-container" ref={popoverRef}>
+    <div className="color-picker-container" ref={containerRef} style={{ position: 'relative' }}>
+      {/* Visual Trigger Swatch Button */}
       <button 
-      className="color-picker-trigger" 
+        type="button"
+        className="color-picker-trigger" 
         onClick={() => setIsOpen(!isOpen)}
         style={{ backgroundColor: displayColor }}
         title={title}
@@ -83,53 +68,25 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({
         <Palette size={12} className="color-picker-icon" style={{ mixBlendMode: 'difference', color: 'var(--text-primary)' }} />
       </button>
 
+      {/* Floating Modern Color Studio Popover */}
       {isOpen && (
-        <div className={`color-picker-popover glass-panel ${align === 'right' ? 'align-right' : ''}`}>
-          <div className="color-picker-header">
-            <span>{title}</span>
-            <button className="icon-btn" onClick={() => setIsOpen(false)} aria-label="Close color picker"><X size={14} /></button>
-          </div>
-          
-          <div className="color-swatches" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '8px', placeItems: 'center' }}>
-            {PRESET_COLORS.map(c => (
-              <button
-                key={c}
-                className={`color-swatch ${displayColor === c ? 'active' : ''}`}
-                style={{ backgroundColor: c, width: '44px', height: '44px', padding: 0, margin: 0 }}
-                onClick={() => onChange(c)}
-                aria-label={`Select color ${c}`}
-              />
-            ))}
-          </div>
-
-          <div className="color-picker-custom">
-            <div className="hex-input-wrapper">
-              <span className="hex-hash">#</span>
-              <input 
-                type="text" 
-                className="hex-input"
-                value={hexInput.replace('#', '')}
-                onChange={handleHexChange}
-                maxLength={6}
-              />
-            </div>
-            
-            <div className="native-picker-wrapper">
-              <input 
-                type="color" 
-                value={displayColor}
-                onChange={(e) => onChange(e.target.value)}
-                className="native-color-input"
-              />
-              <span className="native-picker-label">Custom</span>
-            </div>
-          </div>
-
-          {color && (
-            <button className="color-reset-btn" onClick={() => { onReset(); setIsOpen(false); }}>
-              {resetLabel}
-            </button>
-          )}
+        <div 
+          style={{
+            position: 'absolute',
+            top: 'calc(100% + 6px)',
+            right: align === 'left' ? 'auto' : 0,
+            left: align === 'left' ? 0 : 'auto',
+            zIndex: 1200,
+            animation: 'fadeScaleIn 160ms var(--ease-out)'
+          }}
+        >
+          <ModernColorPicker
+            color={displayColor}
+            defaultColor={defaultColor}
+            onChange={(newColor) => onChange(newColor)}
+            onClose={() => setIsOpen(false)}
+            title={title}
+          />
         </div>
       )}
     </div>

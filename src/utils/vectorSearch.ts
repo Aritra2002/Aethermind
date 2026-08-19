@@ -1,16 +1,43 @@
+/**
+ * @file vectorSearch.ts
+ * @description Local vector embedding, semantic search, and graph clustering engine for AetherMind.
+ * Employs a hybrid embedding architecture:
+ * 1. Primary: `@xenova/transformers` running the `Xenova/all-MiniLM-L6-v2` transformer model via WebAssembly (384-dim dense vectors).
+ * 2. Fallback: Pure JavaScript term-frequency / inverse-document-frequency (TF-IDF) feature hashing (384-dim normalized sparse vectors).
+ * Includes vector cosine similarity scoring, batch note re-indexing, semantic search across notes,
+ * and automated AI semantic clustering for disconnected graph nodes.
+ */
+
 import { db, type Note } from '../db';
 
+/** Pipeline interface representing the HuggingFace Xenova feature extraction pipeline. */
 type FeatureExtractionPipeline = (text: string, options?: { pooling?: string; normalize?: boolean }) => Promise<{ data: Float32Array | number[] }>;
+
+/** Cached instance of the loaded Hugging Face feature extraction pipeline. */
 let embedder: FeatureExtractionPipeline | null = null;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let transformersModule: any = null;
+/** Global flag tracking whether the transformer pipeline failed and fallback TF-IDF should be used permanently. */
 let useFallback = false;
+/** Standard vector dimensionality (384 dimensions matches all-MiniLM-L6-v2). */
 const FALLBACK_DIM = 384;
 
 // --- Fallback TF-IDF Embedding (pure JS, no WASM needed) ---
 
+/**
+ * Splits text into lowercase alphanumeric word tokens.
+ *
+ * @param text - Source string to tokenize.
+ * @returns Array of word tokens.
+ */
 const tokenize = (text: string): string[] => text.toLowerCase().match(/\b\w+\b/g) || [];
 
+/**
+ * Deterministically hashes a token string to a fixed vector bucket index `[0, FALLBACK_DIM - 1]`.
+ *
+ * @param token - String token to hash.
+ * @returns Bucket index in the range `[0, FALLBACK_DIM - 1]`.
+ */
 const hashToken = (token: string): number => {
   let h = 0;
   for (let i = 0; i < token.length; i++) {
@@ -19,18 +46,26 @@ const hashToken = (token: string): number => {
   return Math.abs(h) % FALLBACK_DIM;
 };
 
+/**
+ * Generates a normalized 384-dimensional feature-hashed TF-IDF vector embedding from an array of tokens.
+ *
+ * @param tokens - Array of string tokens.
+ * @returns L2-normalized 384-element numeric array.
+ */
 const tfidfEmbed = (tokens: string[]): number[] => {
+  // Compute term frequencies (TF)
   const tf: Record<string, number> = {};
   for (const t of tokens) tf[t] = (tf[t] || 0) + 1;
   const total = tokens.length || 1;
 
+  // Distribute weights across hashed dimensions with sub-linear frequency dampening
   const vec = new Array(FALLBACK_DIM).fill(0);
   for (const [token, count] of Object.entries(tf)) {
     const weight = (count / total) * (1 + Math.log(1 + count));
     vec[hashToken(token)] += weight;
   }
 
-  // Normalize
+  // Normalize to unit length (L2 norm)
   let norm = 0;
   for (let i = 0; i < vec.length; i++) norm += vec[i] * vec[i];
   norm = Math.sqrt(norm);
@@ -40,6 +75,11 @@ const tfidfEmbed = (tokens: string[]): number[] => {
 
 // --- Transformer Embedding (requires WASM) ---
 
+/**
+ * Lazily imports `@xenova/transformers` and initializes the `Xenova/all-MiniLM-L6-v2` feature extraction pipeline.
+ *
+ * @returns A promise resolving to the initialized pipeline, or `null` if WASM loading fails.
+ */
 const initTransformer = async (): Promise<FeatureExtractionPipeline | null> => {
   try {
     if (!transformersModule) {
@@ -56,6 +96,11 @@ const initTransformer = async (): Promise<FeatureExtractionPipeline | null> => {
   }
 };
 
+/**
+ * Initializes and retrieves the singleton feature extraction embedder pipeline.
+ *
+ * @returns A promise resolving to the active embedder pipeline or `null` if in fallback mode.
+ */
 export const initEmbedder = async () => {
   if (useFallback) return null;
   if (!embedder) {
@@ -64,8 +109,17 @@ export const initEmbedder = async () => {
   return embedder;
 };
 
-// Generate an embedding for a string
+/**
+ * Generates a high-dimensional dense vector embedding for a given text string.
+ * Automatically tries the local ONNX/WASM transformer pipeline first; if unavailable
+ * or if a runtime exception occurs, transparently falls back to deterministic TF-IDF feature hashing.
+ *
+ * @param text - The text content to embed.
+ *
+ * @returns A promise resolving to a 384-element normalized vector array of numbers.
+ */
 export const generateEmbedding = async (text: string): Promise<number[]> => {
+  // Use TF-IDF fallback immediately if already flagged
   if (useFallback) return tfidfEmbed(tokenize(text));
 
   const e = await initEmbedder();
@@ -82,8 +136,15 @@ export const generateEmbedding = async (text: string): Promise<number[]> => {
   }
 };
 
-// Cosine similarity
-export const cosineSimilarity = (a: number[], b: number[]) => {
+/**
+ * Computes the cosine similarity metric between two normalized or arbitrary-magnitude numeric vectors.
+ *
+ * @param a - First numerical vector array.
+ * @param b - Second numerical vector array.
+ *
+ * @returns Similarity score in the range `[-1.0, 1.0]`, where 1.0 represents identical orientation.
+ */
+export const cosineSimilarity = (a: number[], b: number[]): number => {
   let dotProduct = 0;
   let normA = 0;
   let normB = 0;
@@ -97,7 +158,13 @@ export const cosineSimilarity = (a: number[], b: number[]) => {
   return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
 };
 
-// Re-embed all notes that are missing embeddings
+/**
+ * Scans all notes in the database and computes vector embeddings for any notes lacking an embedding.
+ *
+ * @param onProgress - Optional callback reporting indexing status and current note title.
+ *
+ * @returns A promise that resolves when all notes have embeddings persisted to IndexedDB.
+ */
 export const reindexNotes = async (onProgress?: (msg: string) => void) => {
   const notes = await db.notes.toArray();
   for (let i = 0; i < notes.length; i++) {
@@ -112,7 +179,15 @@ export const reindexNotes = async (onProgress?: (msg: string) => void) => {
   if (onProgress) onProgress('Indexing complete!');
 };
 
-// Semantic Search
+/**
+ * Performs semantic similarity search across all notes in the database.
+ * Computes the embedding for the search query and ranks notes by cosine similarity.
+ *
+ * @param query - The natural language query to match against notes.
+ * @param limit - Maximum number of top matching notes to return (default: 5).
+ *
+ * @returns A promise resolving to an array of matching {@link Note} records augmented with `score: number`.
+ */
 export const semanticSearch = async (query: string, limit: number = 5): Promise<Array<Note & { score: number }>> => {
   const queryEmbedding = await generateEmbedding(query);
   const notes = await db.notes.toArray();
@@ -129,7 +204,19 @@ export const semanticSearch = async (query: string, limit: number = 5): Promise<
   return results;
 };
 
-// AI Graph Clustering (Local Semantic Clustering)
+/**
+ * Automatically discovers semantic relationships and creates graph links between unlinked notes.
+ *
+ * Algorithm:
+ * 1. Ensures all notes are indexed with embeddings.
+ * 2. Identifies "orphan" nodes (nodes with 0 incoming or outgoing links).
+ * 3. Compares each unlinked note's embedding against all other notes.
+ * 4. Creates a new bidirectional connection link if cosine similarity exceeds 0.6 threshold.
+ *
+ * @param onProgress - Optional callback reporting clustering status and results.
+ *
+ * @returns A promise that resolves when clustering completes.
+ */
 export const clusterUnlinkedNotes = async (onProgress?: (msg: string) => void) => {
   // First ensure all notes have embeddings
   await reindexNotes(onProgress);
@@ -161,7 +248,7 @@ export const clusterUnlinkedNotes = async (onProgress?: (msg: string) => void) =
     }
 
     if (bestMatch && source.id && bestMatch.id) {
-      // Create a link
+      // Create a link if one does not already exist
       const linkExists = await db.links.where({ sourceId: source.id, targetId: bestMatch.id }).first() ||
                          await db.links.where({ sourceId: bestMatch.id, targetId: source.id }).first();
 
@@ -174,3 +261,4 @@ export const clusterUnlinkedNotes = async (onProgress?: (msg: string) => void) =
 
   if (onProgress) onProgress(`Clustering complete! Found ${newLinks} new semantic links.`);
 };
+

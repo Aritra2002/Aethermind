@@ -5,6 +5,7 @@
 @import 'bootstrap/dist/css/bootstrap.min.css';
 @import './styles/base.css';
 @import './styles/buttons.css';
+@import './styles/dropdown.css';
 @import './styles/layout.css';
 @import './styles/canvas.css';
 @import './styles/editor.css';

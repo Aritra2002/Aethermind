@@ -1,3 +1,22 @@
+/**
+ * ============================================================================
+ * DiscoveryDigestModal.tsx — Serendipitous Cross-Time Connection Synthesis
+ * ============================================================================
+ * 
+ * Architectural Purpose:
+ * Promotes serendipitous learning and insight generation by comparing historical thoughts
+ * with recent notes. Automatically samples an older note (>30 days old) and a recent
+ * note (<7 days old), then prompts the configured LLM to synthesize a non-obvious,
+ * creative conceptual bridge between them.
+ * 
+ * Key Features:
+ * - Temporal Stratification: Partitions note collections into historical and recent cohorts.
+ * - Autonomous Prompting: Generates comparative prompts without requiring user input.
+ * - Streaming Synthesis: Progressively displays connection insights with Markdown formatting.
+ * - Error Handling & Edge Cases: Gracefully informs users when note volume is insufficient.
+ * - Request Lifecycle Management: Uses AbortController to cleanly cancel in-flight API requests.
+ */
+
 import React, { useState, useEffect, useRef } from 'react';
 import type { Note } from '../db';
 import { callAI } from '../utils/aiClient';
@@ -5,22 +24,46 @@ import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import { Sparkles } from 'lucide-react';
 
+/**
+ * Props for the DiscoveryDigestModal component.
+ */
 interface DiscoveryDigestModalProps {
+  /** Controls whether the digest modal is open and visible */
   isOpen: boolean;
+  /** Callback fired to close the modal dialog */
   onClose: () => void;
+  /** Collection of notes available for cross-time conceptual matching */
   notes: Note[];
 }
 
+/**
+ * DiscoveryDigestModal Component
+ * 
+ * Renders the Daily Discovery Digest modal dialog, generating serendipitous
+ * connections between historical and recent notes.
+ * 
+ * @param {DiscoveryDigestModalProps} props - Component properties.
+ * @returns {React.ReactElement | null} The rendered modal or null when closed.
+ */
 export const DiscoveryDigestModal: React.FC<DiscoveryDigestModalProps> = ({ isOpen, onClose, notes }) => {
+  /** The generated connection digest text in Markdown */
   const [digest, setDigest] = useState<string | null>(null);
+
+  /** Loading flag active during AI connection generation */
   const [isLoading, setIsLoading] = useState(false);
+
+  /** Error message displayed if note volume is insufficient or API fails */
   const [error, setError] = useState('');
+
+  /** Controller to abort streaming requests if modal closes or unmounts */
   const abortRef = useRef<AbortController | null>(null);
 
+  // Abort any pending network requests when component unmounts
   useEffect(() => {
     return () => abortRef.current?.abort();
   }, []);
 
+  // Reset state whenever the modal opens
   useEffect(() => {
     if (isOpen) {
       setDigest(null);
@@ -28,6 +71,7 @@ export const DiscoveryDigestModal: React.FC<DiscoveryDigestModalProps> = ({ isOp
     }
   }, [isOpen]);
 
+  // Trigger automated serendipity generation upon opening
   useEffect(() => {
     if (!isOpen || isLoading) return;
 
@@ -42,9 +86,11 @@ export const DiscoveryDigestModal: React.FC<DiscoveryDigestModalProps> = ({ isOp
       const oneMonthAgo = now - 30 * 24 * 60 * 60 * 1000;
       const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
 
+      // Temporal stratification: partition notes into historical and recent buckets
       const oldNotes = notes.filter(n => n.createdAt < oneMonthAgo);
       const recentNotes = notes.filter(n => n.createdAt > sevenDaysAgo);
 
+      // Verify that both time horizons have candidate notes
       if (oldNotes.length === 0 || recentNotes.length === 0) {
         if (!cancelled) {
           setError('Not enough notes for a digest. Keep writing!');
@@ -53,6 +99,7 @@ export const DiscoveryDigestModal: React.FC<DiscoveryDigestModalProps> = ({ isOp
         return;
       }
 
+      // Randomly sample one candidate from each time bucket
       const randomOld = oldNotes[Math.floor(Math.random() * oldNotes.length)];
       const randomRecent = recentNotes[Math.floor(Math.random() * recentNotes.length)];
 
@@ -81,6 +128,7 @@ export const DiscoveryDigestModal: React.FC<DiscoveryDigestModalProps> = ({ isOp
     <div className="modal d-block" tabIndex={-1} style={{ zIndex: 1060 }} onClick={onClose}>
       <div className="modal-dialog modal-dialog-centered modal-lg" style={{ maxWidth: '600px' }} onClick={e => e.stopPropagation()}>
         <div className="modal-content glass-panel border-0">
+          {/* Modal Header */}
           <div className="modal-header border-0">
             <div className="d-flex align-items-center gap-2" style={{ color: 'var(--accent-gold)' }}>
               <Sparkles size={18} />
@@ -88,11 +136,20 @@ export const DiscoveryDigestModal: React.FC<DiscoveryDigestModalProps> = ({ isOp
             </div>
             <button type="button" className="btn-close btn-close-overlay" onClick={onClose} aria-label="Close" />
           </div>
+
+          {/* Modal Body */}
           <div className="modal-body">
             {error && <div style={{ color: '#ef4444' }}>{error}</div>}
-            {isLoading && !digest && <div className="spin-pulse" style={{ color: 'var(--text-secondary)' }}>Finding a surprising connection...</div>}
+            {isLoading && !digest && (
+              <div className="spin-pulse" style={{ color: 'var(--text-secondary)' }}>
+                Finding a surprising connection...
+              </div>
+            )}
             {digest && (
-              <div className="markdown-body" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(marked.parse(digest) as string) }} />
+              <div 
+                className="markdown-body" 
+                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(marked.parse(digest) as string) }} 
+              />
             )}
           </div>
         </div>

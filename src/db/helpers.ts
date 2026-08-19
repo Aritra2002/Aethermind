@@ -1,11 +1,27 @@
+/**
+ * ============================================================================
+ * db/helpers.ts — Dexie IndexedDB Entity Helpers & Bidirectional Graph Syncer
+ * ============================================================================
+ * 
+ * Architectural Purpose:
+ * Provides CRUD abstractions, wiki-link extraction `[[Note Title]]`, graph edge
+ * synchronization, local RAG vector indexing, and default knowledge database seeding.
+ */
+
 import { db } from './index';
 import type { Note, Link } from './index';
 import { generateEmbedding } from '../utils/vectorSearch';
 import { ingestNote, removeNoteFromRag } from '../utils/rag';
 
-// Helper to extract wiki-links from markdown content
+/**
+ * Extracts wiki-link references (`[[Note Title]]`) from markdown text.
+ * Ignores code blocks and inline backtick code snippets.
+ * 
+ * @param content - Raw markdown text
+ * @returns Array of unique referenced note titles
+ */
 export function extractWikiLinks(content: string): string[] {
-  // Remove markdown code blocks and inline code to prevent parsing wikilinks inside them
+  // Strip code blocks and inline code to prevent false-positive links
   const withoutCode = content
     .replace(/```[\s\S]*?```/g, '')
     .replace(/`[^`]*`/g, '');
@@ -22,7 +38,15 @@ export function extractWikiLinks(content: string): string[] {
   return links;
 }
 
-// Sync links for a specific note based on its current content
+/**
+ * Synchronizes graph connection links in IndexedDB for a given note.
+ * Parses markdown wiki-links and updates both incoming and outgoing graph edges.
+ * 
+ * @param noteId - ID of the source note
+ * @param content - Markdown content to scan for wiki-links
+ * @param linkedNoteIds - Explicitly connected note IDs
+ * @param preventBlankNodes - If true, skips creating empty placeholder notes for missing targets
+ */
 export async function syncLinksForNote(noteId: number, content: string, linkedNoteIds: number[] = [], preventBlankNodes: boolean = false): Promise<void> {
   await db.transaction('rw', [db.notes, db.links], async () => {
     const sourceNote = await db.notes.get(noteId);
@@ -31,7 +55,7 @@ export async function syncLinksForNote(noteId: number, content: string, linkedNo
 
     const targetTitles = extractWikiLinks(content);
     
-    // Find target notes, create empty normal notes if they don't exist yet
+    // Find target notes, create empty placeholder notes if they don't exist yet
     const targetIds: number[] = [...linkedNoteIds];
     for (const title of targetTitles) {
       const existing = await db.notes.where('title').equalsIgnoreCase(title).and(n => n.pageId === pageId).first();
@@ -54,19 +78,18 @@ export async function syncLinksForNote(noteId: number, content: string, linkedNo
     // Deduplicate targetIds
     const uniqueTargetIds = Array.from(new Set(targetIds));
 
-    // Fetch current database links where this note is the source OR target
+    // Fetch current database links where this note is source OR target
     const existingLinksAsSource = await db.links.where('sourceId').equals(noteId).toArray();
     const existingLinksAsTarget = await db.links.where('targetId').equals(noteId).toArray();
     const existingTargetIdsFromSource = existingLinksAsSource.map(l => l.targetId);
     const existingSourceIdsFromTarget = existingLinksAsTarget.map(l => l.sourceId);
     const allExistingConnectedIds = new Set([...existingTargetIdsFromSource, ...existingSourceIdsFromTarget]);
 
-    // Links to add
+    // Compute diffs
     const linksToAdd = uniqueTargetIds.filter(id => !allExistingConnectedIds.has(id) && id !== noteId);
-    // Links to remove — remove outgoing links whose target is no longer wanted
     const linksToRemove = existingLinksAsSource.filter(l => !uniqueTargetIds.includes(l.targetId));
 
-    // Perform database changes
+    // Apply database updates
     if (linksToAdd.length > 0) {
       const newLinks: Link[] = linksToAdd.map(targetId => ({
         sourceId: noteId,
@@ -82,7 +105,14 @@ export async function syncLinksForNote(noteId: number, content: string, linkedNo
   });
 }
 
-// Create a new note
+/**
+ * Creates a new note in the specified page.
+ * 
+ * @param pageId - Page / graph partition identifier
+ * @param title - Unique note title
+ * @param category - Category bucket (defaults to 'general')
+ * @returns Generated note primary key ID
+ */
 export async function createNote(pageId: number, title: string, category = 'general'): Promise<number> {
   const id = await db.transaction('rw', [db.notes], async () => {
     const normalizedTitle = title.trim();
@@ -106,13 +136,19 @@ export async function createNote(pageId: number, title: string, category = 'gene
     return newId;
   });
 
-  // Ingest into RAG outside the transaction
+  // Ingest into local RAG vector store
   ingestNote(id as number, title, '').catch(err => console.warn('RAG ingestion failed:', err));
 
   return id;
 }
 
-// Update an existing note
+/**
+ * Updates an existing note and triggers background vector re-embedding and link synchronization.
+ * 
+ * @param id - Note primary key ID
+ * @param updates - Partial fields to update
+ * @param preventBlankNodes - Whether to skip generating stub notes for new wiki-links
+ */
 export async function updateNote(id: number, updates: Partial<Note>, preventBlankNodes: boolean = false): Promise<void> {
   await db.transaction('rw', [db.notes, db.links], async () => {
     const updatedNote = {
@@ -122,12 +158,11 @@ export async function updateNote(id: number, updates: Partial<Note>, preventBlan
 
     await db.notes.update(id, updatedNote);
 
-    // If content or explicit links were updated, sync the links and recalculate embedding!
+    // If content or explicit links changed, sync graph edges and re-calculate embedding
     if (updates.content !== undefined || updates.linkedNoteIds !== undefined) {
       const fullNote = await db.notes.get(id);
       if (fullNote) {
         await syncLinksForNote(id, fullNote.content, fullNote.linkedNoteIds || [], preventBlankNodes);
-        // Recalculate embedding in the background
         if (updates.content !== undefined) {
           generateEmbedding(`${fullNote.title}\n\n${fullNote.content}`).then(emb => {
             db.notes.update(id, { embedding: emb });
@@ -137,7 +172,7 @@ export async function updateNote(id: number, updates: Partial<Note>, preventBlan
     }
   });
 
-  // Ingest into RAG outside the transaction
+  // Update RAG index
   if (updates.content !== undefined) {
     const fullNote = await db.notes.get(id);
     if (fullNote) {
@@ -146,7 +181,11 @@ export async function updateNote(id: number, updates: Partial<Note>, preventBlan
   }
 }
 
-// Delete note and clean up its links
+/**
+ * Deletes a note from IndexedDB and cleans up all associated graph link connections and RAG embeddings.
+ * 
+ * @param id - Note primary key ID
+ */
 export async function deleteNote(id: number): Promise<void> {
   await db.transaction('rw', [db.notes, db.links], async () => {
     await db.notes.delete(id);
@@ -160,13 +199,14 @@ export async function deleteNote(id: number): Promise<void> {
     }
   });
 
-  // Remove from RAG
   removeNoteFromRag(id).catch(err => console.warn('RAG removal failed:', err));
 }
 
-// Seed Database with Demo Notes
+/**
+ * Populates an empty database with introductory guide notes, sample graph links, and categories.
+ */
 export async function seedDatabase(): Promise<void> {
-  // Seed categories if empty
+  // Seed default categories
   const categoriesCount = await db.categories.count();
   if (categoriesCount === 0) {
     await db.categories.bulkPut([
@@ -177,7 +217,7 @@ export async function seedDatabase(): Promise<void> {
     ]);
   }
 
-  // Seed default page if empty
+  // Seed default graph page
   const pagesCount = await db.pages.count();
   if (pagesCount === 0) {
     await db.pages.put({
@@ -188,11 +228,11 @@ export async function seedDatabase(): Promise<void> {
   }
 
   const notesCount = await db.notes.count();
-  if (notesCount > 0) return; // Database already seeded with notes
+  if (notesCount > 0) return; // Already seeded
 
   const fixedTimestamp = new Date('2026-06-01T19:24:00+05:30').getTime();
 
-  // Seed default notes
+  // Starter onboarding knowledge network
   const notes: Note[] = [
     {
       pageId: 1,
@@ -233,10 +273,9 @@ export async function seedDatabase(): Promise<void> {
   ];
 
   const count = await db.notes.count();
-  if (count > 0) return; // Re-check after potential concurrent calls
+  if (count > 0) return;
   
   await db.transaction('rw', [db.notes, db.links], async () => {
-    // Third check inside transaction to be absolutely safe
     const innerCount = await db.notes.count();
     if (innerCount > 0) return;
 
@@ -246,10 +285,10 @@ export async function seedDatabase(): Promise<void> {
       addedIds.push(id);
     }
 
-    // Create links manually based on seeded text contents
-    await syncLinksForNote(addedIds[0], notes[0].content); // Welcome -> Interactive Graph, Markdown Syntax
-    await syncLinksForNote(addedIds[1], notes[1].content); // Interactive Graph -> Organizing Notes
-    await syncLinksForNote(addedIds[2], notes[2].content); // Markdown Syntax -> (empty link or self)
-    await syncLinksForNote(addedIds[3], notes[3].content); // Organizing Notes -> (empty link)
+    // Connect graph edges based on wiki-link content
+    await syncLinksForNote(addedIds[0], notes[0].content);
+    await syncLinksForNote(addedIds[1], notes[1].content);
+    await syncLinksForNote(addedIds[2], notes[2].content);
+    await syncLinksForNote(addedIds[3], notes[3].content);
   });
 }

@@ -1,3 +1,26 @@
+/**
+ * ============================================================================
+ * AskAiModal.tsx — Intelligent Assistant, RAG Querying & Action Execution
+ * ============================================================================
+ * 
+ * Architectural Purpose:
+ * Provides an interactive AI dialog interface capable of:
+ * - Conversational question answering using general model intelligence.
+ * - Semantic Retrieval-Augmented Generation (RAG) over local user notes and documents
+ *   when queried about personal knowledge data.
+ * - Web content fetching and automated synthesis via URL extraction.
+ * - Structured action dispatching (note creation, editing, deletion, link synthesis)
+ *   with preflight validation and human-in-the-loop staging confirmations.
+ * 
+ * Key Features:
+ * - Live streaming response parsing with Markdown rendering and DOMPurify sanitization.
+ * - URL detection and automated content scraping via `fetchUrlContent`.
+ * - Intent-based RAG triggering using regex pattern heuristics and vector similarity.
+ * - Multi-stage action pipeline: direct execution for non-destructive link mutations
+ *   and visual staging cards with `ConfirmActionToast` for node mutations.
+ * - Keyboard shortcuts (Enter to submit, Escape to dismiss) and focus trapping.
+ */
+
 import React, { useState, useEffect, useRef } from 'react';
 
 import { callAI } from '../utils/aiClient';
@@ -11,51 +34,102 @@ import { fetchUrlContent } from '../utils/urlFetcher';
 import { ConfirmActionToast } from './ConfirmActionToast';
 import { useToast } from './ToastContext';
 
+/**
+ * Props for the AskAiModal component.
+ */
 interface AskAiModalProps {
+  /** Flag controlling the visibility of the modal dialog */
   isOpen: boolean;
+  /** Callback fired when closing or dismissing the modal */
   onClose: () => void;
+  /** Primary key ID of the active page/workspace context for created/edited notes */
   activePageId: number;
 }
 
+/**
+ * AiActionCard Component
+ * 
+ * Renders a visual status card summarizing the outcome of an executed AI action
+ * (e.g. note creation details with tags and links, or error status).
+ * 
+ * @param {object} props - Component properties.
+ * @param {object} props.result - The action outcome containing the action payload, success flag, and message.
+ * @returns {React.ReactElement} Visual card displaying action details.
+ */
 const AiActionCard = ({ result }: { result: { action: AiAction; success: boolean; message: string } }) => {
-  if (!result.success) return <div style={{ color: 'var(--accent-danger, #ef4444)', marginTop: '12px' }}>Action failed: {result.message}</div>;
+  if (!result.success) {
+    return (
+      <div style={{ color: 'var(--accent-danger, #ef4444)', marginTop: '12px' }}>
+        Action failed: {result.message}
+      </div>
+    );
+  }
   
   if (result.action.action === 'create_note') {
     return (
-      <div style={{ background: 'rgba(124, 58, 237, 0.1)', border: '1px solid var(--accent-primary)', padding: '12px', borderRadius: '8px', marginTop: '12px' }}>
+      <div style={{ background: 'var(--card-nested-bg)', border: '1px solid var(--accent-primary)', padding: '12px', borderRadius: '8px', marginTop: '12px' }}>
         <div>Created note: <strong>"{result.action.title}"</strong></div>
         {result.action.tags && result.action.tags.length > 0 && (
-          <div style={{ fontSize: '0.9em', color: 'var(--text-secondary)', marginTop: '4px' }}>Tags: {result.action.tags.join(', ')}</div>
+          <div style={{ fontSize: '0.9em', color: 'var(--text-secondary)', marginTop: '4px' }}>
+            Tags: {result.action.tags.join(', ')}
+          </div>
         )}
         {result.action.linkTo && result.action.linkTo.length > 0 && (
-          <div style={{ fontSize: '0.9em', color: 'var(--text-secondary)', marginTop: '4px' }}>Linked to: {result.action.linkTo.join(', ')}</div>
+          <div style={{ fontSize: '0.9em', color: 'var(--text-secondary)', marginTop: '4px' }}>
+            Linked to: {result.action.linkTo.join(', ')}
+          </div>
         )}
       </div>
     );
   }
+
   return (
-    <div style={{ background: 'rgba(124, 58, 237, 0.1)', border: '1px solid var(--accent-primary)', padding: '12px', borderRadius: '8px', marginTop: '12px' }}>
+    <div style={{ background: 'var(--card-nested-bg)', border: '1px solid var(--accent-primary)', padding: '12px', borderRadius: '8px', marginTop: '12px' }}>
       {result.message}
     </div>
   );
 };
 
+/**
+ * AskAiModal Component
+ * 
+ * Main modal dialog handling user queries, AI streaming interactions,
+ * contextual knowledge retrieval, and tool action staging.
+ * 
+ * @param {AskAiModalProps} props - Component properties.
+ * @returns {React.ReactElement | null} Rendered modal dialog or null if closed.
+ */
 export const AskAiModal: React.FC<AskAiModalProps> = ({ isOpen, onClose, activePageId }) => {
+  /** User text input in the search field */
   const [query, setQuery] = useState('');
-  const [aiResponse, setAiResponse] = useState<string | null>(null);
-  const [isAiLoading, setIsAiLoading] = useState(false);
-  const [stagedActions, setStagedActions] = useState<AiAction[]>([]);
-  const [actionResults, setActionResults] = useState<{ action: AiAction; success: boolean; message: string }[]>([]);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const abortRef = useRef<AbortController | null>(null);
-  const { showToast } = useToast();
 
+  /** Streaming or final response text received from the AI model */
+  const [aiResponse, setAiResponse] = useState<string | null>(null);
+
+  /** Loading indicator flag while awaiting AI streaming responses */
+  const [isAiLoading, setIsAiLoading] = useState(false);
+
+  /** Queue of pending AI actions requiring user confirmation */
+  const [stagedActions, setStagedActions] = useState<AiAction[]>([]);
+
+  /** Execution log of completed or rejected actions */
+  const [actionResults, setActionResults] = useState<{ action: AiAction; success: boolean; message: string }[]>([]);
+
+  /** DOM reference to the search input field for auto-focusing */
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  /** Controller reference to abort in-flight streaming fetch requests */
+  const abortRef = useRef<AbortController | null>(null);
+
+  const { showToast } = useToast();
   const pageId = activePageId;
 
+  // Abort any pending network requests when the component unmounts
   useEffect(() => {
     return () => abortRef.current?.abort();
   }, []);
 
+  // Reset dialog state and auto-focus the text input whenever the modal is opened
   useEffect(() => {
     if (isOpen) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -68,6 +142,11 @@ export const AskAiModal: React.FC<AskAiModalProps> = ({ isOpen, onClose, activeP
     }
   }, [isOpen]);
 
+  /**
+   * Processes the user query, conditionally retrieves personal note/document context,
+   * performs URL fetching if a link is detected, streams the AI completion,
+   * and parses structured JSON action blocks.
+   */
   const handleAskAi = async () => {
     if (!query.trim()) return;
     
@@ -80,6 +159,7 @@ export const AskAiModal: React.FC<AskAiModalProps> = ({ isOpen, onClose, activeP
       let finalQuery = query;
       let contextPrefix = "";
 
+      // Step 1: Detect URLs in query and fetch remote content if present
       const urlMatch = query.match(/https?:\/\/[^\s]+/);
       if (urlMatch) {
         const url = urlMatch[0];
@@ -101,6 +181,7 @@ export const AskAiModal: React.FC<AskAiModalProps> = ({ isOpen, onClose, activeP
 
       finalQuery = contextPrefix ? contextPrefix + query : query;
       
+      // Step 2: Determine if user is querying personal graph data vs general knowledge
       const asksAboutOwnData = /(?:my|the|from|in|across|among)\s+(?:notes?|documents?|files?|data|knowledge|graph|nodes?|content|uploaded)/i.test(query)
         || /what\s+(?:do\s+)?(?:I|we)\s+have\s+(?:on|about|regarding)/i.test(query)
         || /(?:according|based)\s+to\s+(?:my|the)/i.test(query)
@@ -109,6 +190,7 @@ export const AskAiModal: React.FC<AskAiModalProps> = ({ isOpen, onClose, activeP
       let ragContext = '';
       let notesContext = '';
 
+      // Step 3: Run semantic RAG vector search across notes and documents if requested
       if (asksAboutOwnData) {
         const [relevantNotes, ragResults] = await Promise.all([
           semanticSearch(query, 5),
@@ -120,6 +202,7 @@ export const AskAiModal: React.FC<AskAiModalProps> = ({ isOpen, onClose, activeP
           : '';
       }
 
+      // Step 4: Assemble system prompt with formatting rules and action schemas
       const systemPrompt = `You are an AI assistant integrated into a personal knowledge graph app.
 
 BEHAVIOR RULES:
@@ -171,11 +254,14 @@ Only perform actions the user explicitly requested.`;
       let fullResponse = "";
       abortRef.current?.abort();
       abortRef.current = new AbortController();
+
+      // Step 5: Stream AI response
       await callAI(systemPrompt, userPrompt, (text) => {
         fullResponse = text;
         setAiResponse(text);
       }, abortRef.current.signal);
 
+      // Step 6: Parse structured JSON action blocks and route to staging or direct execution
       const parsed = parseAiResponse(fullResponse);
       if (parsed && parsed.actions.length > 0) {
         setAiResponse(parsed.explanation || "Action proposed:");
@@ -184,10 +270,12 @@ Only perform actions the user explicitly requested.`;
         const staged: AiAction[] = [];
 
         for (const action of parsed.actions) {
+          // Link modifications execute directly without disruptive staging prompts
           if (action.action === 'create_link' || action.action === 'delete_link') {
             const result = await executeAiAction(action, pageId);
             results.push({ action, success: result.success, message: result.message });
           } else {
+            // Note modifications undergo preflight validation and stage for user confirmation
             const preflight = await validateActionPreflight(action, pageId);
             if (preflight.blocked) {
               showToast(preflight.message || 'Action blocked', 'error');
@@ -207,6 +295,12 @@ Only perform actions the user explicitly requested.`;
     }
   };
 
+  /**
+   * Confirms and executes the head staged action, updates the action history log,
+   * and displays a toast notification.
+   * 
+   * @param {AiAction} action - The staged AI action to execute.
+   */
   const handleConfirmStaged = async (action: AiAction) => {
     setStagedActions(prev => prev.slice(1));
     const result = await executeAiAction(action, pageId);
@@ -218,6 +312,11 @@ Only perform actions the user explicitly requested.`;
     }
   };
 
+  /**
+   * Handles keyboard events for modal dismissal and form submission.
+   * 
+   * @param {React.KeyboardEvent} e - Keyboard event.
+   */
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Escape') {
       onClose();
@@ -234,6 +333,7 @@ Only perform actions the user explicitly requested.`;
       <div className="modal d-block" tabIndex={-1} style={{ zIndex: 1060 }} onClick={onClose}>
         <div className="modal-dialog modal-dialog-centered modal-lg" style={{ maxWidth: '600px' }} onClick={e => e.stopPropagation()}>
           <div className="modal-content glass-panel border-0">
+            {/* Modal Header */}
             <div className="modal-header border-0">
               <div className="d-flex align-items-center gap-2" style={{ color: 'var(--accent-gold)' }}>
                 <Sparkles size={18} />
@@ -242,16 +342,27 @@ Only perform actions the user explicitly requested.`;
               <button type="button" className="btn-close btn-close-overlay" onClick={onClose} aria-label="Close" />
             </div>
 
+            {/* Modal Body */}
             <div className="modal-body">
               {aiResponse !== null ? (
+                /* AI Output View: Rendered Markdown + Action History */
                 <div className="ai-response-container" style={{ color: 'var(--text-primary)' }}>
-                  {isAiLoading && !aiResponse && <div className="spin-pulse" style={{ color: 'var(--text-secondary)' }}>Analyzing your knowledge graph...</div>}
-                  <div className="markdown-body" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(marked.parse(aiResponse) as string) }} />
+                  {isAiLoading && !aiResponse && (
+                    <div className="spin-pulse" style={{ color: 'var(--text-secondary)' }}>
+                      Analyzing your knowledge graph...
+                    </div>
+                  )}
+                  <div 
+                    className="markdown-body" 
+                    dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(marked.parse(aiResponse) as string) }} 
+                  />
                   
+                  {/* Action Execution Outcome Badges */}
                   {actionResults.map((res, i) => (
                     <AiActionCard key={i} result={res} />
                   ))}
                   
+                  {/* Reset to query prompt */}
                   {!isAiLoading && (
                     <button 
                       className="btn btn-secondary mt-3" 
@@ -267,28 +378,33 @@ Only perform actions the user explicitly requested.`;
                   )}
                 </div>
               ) : (
+                /* Initial Query Input View */
                 <div className="d-flex flex-column gap-3">
-                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-                    Ask a question, paste a link to research it, or ask me to create/edit notes.
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', lineHeight: 1.5, margin: 0 }}>
+                    Ask a question, paste a link to research it, or ask AI to structure and link notes.
                   </p>
                   
-                  <div className="d-flex gap-2">
-                    <input
-                      ref={inputRef}
-                      type="text"
-                      className="form-control form-control-lg"
-                      placeholder="What do you want to know?"
-                      value={query}
-                      onChange={e => setQuery(e.target.value)}
-                      onKeyDown={handleKeyDown}
-                    />
+                  <div className="d-flex gap-2 align-items-center">
+                    <div className="search-bar-container flex-grow-1" style={{ padding: '8px 12px' }}>
+                      <input
+                        ref={inputRef}
+                        type="text"
+                        className="search-input"
+                        placeholder="What do you want to explore or create?"
+                        value={query}
+                        onChange={e => setQuery(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        style={{ fontSize: '0.95rem' }}
+                      />
+                    </div>
                     <button 
                       className="btn btn-primary d-flex align-items-center justify-content-center flex-shrink-0"
                       onClick={handleAskAi}
                       disabled={!query.trim() || isAiLoading}
-                      style={{ width: '48px', height: '48px' }}
+                      style={{ width: '42px', height: '42px', borderRadius: 'var(--radius-sm)' }}
+                      title="Send query"
                     >
-                      <ArrowRight size={20} />
+                      <ArrowRight size={18} />
                     </button>
                   </div>
                 </div>
@@ -298,6 +414,7 @@ Only perform actions the user explicitly requested.`;
         </div>
       </div>
       
+      {/* Staged Action Confirmation Toast */}
       {stagedActions.length > 0 && (
         <ConfirmActionToast 
           action={stagedActions[0]} 

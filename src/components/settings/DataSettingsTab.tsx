@@ -1,3 +1,26 @@
+/**
+ * ============================================================================
+ * DataSettingsTab.tsx — Local-First Data Management, ML Clustering & Graph Physics
+ * ============================================================================
+ * 
+ * Architectural Purpose:
+ * Central hub for all persistence, data portability, offline machine learning,
+ * category schema customization, and D3 physics simulation tuning in AetherMind.
+ * 
+ * Key Features:
+ * - Full JSON Backup & Restore: Complete export/import of IndexedDB/Dexie tables
+ *   (notes, links, categories, pages, snapshots) with transactional integrity.
+ * - Standalone HTML Export: Bundles current page notes into a self-contained HTML archive.
+ * - Database Reset & Re-seeding: Atomic teardown and fresh seed initialization.
+ * - Client-Side ML Automation: Offline Transformers.js vector clustering to semantically
+ *   group unlinked nodes and inject dynamic similarity links.
+ * - Category/Tag Management: Color customization, addition of custom node taxonomies,
+ *   and safe deletion with fallback defaults.
+ * - Graph Versioning & Snapshots: Integration with time-travel revision checkpoints.
+ * - D3 Force Simulation Physics: Real-time slider controls for spring link distance
+ *   and electrostatic charge repulsion strength.
+ */
+
 import React, { useRef, useState } from 'react';
 import { db } from '../../db';
 import type { Category } from '../../db';
@@ -8,20 +31,43 @@ import { Download, Upload, RotateCcw, Plus, Trash2, Globe } from 'lucide-react';
 import { ConfirmModal } from '../ConfirmModal';
 import { useToast } from '../ToastContext';
 
+/**
+ * Props for the DataSettingsTab component.
+ */
 interface DataSettingsTabProps {
+  /** Callback fired to close the parent settings modal */
   onClose: () => void;
+  /** Callback fired to re-fetch and refresh graph data in parent components */
   onRefreshData: () => void;
+  /** Primary key ID of the currently active page/workspace */
   activePageId: number;
+  /** Display title of the active page (used for HTML export headers) */
   pageTitle?: string;
+  /** Current D3 force simulation configuration parameters */
   physicsConfig: { linkDistance: number; chargeStrength: number };
+  /** Callback fired when force simulation physics parameters are modified */
   onPhysicsChange: (config: { linkDistance: number; chargeStrength: number }) => void;
+  /** Complete list of registered note categories and their visual colors */
   categories: Category[];
+  /** Flag indicating whether semantic NLP similarity links are rendered on the graph */
   nlpClustering: boolean;
+  /** Callback fired when the semantic NLP clustering toggle is changed */
   onNlpClusteringChange: (val: boolean) => void;
+  /** Optional callback to capture an instant graph snapshot for time-travel */
   onSaveSnapshot?: () => void;
+  /** Optional callback to open the snapshot history browser */
   onViewSnapshots?: () => void;
 }
 
+/**
+ * DataSettingsTab Component
+ * 
+ * Provides controls for backup/restore, offline ML clustering, category administration,
+ * version checkpoints, and force-directed simulation physics.
+ * 
+ * @param {DataSettingsTabProps} props - Component properties.
+ * @returns {React.ReactElement} The rendered data management settings view.
+ */
 export const DataSettingsTab: React.FC<DataSettingsTabProps> = ({
   onClose,
   onRefreshData,
@@ -36,19 +82,41 @@ export const DataSettingsTab: React.FC<DataSettingsTabProps> = ({
   onViewSnapshots
 }) => {
   const { showToast } = useToast();
+  
+  /** Hidden file input reference used to trigger JSON backup file selection */
   const fileInputRef = useRef<HTMLInputElement>(null);
   
+  /** State controlling visibility of the backup import confirmation modal */
   const [showImportConfirm, setShowImportConfirm] = useState(false);
+  
+  /** Staged change event holding the uploaded JSON backup file prior to confirmation */
   const [pendingImportEvent, setPendingImportEvent] = useState<React.ChangeEvent<HTMLInputElement> | null>(null);
+  
+  /** State controlling visibility of the database reset confirmation modal */
   const [showRestoreConfirm, setShowRestoreConfirm] = useState(false);
+  
+  /** Category ID staged for deletion */
   const [categoryToDelete, setCategoryToDelete] = useState<string | null>(null);
 
+  /** Label text for a new category being created */
   const [newCatLabel, setNewCatLabel] = useState('');
+  
+  /** Hex color for a new category being created */
   const [newCatColor, setNewCatColor] = useState('#818cf8');
+  
+  /** Toggle controlling visibility of the new category creation input row */
   const [showAddCat, setShowAddCat] = useState(false);
+  
+  /** Loading state flag while local ML embedding and clustering calculations run */
   const [isClustering, setIsClustering] = useState(false);
+  
+  /** Human-readable status/progress message during ML clustering operations */
   const [clusterProgress, setClusterProgress] = useState('');
 
+  /**
+   * Exports all IndexedDB tables (notes, links, categories, pages, snapshots)
+   * into a formatted JSON backup file and triggers an automatic browser download.
+   */
   const handleExportData = async () => {
     try {
       const notes = await db.notes.toArray();
@@ -84,11 +152,22 @@ export const DataSettingsTab: React.FC<DataSettingsTabProps> = ({
     }
   };
 
+  /**
+   * Stages the selected JSON file and opens the confirmation modal to warn
+   * the user about replacing their existing local database.
+   * 
+   * @param {React.ChangeEvent<HTMLInputElement>} e - File input change event.
+   */
   const handleImportData = (e: React.ChangeEvent<HTMLInputElement>) => {
     setPendingImportEvent(e);
     setShowImportConfirm(true);
   };
 
+  /**
+   * Reads and validates the staged backup JSON file, executes a read-write
+   * transaction across all Dexie tables to atomically replace all records,
+   * refreshes application data, and closes the settings modal.
+   */
   const executeImport = () => {
     const e = pendingImportEvent;
     if (!e || !e.target.files || e.target.files.length === 0) {
@@ -105,6 +184,8 @@ export const DataSettingsTab: React.FC<DataSettingsTabProps> = ({
           setShowImportConfirm(false);
           return;
         }
+
+        // Perform an atomic multi-table transaction to avoid partial data corruption
         await db.transaction('rw', db.notes, db.links, db.categories, db.pages, db.snapshots, async () => {
           await db.notes.clear();
           await db.links.clear();
@@ -123,13 +204,13 @@ export const DataSettingsTab: React.FC<DataSettingsTabProps> = ({
           if (json.categories) {
             await db.categories.bulkAdd(json.categories);
           } else {
-              const defaultCategories: Category[] = [
-                { id: 'general', label: 'General', color: '#818cf8' },
-                { id: 'work', label: 'Work', color: '#34d399' },
-                { id: 'personal', label: 'Personal', color: '#f43f5e' },
-                { id: 'ideas', label: 'Ideas', color: '#fbbf24' }
-              ];
-             await db.categories.bulkAdd(defaultCategories);
+            const defaultCategories: Category[] = [
+              { id: 'general', label: 'General', color: '#818cf8' },
+              { id: 'work', label: 'Work', color: '#34d399' },
+              { id: 'personal', label: 'Personal', color: '#f43f5e' },
+              { id: 'ideas', label: 'Ideas', color: '#fbbf24' }
+            ];
+            await db.categories.bulkAdd(defaultCategories);
           }
         });
         onRefreshData();
@@ -144,8 +225,15 @@ export const DataSettingsTab: React.FC<DataSettingsTabProps> = ({
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
+  /**
+   * Prompts the user to confirm restoring the database back to initial seed data.
+   */
   const handleResetDatabase = () => setShowRestoreConfirm(true);
 
+  /**
+   * Clears notes and links from IndexedDB and repopulates the database
+   * with the initial starter guide and default graph nodes.
+   */
   const executeRestore = async () => {
     try {
       await db.transaction('rw', db.notes, db.links, async () => {
@@ -164,6 +252,7 @@ export const DataSettingsTab: React.FC<DataSettingsTabProps> = ({
 
   return (
     <>
+      {/* Section 1: Backup & Data Portability */}
       <div className="settings-section">
         <h3>Data Management</h3>
         <p className="section-desc">AetherMind is fully local. Your data stays in this browser. Use these options to backup your thoughts.</p>
@@ -198,6 +287,7 @@ export const DataSettingsTab: React.FC<DataSettingsTabProps> = ({
         </div>
       </div>
 
+      {/* Section 2: Local Machine Learning & Graph Clustering */}
       <div className="settings-section">
         <h3>Graph Automation (Local ML)</h3>
         <p className="section-desc">Run local Transformers.js models to analyze and organize your notes offline.</p>
@@ -220,37 +310,40 @@ export const DataSettingsTab: React.FC<DataSettingsTabProps> = ({
             <RotateCcw size={16} className={isClustering ? 'spin-pulse' : ''} />
             <span>{isClustering ? 'Clustering...' : 'Cluster Unlinked Notes'}</span>
           </button>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
-              <div style={{ paddingRight: '12px' }}>
-                <div style={{ fontSize: '0.85rem', fontWeight: 500, marginBottom: '6px' }}>NLP Clustering</div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>Inject invisible links between semantically similar notes on the graph</div>
-              </div>
-              <label style={{ position: 'relative', display: 'inline-block', width: '44px', height: '24px' }}>
-                <input
-                  type="checkbox"
-                  checked={nlpClustering}
-                  onChange={() => {
-                    onNlpClusteringChange(!nlpClustering);
-                    onRefreshData();
-                  }}
-                  style={{ opacity: 0, width: 0, height: 0 }}
-                />
-                <span style={{
-                  position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0,
-                  backgroundColor: nlpClustering ? 'var(--node-indigo)' : 'rgba(255,255,255,0.15)',
-                  transition: '0.3s', borderRadius: '24px'
-                }}>
-                  <span style={{
-                    position: 'absolute', content: '', height: '18px', width: '18px', left: nlpClustering ? '24px' : '3px',
-                    bottom: '3px', backgroundColor: 'white', transition: '0.3s', borderRadius: '50%'
-                  }} />
-                </span>
-              </label>
+          
+          {/* Toggle for rendering semantic similarity links on the canvas */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: 'var(--card-nested-bg)', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
+            <div style={{ paddingRight: '12px' }}>
+              <div style={{ fontSize: '0.85rem', fontWeight: 500, marginBottom: '4px' }}>NLP Clustering</div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>Inject invisible links between semantically similar notes on the graph</div>
             </div>
+            <label style={{ position: 'relative', display: 'inline-block', width: '44px', height: '24px' }}>
+              <input
+                type="checkbox"
+                checked={nlpClustering}
+                onChange={() => {
+                  onNlpClusteringChange(!nlpClustering);
+                  onRefreshData();
+                }}
+                style={{ opacity: 0, width: 0, height: 0 }}
+              />
+              <span style={{
+                position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0,
+                backgroundColor: nlpClustering ? 'var(--node-indigo)' : 'var(--border-color)',
+                transition: '0.3s', borderRadius: '24px'
+              }}>
+                <span style={{
+                  position: 'absolute', content: '', height: '18px', width: '18px', left: nlpClustering ? '24px' : '3px',
+                  bottom: '3px', backgroundColor: 'white', transition: '0.3s', borderRadius: '50%'
+                }} />
+              </span>
+            </label>
+          </div>
         </div>
         {clusterProgress && <p className="section-desc" style={{ color: 'var(--node-amber)' }}>{clusterProgress}</p>}
       </div>
 
+      {/* Section 3: Category & Tag Taxonomy Customization */}
       <div className="settings-section">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
           <h3>Node Types</h3>
@@ -264,9 +357,9 @@ export const DataSettingsTab: React.FC<DataSettingsTabProps> = ({
         </div>
         <p className="section-desc" style={{ marginBottom: '12px' }}>Customize categories and their default colors.</p>
         
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {categories.map(cat => (
-            <div key={cat.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(0,0,0,0.2)', padding: '8px', borderRadius: '6px' }}>
+            <div key={cat.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--card-nested-bg)', border: '1px solid var(--border-color)', padding: '8px 12px', borderRadius: '6px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: cat.color }}></div>
                 <span style={{ fontSize: '0.85rem' }}>{cat.label}</span>
@@ -279,7 +372,9 @@ export const DataSettingsTab: React.FC<DataSettingsTabProps> = ({
                     await db.categories.update(cat.id, { color: e.target.value });
                   }}
                   style={{ width: '24px', height: '24px', padding: '0', border: 'none', borderRadius: '4px', cursor: 'pointer', background: 'transparent' }}
+                  aria-label={`Change color for ${cat.label}`}
                 />
+                {/* Default system categories cannot be deleted */}
                 {['general', 'work', 'personal', 'ideas'].includes(cat.id) ? null : (
                   <button 
                     className="btn btn-icon btn-ghost"
@@ -297,6 +392,7 @@ export const DataSettingsTab: React.FC<DataSettingsTabProps> = ({
           ))}
         </div>
         
+        {/* Category Deletion Confirmation */}
         {categoryToDelete && (
           <ConfirmModal
             isOpen={!!categoryToDelete}
@@ -311,38 +407,41 @@ export const DataSettingsTab: React.FC<DataSettingsTabProps> = ({
           />
         )}
 
-          {showAddCat && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(0,0,0,0.3)', padding: '8px', borderRadius: '6px', marginTop: '4px' }}>
-              <input 
-                type="text" 
-                className="form-control form-control-sm"
-                value={newCatLabel}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewCatLabel(e.target.value)}
-                placeholder="New type name..."
-              />
-              <input 
-                type="color" 
-                value={newCatColor}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewCatColor(e.target.value)}
-                style={{ width: '24px', height: '24px', padding: '0', border: 'none', borderRadius: '4px', cursor: 'pointer', background: 'transparent' }}
-              />
-              <button 
-                className="btn btn-accent btn-sm"
-                onClick={async () => {
-                  if (newCatLabel.trim()) {
-                    const id = newCatLabel.trim().toLowerCase().replace(/\s+/g, '-');
-                    await db.categories.put({ id, label: newCatLabel.trim(), color: newCatColor });
-                    setNewCatLabel('');
-                    setShowAddCat(false);
-                  }
-                }}
-              >
-                Add
-              </button>
-            </div>
-          )}
-        </div>
+        {/* New Category Input Drawer */}
+        {showAddCat && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--card-nested-bg)', border: '1px solid var(--border-color)', padding: '8px 12px', borderRadius: '6px', marginTop: '8px' }}>
+            <input 
+              type="text" 
+              className="form-control form-control-sm"
+              value={newCatLabel}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewCatLabel(e.target.value)}
+              placeholder="New type name..."
+            />
+            <input 
+              type="color" 
+              value={newCatColor} 
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewCatColor(e.target.value)}
+              style={{ width: '24px', height: '24px', padding: '0', border: 'none', borderRadius: '4px', cursor: 'pointer', background: 'transparent' }}
+              aria-label="New category color"
+            />
+            <button 
+              className="btn btn-accent btn-sm"
+              onClick={async () => {
+                if (newCatLabel.trim()) {
+                  const id = newCatLabel.trim().toLowerCase().replace(/\s+/g, '-');
+                  await db.categories.put({ id, label: newCatLabel.trim(), color: newCatColor });
+                  setNewCatLabel('');
+                  setShowAddCat(false);
+                }
+              }}
+            >
+              Add
+            </button>
+          </div>
+        )}
+      </div>
 
+      {/* Section 4: Graph Snapshots & Time-Travel Versioning */}
       <div className="settings-section">
         <h3>Graph Versioning & Time Travel</h3>
         <p className="section-desc">Save snapshots of your graph state to browse history or restore previous versions.</p>
@@ -362,11 +461,13 @@ export const DataSettingsTab: React.FC<DataSettingsTabProps> = ({
         </div>
       </div>
 
+      {/* Section 5: D3 Force Simulation Physics Tuning */}
       <div className="settings-section">
         <h3>Graph Physics</h3>
         <p className="section-desc">Tune the visual mechanics of the force-directed graph.</p>
         
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '12px' }}>
+          {/* Spring Link Distance Slider */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Link Distance</label>
@@ -382,6 +483,7 @@ export const DataSettingsTab: React.FC<DataSettingsTabProps> = ({
             />
           </div>
 
+          {/* Electrostatic Charge Repulsion Slider */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Repulsion Strength</label>
@@ -400,6 +502,7 @@ export const DataSettingsTab: React.FC<DataSettingsTabProps> = ({
         </div>
       </div>
 
+      {/* Backup Import Overwrite Confirmation Modal */}
       <ConfirmModal
         isOpen={showImportConfirm}
         title="Import Backup"
@@ -412,6 +515,7 @@ export const DataSettingsTab: React.FC<DataSettingsTabProps> = ({
         }}
       />
       
+      {/* Database Reset Confirmation Modal */}
       <ConfirmModal
         isOpen={showRestoreConfirm}
         title="Restore Defaults"

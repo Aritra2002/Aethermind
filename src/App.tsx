@@ -1,3 +1,12 @@
+/**
+ * @file App.tsx
+ * @description Main application shell and orchestrator for AetherMind — Personal AI Knowledge Graph Workspace.
+ * Coordinates Dexie.js live queries, knowledge graph visualization, note editing workspace (with split-screen support),
+ * full-text and tag search filters, document ingestion/RAG processing, historical snapshot time-travel, multi-page graphs,
+ * mobile drawer navigation, and AI discovery modals.
+ * @module App
+ */
+
 import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -22,9 +31,15 @@ import { DiscoveryDigestModal } from './components/DiscoveryDigestModal';
 import { Dropdown } from './components/ui/Dropdown';
 import { ingestDocument } from './utils/rag';
 import { saveSnapshot, loadSnapshot, getSnapshots, restoreSnapshot } from './utils/snapshotManager';
+import { applyCustomThemeLive, clearCustomThemeStyles, DEFAULT_CUSTOM_COLORS } from './utils/themeUtils';
 
-import { Brain, Plus, Settings, Calendar, Sparkles, Edit2, Trash2, Loader2, Compass, FileArchive, FileUp } from 'lucide-react';
+import { Brain, Plus, Settings, Calendar, Sparkles, Edit2, Trash2, Loader2, Compass, FileArchive, FileUp, Search } from 'lucide-react';
 
+/**
+ * Custom hook to monitor window width and compute responsive breakpoint tier.
+ *
+ * @returns {'sm' | 'md' | 'lg'} Breakpoint tier: `'sm'` (<768px), `'md'` (768–1023px), or `'lg'` (>=1024px).
+ */
 function useViewport() {
   const [viewport, setViewport] = useState<'sm' | 'md' | 'lg'>('lg');
   useEffect(() => {
@@ -48,14 +63,37 @@ function useViewport() {
   return viewport;
 }
 
+/**
+ * App Component
+ *
+ * Root React component for AetherMind.
+ * Manages global workspace state, modal flows, database synchronization, theme engine, and split layout.
+ *
+ * @component
+ * @returns {React.ReactElement} The rendered single-page application.
+ */
 export default function App() {
   const { showToast } = useToast();
+  
+  /** Configuration for customized input prompt modal. */
   const [promptConfig, setPromptConfig] = useState<{title: string, message: string, onConfirm: (v: string)=>void} | null>(null);
+  
+  /** Primary active note ID open in the main editor pane. */
   const [activeNoteId, setActiveNoteId] = useState<number | null>(null);
+  
+  /** Secondary note ID open in the side-by-side split editor pane. */
   const [secondaryNoteId, setSecondaryNoteId] = useState<number | null>(null);
+  
+  /** Full-text search query string. */
   const [searchQuery, setSearchQuery] = useState('');
+  
+  /** Selected tags for graph filtering. */
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  
+  /** Date timestamp range [min, max] for chronological graph filtering. */
   const [dateRange, setDateRange] = useState<[number, number] | null>(null);
+  
+  /** Modal visibility states */
   const [showSettings, setShowSettings] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [showAskAi, setShowAskAi] = useState(false);
@@ -64,34 +102,48 @@ export default function App() {
   const [showDeletePageConfirm, setShowDeletePageConfirm] = useState(false);
   const [showReview, setShowReview] = useState(false);
   const [showDiscoveryDigest, setShowDiscoveryDigest] = useState(false);
+  
+  /** Sidebar visibility toggle state. */
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => window.innerWidth >= 768);
   const viewport = useViewport();
   const isDesktop = viewport === 'lg';
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const handlePromptCancel = useCallback(() => setPromptConfig(null), []);
+  
+  /** Document ingestion and RAG chunking loading state. */
   const [docLoading, setDocLoading] = useState(false);
   const [docStatus, setDocStatus] = useState('');
 
+  /** Search & tag filter overlay state on canvas. */
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  
+  /** Active workspace page ID (defaults to 1). */
   const [currentPageId, setCurrentPageId] = useState<number>(1);
+  
+  /** Persistent custom sidebar width in pixels. */
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     const saved = localStorage.getItem('aethermind-sidebar-width');
     return saved ? parseInt(saved, 10) : 420;
   });
+  
+  /** Configurable D3 physics simulation parameters. */
   const [physicsConfig, setPhysicsConfig] = useState(() => {
     const saved = localStorage.getItem('aethermind-physics');
     return saved ? JSON.parse(saved) : { linkDistance: 120, chargeStrength: -150 };
   });
+  
+  /** NLP semantic clustering toggle state. */
   const [nlpClustering, setNlpClustering] = useState(() => localStorage.getItem('aethermind-nlp-clustering') === 'true');
 
-  // Graph Snapshot historical mode
+  /** Historical snapshot data active during time-travel scrubbing. */
   const [historicalSnapshot, setHistoricalSnapshot] = useState<{ notes: Note[]; links: Link[]; timestamp: number } | null>(null);
 
-  // Multi-theme state
+  /** Active visual theme name ('dark', 'nord', 'dracula', 'cyberpunk', 'custom', etc.). */
   const [activeTheme, setActiveTheme] = useState<string>(() => {
     return localStorage.getItem('aethermind-theme') || 'dark';
   });
 
+  /** Custom user theme color configurations. */
   const [customThemeColors, setCustomThemeColors] = useState(() => {
     const saved = localStorage.getItem('aethermind-custom-themes');
     const parsed = saved ? JSON.parse(saved) : {};
@@ -111,106 +163,49 @@ export default function App() {
     document.documentElement.setAttribute('data-theme', activeTheme);
     localStorage.setItem('aethermind-theme', activeTheme);
     
-    const root = document.documentElement;
     if (activeTheme === 'custom') {
-      const defaults: Record<string, string> = {
-        bgPrimary: '#06071a',
-        sidebarBg: '#0f1428',
-        textPrimary: '#ffffff',
-        accentPrimary: '#7c3aed',
-        accentSecondary: '#06b6d4',
-        linkColor: '#ffffff4d',
-        fontFamily: 'sans'
-      };
-      
-      const keys = ['bgPrimary', 'sidebarBg', 'textPrimary', 'accentPrimary', 'accentSecondary', 'linkColor', 'fontFamily'];
-      keys.forEach((key) => {
-        const val = customThemeColors[key] || defaults[key];
-        
-        if (key === 'fontFamily') {
-          const fontMap: Record<string, string> = {
-            'sans': "'Plus Jakarta Sans', system-ui, -apple-system, sans-serif",
-            'inter': "'Inter', system-ui, -apple-system, sans-serif",
-            'outfit': "'Outfit', system-ui, -apple-system, sans-serif",
-            'serif': "'Playfair Display', Georgia, serif",
-            'lora': "'Lora', Georgia, serif",
-            'merriweather': "'Merriweather', Georgia, serif",
-            'cinzel': "'Cinzel', serif",
-            'jetbrains-mono': "'JetBrains Mono', monospace",
-            'fira-code': "'Fira Code', monospace"
-          };
-          const fontVal = fontMap[val] || fontMap['sans'];
-          root.style.setProperty('--font-sans', fontVal);
-        } else {
-          const cssVar = '--' + key.replace(/([A-Z])/g, '-$1').toLowerCase();
-          root.style.setProperty(cssVar, val);
-        }
-        
-        // If background color is customized, map it to gradients and other properties
-        if (key === 'bgPrimary') {
-          root.style.setProperty('--bg-gradient-1', val);
-          root.style.setProperty('--bg-gradient-2', val);
-          root.style.setProperty('--bg-gradient-3', val);
-        }
-        // If sidebarBg is customized, map it to surface variables
-        if (key === 'sidebarBg') {
-          root.style.setProperty('--surface-glass', val + 'cc'); // 80% opacity
-          root.style.setProperty('--surface-glass-heavy', val + 'da'); // 85% opacity
-          root.style.setProperty('--surface-glass-light', val + '99'); // 60% opacity
-          root.style.setProperty('--surface-card', val);
-          root.style.setProperty('--glass-panel-bg-1', val);
-          root.style.setProperty('--glass-panel-bg-2', val);
-        }
-        // If text color is customized, map it to secondary text too
-        if (key === 'textPrimary') {
-          root.style.setProperty('--text-secondary', val + 'b3'); // roughly 70% opacity
-        }
-        // If accent color is customized, map it to link highlight too
-        if (key === 'accentPrimary') {
-          root.style.setProperty('--link-highlight', val);
-          root.style.setProperty('--border-glow', val + '33'); // roughly 20% opacity
-        }
-      });
+      applyCustomThemeLive(customThemeColors);
     } else {
-      // Clear custom theme attributes if presets are selected
-      const allKeys = [
-        'bgPrimary', 'sidebarBg', 'textPrimary', 'accentPrimary', 'accentSecondary', 'linkColor', 'fontFamily',
-        'bg-gradient-1', 'bg-gradient-2', 'bg-gradient-3', 'text-secondary', 'link-highlight', 'border-glow', 'link-color',
-        'surface-glass', 'surface-glass-heavy', 'surface-glass-light', 'surface-card', 'glass-panel-bg-1', 'glass-panel-bg-2'
-      ];
-      allKeys.forEach((key) => {
-        const cssVar = key.includes('-') ? '--' + key : '--' + key.replace(/([A-Z])/g, '-$1').toLowerCase();
-        root.style.removeProperty(cssVar);
-      });
-      root.style.removeProperty('--font-sans');
+      clearCustomThemeStyles();
     }
-    const prev = localStorage.getItem('aethermind-custom-themes');
-    const next = JSON.stringify(customThemeColors);
-    if (prev !== next) localStorage.setItem('aethermind-custom-themes', next);
+    const timer = setTimeout(() => {
+      const prev = localStorage.getItem('aethermind-custom-themes');
+      const next = JSON.stringify(customThemeColors);
+      if (prev !== next) localStorage.setItem('aethermind-custom-themes', next);
+    }, 150);
+    return () => clearTimeout(timer);
   }, [activeTheme, customThemeColors]);
 
   useEffect(() => {
     localStorage.setItem('aethermind-sidebar-width', String(sidebarWidth));
   }, [sidebarWidth]);
 
+  /**
+   * Updates D3 physics parameters and persists to localStorage.
+   *
+   * @param {{ linkDistance: number; chargeStrength: number }} newConfig - Physics configuration.
+   */
   const handlePhysicsChange = (newConfig: { linkDistance: number; chargeStrength: number }) => {
     setPhysicsConfig(newConfig);
     localStorage.setItem('aethermind-physics', JSON.stringify(newConfig));
   };
 
-  // Snapshot auto-save every 10 minutes
+  // Periodic automatic snapshot generation every 10 minutes
   useEffect(() => {
     if (historicalSnapshot) return;
     const interval = setInterval(async () => {
       try {
         await saveSnapshot(currentPageId);
       } catch {
-        // Ignore auto-save errors
+        // Ignore automatic snapshot persistence errors silently
       }
     }, 10 * 60 * 1000);
     return () => clearInterval(interval);
   }, [currentPageId, historicalSnapshot]);
 
+  /**
+   * Manually creates and saves an immutable graph snapshot for the active page.
+   */
   const handleSaveSnapshot = async () => {
     try {
       const id = await saveSnapshot(currentPageId);
@@ -220,6 +215,9 @@ export default function App() {
     }
   };
 
+  /**
+   * Opens the interactive modal dialog to browse and restore historical snapshots.
+   */
   const handleBrowseSnapshots = async () => {
     const snapshots = await getSnapshots(currentPageId);
     if (snapshots.length === 0) {
@@ -237,7 +235,7 @@ export default function App() {
         if (!input) return;
         const restoreMatch = input.match(/^restore\s+(\d+)$/i);
         if (restoreMatch) {
-          const idx = parseInt(restoreMatch[1]) - 1;
+          const idx = parseInt(restoreMatch[1], 10) - 1;
           if (idx >= 0 && idx < snapshots.length) {
             try {
               await restoreSnapshot(snapshots[idx].id!, currentPageId);
@@ -250,7 +248,7 @@ export default function App() {
           }
           return;
         }
-        const idx = parseInt(input) - 1;
+        const idx = parseInt(input, 10) - 1;
         if (idx >= 0 && idx < snapshots.length) {
           const data = await loadSnapshot(snapshots[idx].id!);
           if (data) {
@@ -261,6 +259,9 @@ export default function App() {
     });
   };
 
+  /**
+   * Restores active page state to the loaded historical snapshot point.
+   */
   const handleRestoreFromHistory = async () => {
     if (!historicalSnapshot) return;
     try {
@@ -294,12 +295,12 @@ export default function App() {
     }
   };
 
-  // Seed database on app mount
+  // Seed default notes, categories, and initial pages on first mount
   useEffect(() => {
     seedDatabase().catch(e => console.error('Seed failed', e));
   }, []);
 
-  // Command Palette Listener
+  // Global Command Palette Shortcut Listener (Cmd+K / Ctrl+K)
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
@@ -315,7 +316,7 @@ export default function App() {
   const pages = useLiveQuery(() => db.pages.toArray()) || [];
   const notes = useLiveQuery(() => db.notes.where({ pageId: currentPageId }).toArray(), [currentPageId]) || [];
   
-  // Fetch links relevant to current notes
+  // Fetch links relevant to current page notes
   const links = useLiveQuery(async () => {
     const currentNotes = await db.notes.where({ pageId: currentPageId }).toArray();
     const currentIds = new Set(currentNotes.map(n => n.id));
@@ -325,15 +326,18 @@ export default function App() {
 
   const categories = useLiveQuery(() => db.categories.toArray()) || [];
 
-  // Find current active note object
+  // Find active note records
   const activeNote = notes.find((n) => n.id === activeNoteId) || null;
   const secondaryNote = notes.find((n) => n.id === secondaryNoteId) || null;
 
+  /**
+   * Selects or deselects a note from the graph canvas or list view and updates visit statistics.
+   *
+   * @param {Note | null} note - Selected note entity or null.
+   */
   const handleSelectNote = async (note: Note | null) => {
     if (note) {
       if (activeNoteId && activeNoteId !== note.id && isSidebarOpen) {
-        // If we already have one open, maybe we want to split? 
-        // For now, selecting from graph replaces primary unless we specifically split.
         setActiveNoteId(note.id!);
       } else {
         setActiveNoteId(note.id!);
@@ -351,7 +355,12 @@ export default function App() {
     }
   };
 
-  // Handles creating a new note (e.g. double-click canvas or sidebar button)
+  /**
+   * Creates a new note and positions it at the specified canvas coordinates if supplied.
+   *
+   * @param {number} [x] - Simulation X coordinate.
+   * @param {number} [y] - Simulation Y coordinate.
+   */
   const handleCreateNote = async (x?: number, y?: number) => {
     try {
       const title = 'New Node';
@@ -376,11 +385,17 @@ export default function App() {
     }
   };
 
+  /**
+   * Initiates graph board deletion confirmation dialog.
+   */
   const handleDeletePage = async () => {
     if (pages.length <= 1) return;
     setShowDeletePageConfirm(true);
   };
 
+  /**
+   * Permanently deletes the active page, its notes, and connected graph links.
+   */
   const confirmDeletePage = async () => {
     try {
       const pageNoteIds = (await db.notes.where({ pageId: currentPageId }).toArray()).map(n => n.id!);
@@ -408,7 +423,11 @@ export default function App() {
     }
   };
 
-  // Jumps to note by title (handles wiki-link click events)
+  /**
+   * Jumps to note by title or creates it on demand (handles wiki-link click events).
+   *
+   * @param {string} title - Target note title.
+   */
   const handleJumpToNote = async (title: string) => {
     const target = notes.find((n) => n.title.toLowerCase() === title.toLowerCase());
     if (target) {
@@ -426,10 +445,16 @@ export default function App() {
     }
   };
 
+  /**
+   * Deselects the active note after deletion.
+   */
   const handleNoteDeleted = () => {
     setActiveNoteId(null);
   };
 
+  /**
+   * Creates or navigates to today's daily journal note with date formatting (e.g. `YYYY-MM-DD`).
+   */
   const handleCreateDailyNote = async () => {
     const dateStr = new Date().toISOString().split('T')[0];
     const existing = notes.find(n => n.title === dateStr);
@@ -444,6 +469,10 @@ export default function App() {
     }
   };
 
+
+  /**
+   * Imports knowledge graph data from a ZIP package containing JSON schemas and Markdown notes.
+   */
   const handleImportZip = () => {
     const input = document.createElement('input');
     input.type = 'file';
@@ -530,7 +559,7 @@ export default function App() {
 
         showToast('ZIP imported successfully!', 'success');
 
-        // Ingest imported notes into RAG
+        // Ingest imported notes into RAG vector index
         const notesForRag = await db.notes.where({ pageId: currentPageId }).toArray();
         for (const note of notesForRag) {
           if (note.content) {
@@ -544,6 +573,9 @@ export default function App() {
     input.click();
   };
 
+  /**
+   * Uploads and parses external documents (PDF, TXT, MD, DOCX, CSV) and runs AI decomposition into linked graph notes.
+   */
   const handleUploadDocument = () => {
     const input = document.createElement('input');
     input.type = 'file';
@@ -691,6 +723,11 @@ Format:
     input.click();
   };
 
+  /**
+   * Handles pointer drag on the sidebar resize splitter handle.
+   *
+   * @param {React.MouseEvent} e - Mouse down event on the resize handle.
+   */
   const startResizing = (e: React.MouseEvent) => {
     e.preventDefault();
     const startX = e.clientX;
@@ -710,6 +747,11 @@ Format:
     document.addEventListener('mouseup', onMouseUp);
   };
 
+  /**
+   * Handles keyboard navigation (ArrowLeft / ArrowRight) on the sidebar resize handle for accessibility.
+   *
+   * @param {React.KeyboardEvent} e - Keyboard event on the resize handle.
+   */
   const handleResizerKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'ArrowLeft') {
       e.preventDefault();
@@ -720,87 +762,98 @@ Format:
     }
   };
 
+
   return (
     <div className="app-container">
-      {/* Header Bar — Bootstrap responsive layout */}
-      <header className="app-header glass-panel d-flex align-items-center px-2 px-md-3 mx-2 mx-md-3 mt-2 mt-md-3" style={{ flexWrap: 'nowrap', height: '64px' }}>
-        {/* Logo — icon always, title md+ */}
-        <div className="app-logo d-flex align-items-center gap-2 flex-shrink-0">
-          <Brain size={24} className="logo-icon" />
-          <h1 className="d-none d-md-block" style={{ margin: 0 }}>AetherMind</h1>
+      {/* Header Bar — Floating Glass Island Navigation */}
+      <header className="app-header glass-panel d-flex align-items-center justify-content-between px-3 mx-2 mx-md-3 mt-2 mt-md-3">
+        {/* Left Brand & Page Section */}
+        <div className="d-flex align-items-center gap-2">
+          <div className="app-logo d-flex align-items-center gap-2 flex-shrink-0" onClick={() => handleSelectNote(null)}>
+            <Brain size={22} className="logo-icon" />
+            <h1 className="d-none d-md-block" style={{ margin: 0 }}>AetherMind</h1>
+          </div>
+
+          {/* Page Selector — md+ full dropdown */}
+          <div className="d-none d-md-flex align-items-center gap-1 ms-2 ps-2" style={{ borderLeft: '1px solid var(--border-color)' }}>
+            <Dropdown
+              value={currentPageId}
+              onChange={(val) => setCurrentPageId(Number(val))}
+              options={pages.map(p => ({ value: p.id!, label: p.title }))}
+              style={{ minWidth: '140px' }}
+            />
+            <button className="page-action-btn" onClick={() => setShowRenamePage(true)} aria-label="Rename Page" title="Rename Page">
+              <Edit2 size={13} />
+            </button>
+            <button className="page-action-btn" onClick={handleDeletePage} aria-label="Delete Page" title="Delete Page" disabled={pages.length <= 1}>
+              <Trash2 size={13} style={{ color: pages.length <= 1 ? 'inherit' : 'var(--accent-danger, #f43f5e)' }} />
+            </button>
+          </div>
+
+          {/* Mobile Page Selector (sm only) */}
+          <div className="d-flex d-md-none align-items-center gap-1">
+            <Dropdown
+              value={currentPageId}
+              onChange={(val) => setCurrentPageId(Number(val))}
+              options={pages.map(p => ({ value: p.id!, label: p.title }))}
+              style={{ maxWidth: '110px' }}
+            />
+            <button className="page-action-btn" onClick={() => setShowRenamePage(true)} aria-label="Rename Page">
+              <Edit2 size={12} />
+            </button>
+          </div>
         </div>
 
-        {/* Page Selector — md+ shows full, sm shows compact centered */}
-        <div className="d-none d-md-flex align-items-center gap-2 ms-3 ps-3" style={{ borderLeft: '1px solid var(--border-color)' }}>
-          <Dropdown
-            value={currentPageId}
-            onChange={(val) => setCurrentPageId(Number(val))}
-            options={pages.map(p => ({ value: p.id!, label: p.title }))}
-            style={{ minWidth: '150px' }}
-          />
-          <button className="page-action-btn" onClick={() => setShowRenamePage(true)} aria-label="Rename Page" title="Rename Page">
-            <Edit2 size={14} />
-          </button>
-          <button className="page-action-btn" onClick={handleDeletePage} aria-label="Delete Page" title="Delete Page" disabled={pages.length <= 1}>
-            <Trash2 size={14} style={{ color: pages.length <= 1 ? 'inherit' : 'var(--accent-danger, #f43f5e)' }} />
-          </button>
+        {/* Center Spotlight Search Pill (md+ only) */}
+        <div 
+          className="header-search-pill d-none d-md-flex" 
+          onClick={() => setShowCommandPalette(true)}
+          title="Search notes and commands (⌘K)"
+        >
+          <Search size={14} style={{ color: 'var(--text-muted)' }} />
+          <span>Search notes...</span>
+          <span className="kbd-badge">⌘K</span>
         </div>
 
-        {/* Page Selector — mobile (sm only, centered) */}
-        <div className="d-flex d-md-none align-items-center gap-1 mx-auto">
-          <Dropdown
-            value={currentPageId}
-            onChange={(val) => setCurrentPageId(Number(val))}
-            options={pages.map(p => ({ value: p.id!, label: p.title }))}
-            style={{ maxWidth: '120px' }}
-          />
-          <button className="page-action-btn" onClick={() => setShowRenamePage(true)} aria-label="Rename Page" title="Rename Page">
-            <Edit2 size={14} />
-          </button>
-          <button className="page-action-btn" onClick={handleDeletePage} aria-label="Delete Page" title="Delete Page" disabled={pages.length <= 1}>
-            <Trash2 size={14} style={{ color: pages.length <= 1 ? 'inherit' : 'var(--accent-danger, #f43f5e)' }} />
-          </button>
-        </div>
-
-        {/* Header Controls — responsive visibility */}
-        <div className="header-controls d-flex align-items-center gap-1 gap-md-2 ms-auto flex-shrink-0" style={{ overflow: 'visible' }}>
-          {/* Review + Discovery Digest — icon-only on md, label on lg+ */}
-          <button className="header-btn d-none d-lg-inline-flex" onClick={() => setShowReview(true)} title="Review">
-            <Brain size={16} /> Review
+        {/* Right Header Action Dock */}
+        <div className="header-controls d-flex align-items-center gap-1 gap-md-2 flex-shrink-0" style={{ overflow: 'visible' }}>
+          {/* Review & Discovery */}
+          <button className="header-btn d-none d-lg-inline-flex" onClick={() => setShowReview(true)} title="Spaced Repetition Review">
+            <Brain size={15} /> Review
           </button>
           <button className="header-btn d-none d-lg-inline-flex" onClick={() => setShowDiscoveryDigest(true)} title="Discovery Digest">
-            <Compass size={16} /> Discovery Digest
+            <Compass size={15} /> Discovery
           </button>
           <button className="header-btn d-lg-none" onClick={() => setShowReview(true)} title="Review">
-            <Brain size={16} />
-          </button>
-          <button className="header-btn d-lg-none" onClick={() => setShowDiscoveryDigest(true)} title="Discovery Digest">
-            <Compass size={16} />
+            <Brain size={15} />
           </button>
 
-          {/* Ask AI */}
-          <button className="header-btn" onClick={() => setShowAskAi(true)} style={{ color: 'var(--node-amber)' }} title="Ask AI">
-            <Sparkles size={16} />
+          {/* Ask AI with golden sparkle beacon */}
+          <button className="header-btn" onClick={() => setShowAskAi(true)} style={{ color: 'var(--node-amber)' }} title="Ask AI Copilot">
+            <Sparkles size={15} />
           </button>
+
           {/* Daily Note */}
-          <button className="header-btn" onClick={handleCreateDailyNote} title="Daily Note">
-            <Calendar size={16} />
+          <button className="header-btn" onClick={handleCreateDailyNote} title="Today's Daily Note">
+            <Calendar size={15} />
           </button>
-          {/* Import ZIP — md+ */}
-          <button className="header-btn d-none d-md-inline-flex" onClick={handleImportZip} title="Import ZIP">
-            <FileArchive size={16} />
+
+          {/* Import / Document — md+ */}
+          <button className="header-btn d-none d-md-inline-flex" onClick={handleImportZip} title="Import Markdown ZIP">
+            <FileArchive size={15} />
           </button>
-          {/* Upload Document — md+ */}
-          <button className="header-btn d-none d-md-inline-flex" onClick={handleUploadDocument} title="Upload Document">
-            <FileUp size={16} />
+          <button className="header-btn d-none d-md-inline-flex" onClick={handleUploadDocument} title="Upload PDF/DOCX (RAG)">
+            <FileUp size={15} />
           </button>
-          {/* New Page */}
-          <button className="header-btn primary-btn" onClick={() => setShowNewPage(true)} title="New Page">
-            <Plus size={16} />
+
+          {/* New Page (+) */}
+          <button className="header-btn primary-btn" onClick={() => setShowNewPage(true)} title="Create New Page">
+            <Plus size={15} />
           </button>
+
           {/* Settings */}
-          <button className="header-btn" onClick={() => setShowSettings(true)} title="Settings">
-            <Settings size={16} />
+          <button className="header-btn" onClick={() => setShowSettings(true)} title="Settings & Appearance">
+            <Settings size={15} />
           </button>
         </div>
       </header>
@@ -1012,18 +1065,13 @@ Format:
           onThemeSelect={setActiveTheme}
           customThemeColors={customThemeColors}
           onCustomThemeColorChange={(key, val) => {
-            setCustomThemeColors((prev: Record<string, string>) => ({ ...prev, [key]: val }));
+            const next = { ...customThemeColors, [key]: val };
+            applyCustomThemeLive(next);
+            setCustomThemeColors(next);
           }}
           onCustomThemeReset={() => {
-            setCustomThemeColors({
-              bgPrimary: '#06071a',
-              sidebarBg: '#0f1428',
-              textPrimary: '#ffffff',
-              accentPrimary: '#7c3aed',
-              accentSecondary: '#06b6d4',
-              linkColor: '#ffffff4d',
-              fontFamily: 'sans'
-            });
+            applyCustomThemeLive(DEFAULT_CUSTOM_COLORS);
+            setCustomThemeColors(DEFAULT_CUSTOM_COLORS);
           }}
         />
       )}

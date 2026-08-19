@@ -1,7 +1,25 @@
+/**
+ * @file TimelineSlider.tsx
+ * @description History scrubber and time-travel timeline component for AetherMind.
+ * Enables scrubbed chronological replay of graph evolution over time and historical snapshot inspection and rollback.
+ * @module components/TimelineSlider
+ */
+
 import React, { useMemo } from 'react';
 import { Calendar, RotateCcw, Clock } from 'lucide-react';
 import type { Note, Link } from '../db';
 
+/**
+ * Props for the {@link TimelineSlider} component.
+ *
+ * @interface TimelineSliderProps
+ * @property {Note[]} notes - List of notes in the active page used to compute timestamp bounds.
+ * @property {[number, number] | null} dateRange - Active [minTimestamp, maxTimestamp] filter range, or null if showing all.
+ * @property {(range: [number, number] | null) => void} setDateRange - Callback to update the active timestamp filter bounds.
+ * @property {{ notes: Note[]; links: Link[]; timestamp: number } | null} [historicalSnapshot] - Currently inspected historical graph snapshot, if any.
+ * @property {() => void} [onRestoreFromHistory] - Callback triggered to restore workspace data to the viewed historical snapshot.
+ * @property {() => void} [onExitHistory] - Callback triggered to exit historical view mode and return to live workspace.
+ */
 interface TimelineSliderProps {
   notes: Note[];
   dateRange: [number, number] | null;
@@ -11,6 +29,16 @@ interface TimelineSliderProps {
   onExitHistory?: () => void;
 }
 
+/**
+ * TimelineSlider Component
+ *
+ * Renders a glass panel with an interactive range slider and date picker at the bottom of the graph.
+ * Allows users to travel back in time to inspect note states at specific moments or view historical snapshots.
+ *
+ * @component
+ * @param {TimelineSliderProps} props - Component properties.
+ * @returns {React.ReactElement} The rendered timeline slider widget.
+ */
 export const TimelineSlider: React.FC<TimelineSliderProps> = ({
   notes,
   dateRange,
@@ -19,17 +47,34 @@ export const TimelineSlider: React.FC<TimelineSliderProps> = ({
   onRestoreFromHistory,
   onExitHistory
 }) => {
+  /** Array of all note creation timestamps. */
   const timestamps = useMemo(() => notes.length > 0 ? notes.map(n => n.createdAt) : [Date.now()], [notes]);
+
+  /** Earliest note timestamp minus 1 minute buffer for padding. */
   const minDate = useMemo(() => Math.min(...timestamps) - 1000 * 60, [timestamps]);
+
+  /** Latest note timestamp plus 1 minute buffer. */
   const maxDate = useMemo(() => Math.max(...timestamps) + 1000 * 60, [timestamps]);
   
+  /** Current upper-bound timestamp value of the timeline scrubber. */
   const value = dateRange ? dateRange[1] : maxDate;
 
+  /**
+   * Handles slider track movement.
+   *
+   * @param {React.ChangeEvent<HTMLInputElement>} e - Input change event.
+   */
   const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = Number(e.target.value);
     setDateRange([minDate, val]);
   };
 
+  /**
+   * Formats a unix timestamp into a readable date and time string.
+   *
+   * @param {number} timestamp - Epoch milliseconds.
+   * @returns {string} Formatted date-time string.
+   */
   const formatDate = (timestamp: number) => {
     return new Date(timestamp).toLocaleDateString('en-US', {
       month: 'short', day: 'numeric', year: 'numeric',
@@ -37,12 +82,23 @@ export const TimelineSlider: React.FC<TimelineSliderProps> = ({
     });
   };
 
+  /**
+   * Converts a timestamp to `YYYY-MM-DDTHH:MM` format for `<input type="datetime-local">`.
+   *
+   * @param {number} timestamp - Epoch milliseconds.
+   * @returns {string} Datetime local input format string.
+   */
   const getDatetimeLocalString = (timestamp: number) => {
     const d = new Date(timestamp);
     const pad = (n: number) => n.toString().padStart(2, '0');
     return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
   };
 
+  /**
+   * Handles direct date-time picker input adjustments.
+   *
+   * @param {React.ChangeEvent<HTMLInputElement>} e - Input change event.
+   */
   const handleDateInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = new Date(e.target.value).getTime();
     if (!isNaN(val)) {
@@ -51,6 +107,7 @@ export const TimelineSlider: React.FC<TimelineSliderProps> = ({
     }
   };
 
+  // Render Historical Snapshot Mode UI
   if (historicalSnapshot) {
     return (
       <div className="timeline-slider-panel glass-panel" style={{ borderColor: 'var(--node-amber)' }}>
@@ -84,6 +141,7 @@ export const TimelineSlider: React.FC<TimelineSliderProps> = ({
     );
   }
 
+  // Not enough notes to meaningfully scrub timeline
   if (notes.length < 2) {
     return (
       <div className="timeline-slider-panel glass-panel" style={{ opacity: 0.5, cursor: 'not-allowed' }}>
@@ -95,6 +153,7 @@ export const TimelineSlider: React.FC<TimelineSliderProps> = ({
     );
   }
 
+  // Render Live History Scrubber
   return (
     <div className="timeline-slider-panel glass-panel" id="timeline-slider-panel-root">
       <div className="timeline-info">
@@ -107,8 +166,8 @@ export const TimelineSlider: React.FC<TimelineSliderProps> = ({
               <div 
                 className="timeline-date-display"
                 style={{
-                  background: 'rgba(0,0,0,0.2)',
-                  border: '1px solid rgba(255,255,255,0.1)',
+                  background: 'var(--surface-badge-bg)',
+                  border: '1px solid var(--border-color)',
                   color: 'var(--text-primary)',
                   padding: '2px 8px',
                   borderRadius: '4px',
@@ -152,6 +211,7 @@ export const TimelineSlider: React.FC<TimelineSliderProps> = ({
           </button>
         )}
       </div>
+      {/* Range Slider Track with dynamic CSS fill percentage */}
       <div className="slider-container">
         <input
           type="range"
@@ -167,3 +227,4 @@ export const TimelineSlider: React.FC<TimelineSliderProps> = ({
     </div>
   );
 };
+

@@ -1,3 +1,12 @@
+/**
+ * @file GraphCanvas.tsx
+ * @description High-performance interactive HTML5 Canvas & D3 force-directed knowledge graph visualization for AetherMind.
+ * Features hardware-accelerated 60fps rendering, physics simulation (link force, charge repulsion, collision avoidance),
+ * NLP embedding clustering, smooth zoom/pan navigation, mouse and pointer-captured touch dragging, animated flow connections,
+ * heatmap node visit glows, edge explanation tooltips with AI reasoning, and SVG/PNG/ZIP export utilities.
+ * @module components/GraphCanvas
+ */
+
 import React, { useRef, useEffect, useState } from 'react';
 import * as d3 from 'd3';
 import { db, type Note, type Link, type Category } from '../db';
@@ -6,6 +15,27 @@ import { HelpCircle, PanelLeft, Download, Search } from 'lucide-react';
 import { cosineSimilarity } from '../utils/vectorSearch';
 import { callAI } from '../utils/aiClient';
 
+/**
+ * Props for the {@link GraphCanvas} component.
+ *
+ * @interface GraphCanvasProps
+ * @property {Note[]} notes - List of note entities to render as graph nodes.
+ * @property {Link[]} links - List of directional/undirected graph link connections.
+ * @property {Category[]} categories - Available categories for color assignments.
+ * @property {Note | null} activeNote - Currently selected note in the editor, if any.
+ * @property {(note: Note | null) => void} onSelectNote - Callback invoked when a node is clicked or background is deselected.
+ * @property {(x: number, y: number) => void} onCreateNote - Callback invoked when empty canvas space is double-clicked.
+ * @property {string} searchQuery - Active text query string for dimming unmatched nodes.
+ * @property {string[]} selectedTags - Active tags for filtering visible graph nodes.
+ * @property {[number, number] | null} dateRange - Active timestamp range for chronological filtering.
+ * @property {{ linkDistance: number; chargeStrength: number }} physicsConfig - Configurable D3 physics parameters.
+ * @property {boolean} isSidebarOpen - Whether the note editor sidebar is currently visible.
+ * @property {() => void} onOpenSidebar - Callback to open the editor sidebar.
+ * @property {() => void} [onOpenSearch] - Callback to toggle the search filter overlay.
+ * @property {() => void} [onCloseSearch] - Callback to dismiss the search filter overlay.
+ * @property {boolean} [nlpClustering] - Whether to synthesize soft gravitational forces between semantically similar embeddings.
+ * @property {string} [pageTitle] - Title of the active page for export naming.
+ */
 interface GraphCanvasProps {
   notes: Note[];
   links: Link[];
@@ -25,6 +55,27 @@ interface GraphCanvasProps {
   pageTitle?: string;
 }
 
+/**
+ * D3 simulation node datum extending base node properties with physics simulation state.
+ *
+ * @interface SimNode
+ * @extends {d3.SimulationNodeDatum}
+ * @property {number} id - Unique note ID.
+ * @property {string} title - Note headline.
+ * @property {string} category - Category identifier.
+ * @property {string[]} tags - Associated metadata tags.
+ * @property {number} createdAt - Creation timestamp.
+ * @property {string} [color] - Optional custom node color override.
+ * @property {boolean} isDimmed - Whether the node is grayed out due to search/tag/history filters.
+ * @property {number} radius - Computed visual circle radius based on graph degree.
+ * @property {number} visits - Number of times the note has been opened (powers heatmap glow).
+ * @property {number | null} [__originalFx] - Pre-drag fixed X position.
+ * @property {number | null} [__originalFy] - Pre-drag fixed Y position.
+ * @property {boolean} [__wasDragged] - Distinguishes actual movement drag from quick clicks.
+ * @property {boolean} [__wasUnpinned] - Flags long-press unpinning action.
+ * @property {number} [__startX] - Starting screen X coordinate for drag thresholding.
+ * @property {number} [__startY] - Starting screen Y coordinate for drag thresholding.
+ */
 interface SimNode extends d3.SimulationNodeDatum {
   id: number;
   title: string;
@@ -43,6 +94,17 @@ interface SimNode extends d3.SimulationNodeDatum {
   __startY?: number;
 }
 
+/**
+ * GraphCanvas Component
+ *
+ * Renders the primary 2D force-directed knowledge graph on an HTML5 `<canvas>`.
+ * Manages simulation forces, responsive canvas resizing, gesture transformations,
+ * and high-performance canvas batch drawing.
+ *
+ * @component
+ * @param {GraphCanvasProps} props - Component properties.
+ * @returns {React.ReactElement} The rendered canvas container and control overlay.
+ */
 export const GraphCanvas: React.FC<GraphCanvasProps> = ({
   notes,
   links,
@@ -61,19 +123,32 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
   nlpClustering,
   pageTitle
 }) => {
+  /** Tracks mobile breakpoint for touch-specific UI adaptations. */
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  /** Container DOM ref for observing layout dimensions. */
   const containerRef = useRef<HTMLDivElement>(null);
+
+  /** Primary HTML5 Canvas DOM ref. */
   const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  /** Responsive pixel dimensions for the canvas element. */
   const [dimensions, setDimensions] = useState({ width: 600, height: 600 });
+
+  /** Current D3 Zoom & Pan transform state. */
   const [transform, setTransform] = useState(d3.zoomIdentity);
+
+  /** Ref flag to coordinate between D3 Zoom behavior and custom node dragging. */
   const isNodeDraggingRef = useRef(false);
 
-  // Cached Theme Colors mechanism to prevent style recalculation layout thrashing
+  /**
+   * Cached Theme Colors ref to prevent style recalculation layout thrashing during the 60fps render loop.
+   */
   const themeColorsRef = useRef({
     bgPrimary: '#06071a',
     textPrimary: '#ffffff',
@@ -84,6 +159,9 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
     pinnedRing: '#ffffff'
   });
 
+  /**
+   * Observes theme changes and updates cached color values for canvas drawing.
+   */
   useEffect(() => {
     const updateThemeColors = () => {
       const styles = getComputedStyle(document.documentElement);
@@ -94,6 +172,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
       const linkColor = styles.getPropertyValue('--link-color').trim() || 'rgba(255, 255, 255, 0.25)';
       const borderColor = styles.getPropertyValue('--border-color').trim() || 'rgba(255, 255, 255, 0.08)';
       
+      /** Computes luminance from hex string to adapt active rings for light vs dark palettes. */
       const getLuminance = (hex: string) => {
         const c = hex.replace('#', '').trim();
         if (c.length === 3) {
@@ -126,19 +205,35 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
       };
     };
 
+    let rafId: number | null = null;
+    const scheduleUpdate = () => {
+      if (rafId !== null) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        updateThemeColors();
+        rafId = null;
+      });
+    };
+
     updateThemeColors();
 
     const observer = new MutationObserver(() => {
-      updateThemeColors();
+      scheduleUpdate();
     });
     observer.observe(document.documentElement, {
       attributes: true,
       attributeFilter: ['data-theme', 'style']
     });
 
-    return () => observer.disconnect();
+    return () => {
+      if (rafId !== null) cancelAnimationFrame(rafId);
+      observer.disconnect();
+    };
   }, []);
+
+  /** Visibility state for keyboard shortcuts / canvas syntax modal. */
   const [showHelp, setShowHelp] = useState(false);
+
+  /** Tooltip state for displaying AI link explanations on edge hover. */
   const [tooltip, setTooltip] = useState<{
     visible: boolean;
     x: number;
@@ -148,23 +243,28 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
     linkId?: number;
   }>({ visible: false, x: 0, y: 0, loading: false, text: '' });
 
+  /**
+   * Exports graph data into SVG vector graphic, PNG image raster, or full ZIP archive with Markdown notes.
+   *
+   * @param {'svg' | 'png' | 'zip'} format - Target file export format.
+   */
   const handleExport = async (format: 'svg' | 'png' | 'zip') => {
     if (format === 'zip') {
       try {
         const JSZip = (await import('jszip')).default;
         const zip = new JSZip();
         
-        // Save data
+        // Save structured graph schema
         zip.file('graph_data.json', JSON.stringify({ notes, links }, null, 2));
         
-        // Save notes
+        // Save individual markdown files
         const notesFolder = zip.folder('notes');
         notes.forEach(note => {
           const safeTitle = note.title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
           notesFolder?.file(`${safeTitle}.md`, `# ${note.title}\n\n${note.content}`);
         });
         
-        // Save snapshot (PNG)
+        // Render canvas snapshot as PNG attachment
         const canvas = canvasRef.current;
         if (canvas) {
           const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve));
@@ -215,6 +315,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
         });
       }
     } else {
+      // Export standalone SVG string with embedded transform and styling
       const sim = simulationRef.current;
       if (!sim) return;
       const currentNodes = nodesRef.current;
@@ -251,14 +352,24 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
     }
   };
 
-  // Maintain persistent node positions across re-renders
+  /** Reference holding array of simulation nodes across render cycles. */
   const nodesRef = useRef<SimNode[]>([]);
+
+  /** Reference holding active D3 ForceSimulation instance. */
   const simulationRef = useRef<d3.Simulation<SimNode, undefined> | null>(null);
+
+  /** Tracks previous graph topology signature to prevent redundant simulation resets. */
   const prevTopology = useRef({ nodes: "", links: "", linkDist: 0, charge: 0 });
+
+  /** AbortController ref for in-flight tooltip AI reasoning calls. */
   const tooltipAbortRef = useRef<AbortController | null>(null);
+
+  /** Monotonically increasing ID to prevent stale tooltip responses. */
   const tooltipGenId = useRef(0);
 
-  // Handle window resizing
+  /**
+   * Observe container element bounds and update canvas pixel dimensions accordingly.
+   */
   useEffect(() => {
     if (!containerRef.current) return;
     const resizeObserver = new ResizeObserver((entries) => {
@@ -273,7 +384,9 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
     return () => resizeObserver.disconnect();
   }, []);
 
-  // Create / update simulation forces (separate from topology to avoid recalculating nodes)
+  /**
+   * Initializes or updates D3 physics forces (link distance, charge strength, centering, collision).
+   */
   useEffect(() => {
     if (dimensions.width === 0 || dimensions.height === 0) return;
 
@@ -296,7 +409,10 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
     simulationRef.current.force('center', d3.forceCenter(dimensions.width / 2, dimensions.height / 2));
   }, [dimensions, physicsConfig.linkDistance, physicsConfig.chargeStrength]);
 
-  // Sync simulation nodes, links, and restart on topology change
+  /**
+   * Synchronizes database notes and links into SimNodes, applies search/tag/date filters,
+   * calculates NLP embedding gravity links, and restarts simulation when graph topology changes.
+   */
   useEffect(() => {
     const sim = simulationRef.current;
     if (!sim) return;
@@ -375,6 +491,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
       })
       .filter((l): l is { id: number | undefined; source: SimNode; target: SimNode } => l !== null);
 
+    // Compute semantic cosine similarity clustering forces if enabled
     if (nlpClustering) {
       const notesWithEmbeddings = notes.filter(n => n.embedding);
       const nlpLinks: { source: SimNode; target: SimNode }[] = [];
@@ -422,7 +539,9 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
     }
   }, [notes, links, dimensions, searchQuery, selectedTags, dateRange, activeNote, categories, nlpClustering, physicsConfig.linkDistance, physicsConfig.chargeStrength]);
 
-  // Main Canvas Rendering Loop
+  /**
+   * Main 60fps Canvas 2D Rendering Loop
+   */
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -465,7 +584,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
         ctx.moveTo(source.x, source.y);
         ctx.lineTo(target.x, target.y);
 
-        // Styling
+        // Link appearance and flow styling
         if (source.isDimmed || target.isDimmed) {
           ctx.strokeStyle = themeColorsRef.current.linkColor;
           ctx.lineWidth = 1;
@@ -477,7 +596,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
           const activeColor = activeNote?.color || categories.find(c => c.id === activeNote?.category)?.color || '#818cf8';
           ctx.strokeStyle = activeColor;
           ctx.lineWidth = 2;
-          // Dashed animation offset for flows
+          // Dashed animated offset for active graph flow
           const dashOffset = (Date.now() / 80) % 20;
           ctx.setLineDash([6, 4]);
           ctx.lineDashOffset = -dashOffset;
@@ -492,7 +611,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
         ctx.globalAlpha = 1.0;
       });
 
-      // Reset dash for nodes drawing
+      // Reset dash before drawing nodes
       ctx.setLineDash([]);
 
       // 2. Draw Nodes
@@ -505,24 +624,22 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
         ctx.save();
         ctx.globalAlpha = opacity;
 
-        // Choose color based on category, or override with custom node.color
+        // Choose color based on category or node.color override
         const categoryObj = categories.find(c => c.id === node.category);
-        let color = categoryObj?.color || '#818cf8'; // Default Indigo
-        
-        // Custom color override
+        let color = categoryObj?.color || '#818cf8';
         if (node.color) color = node.color;
 
-        // Render Glow (Only if not dimmed)
+        // Render glow bloom
         if (!node.isDimmed) {
-          // Heatmap effect: more visits = larger/brighter glow
+          // Heatmap effect: more visits = brighter glow
           const heatmapIntensity = Math.min(20, node.visits * 2);
           
-          // Animated futuristic bloom
+          // Animated breathing pulse
           const time = Date.now() / 1000;
           const pulsingBloom = Math.sin(time * 2 + node.id) * 6;
           
           ctx.shadowBlur = isActive ? 24 + pulsingBloom + heatmapIntensity : 12 + (pulsingBloom/2) + heatmapIntensity;
-          ctx.shadowColor = color; // Aura matches node color
+          ctx.shadowColor = color;
           ctx.globalCompositeOperation = 'lighter';
         }
 
@@ -534,7 +651,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
         
         ctx.globalCompositeOperation = 'source-over';
 
-        // Draw pinned ring
+        // Draw pinned ring if node is locked in place
         if (node.fx !== null && node.fx !== undefined) {
           ctx.strokeStyle = themeColorsRef.current.pinnedRing;
           ctx.lineWidth = 1.5;
@@ -553,15 +670,14 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
           ctx.stroke();
         }
 
-        // 3. Draw Labels
-        ctx.shadowBlur = 0; // Clear shadow properties for text
+        // 3. Draw Labels with background stroke for readability
+        ctx.shadowBlur = 0;
         ctx.shadowColor = 'transparent';
         ctx.font = '500 12px ' + getComputedStyle(document.documentElement).getPropertyValue('--font-sans').trim() || 'Inter';
         ctx.fillStyle = isActive ? themeColorsRef.current.textPrimary : themeColorsRef.current.textSecondary;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
 
-        // Text Stroke background for readability
         ctx.strokeStyle = themeColorsRef.current.bgPrimary;
         ctx.lineWidth = 3;
         ctx.strokeText(node.title, node.x, node.y + (isActive ? 24 : 16));
@@ -581,24 +697,26 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
     };
   }, [dimensions, transform, activeNote, searchQuery, selectedTags, dateRange, categories]);
 
+  /** State ref ensuring event listeners access latest state without re-attaching listeners */
   const stateRef = useRef({ transform, notes, links, activeNote, onCreateNote, onSelectNote });
   useEffect(() => {
     stateRef.current = { transform, notes, links, activeNote, onCreateNote, onSelectNote };
   });
 
-  // Bind D3 Drag, Zoom, and Clicks
+  /**
+   * Binds D3 Drag, Zoom, Pointer capture, and click/double-click listeners to the canvas element.
+   */
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    // Zoom setup
+    // Zoom and pan setup
     const zoomBehavior = d3.zoom<HTMLCanvasElement, unknown>()
       .scaleExtent([0.1, 4])
       .filter((event) => {
-        // Standard D3 zoom filter (ignore right-click)
         if (event.ctrlKey || event.button) return false;
         
-        // If it's a mouse down, check if we're hitting a node. If we are, ignore the zoom!
+        // If node is currently being dragged, ignore zoom
         if (isNodeDraggingRef.current) return false;
         
         if (event.type === 'mousedown' || event.type === 'touchstart' || event.type === 'pointerdown') {
@@ -608,7 +726,6 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
           const simX = (clickX - currentTransform.x) / currentTransform.k;
           const simY = (clickY - currentTransform.y) / currentTransform.k;
           
-          // Check if we hit any node (similar logic to click handler)
           const state = stateRef.current;
           for (let i = nodesRef.current.length - 1; i >= 0; i--) {
             const node = nodesRef.current[i];
@@ -618,10 +735,10 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
             const isTouch = event.type === 'touchstart' || (event as PointerEvent).pointerType === 'touch';
             let clickRadius = node.id === state.activeNote?.id ? node.radius + 4 : node.radius;
             if (isTouch || window.matchMedia('(pointer: coarse)').matches) {
-              clickRadius = node.radius + 20; // Must match handleTouchDragStart
+              clickRadius = node.radius + 20; // Expanded hit target for touch
             }
             if (Math.sqrt(dx * dx + dy * dy) < clickRadius) {
-              return false; // Prevent zoom/pan, allow drag
+              return false; // Prevent zoom/pan, permit drag
             }
           }
         }
@@ -632,12 +749,13 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
         setTransform(event.transform);
       });
 
-    // Pointer click handler
+    // Pointer variables for distinguishing clicks vs drags vs long-press unpins
     let pointerStartX = 0;
     let pointerStartY = 0;
     let longPressTimer: ReturnType<typeof setTimeout> | null = null;
     let isLongPress = false;
 
+    /** Handles pointer down and sets up long-press timer for touch unpinning */
     const handlePointerDown = (event: PointerEvent) => {
       pointerStartX = event.clientX;
       pointerStartY = event.clientY;
@@ -660,6 +778,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
             return Math.sqrt(dx * dx + dy * dy) < node.radius + 15;
           });
 
+          // If long-pressed pinned node: unpin it
           if (clickedNode && clickedNode.fx !== null) {
             clickedNode.fx = null;
             clickedNode.fy = null;
@@ -674,6 +793,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
       }
     };
 
+    /** Handles clicking nodes or background */
     const handlePointerClick = (clickX: number, clickY: number, isTouch: boolean) => {
       const currentTransform = d3.zoomTransform(canvas);
       const simX = (clickX - currentTransform.x) / currentTransform.k;
@@ -699,6 +819,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
       }
     };
 
+    /** Handles pointer up to verify click thresholds */
     const handlePointerUp = (event: PointerEvent) => {
       if (longPressTimer) {
         clearTimeout(longPressTimer);
@@ -717,6 +838,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
       }
     };
 
+    /** Handles hovering over edges to calculate nearest link and trigger AI explanation tooltip */
     const handlePointerMove = (event: PointerEvent) => {
       if (longPressTimer) {
         const deltaX = event.clientX - pointerStartX;
@@ -735,6 +857,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
       const simX = (clientX - currentTransform.x) / currentTransform.k;
       const simY = (clientY - currentTransform.y) / currentTransform.k;
 
+      // Ignore links when hovering directly over nodes
       const isOverNode = nodesRef.current.some(node => {
         if (node.x === undefined || node.y === undefined) return false;
         const dx = node.x - simX;
@@ -755,6 +878,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
       let closestLink: { id: number, source: SimNode; target: SimNode } | null = null;
       let minDistance = 10 / currentTransform.k;
 
+      // Vector point-to-segment distance algorithm
       for (const link of currentLinks) {
         if (link.source.x === undefined || link.source.y === undefined || link.target.x === undefined || link.target.y === undefined) continue;
         
@@ -830,9 +954,9 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
       }
     };
 
-    // Double click to create or release node
+    /** Double click to create note or unpin existing node */
     const handleCanvasDblClick = (event: MouseEvent) => {
-      if (window.innerWidth < 768) return; // disable double-click-to-create on mobile
+      if (window.innerWidth < 768) return; // Disable on mobile
       const rect = canvas.getBoundingClientRect();
       const clickX = event.clientX - rect.left;
       const clickY = event.clientY - rect.top;
@@ -854,15 +978,14 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
           updateNote(clickedNode.id, { fx: null, fy: null });
         }
       } else {
-        // Double-clicked empty space: Create Note
+        // Create Note at coordinates
         stateRef.current.onCreateNote(simX, simY);
       }
     };
 
-    // Drag setup — Mouse only; touch drag handled by pointer capture below
+    // Desktop Mouse Drag behavior via D3 Drag
     const dragBehavior = d3.drag<HTMLCanvasElement, unknown>()
       .filter((event) => {
-        // Only handle mouse events here; touch is handled manually
         return event.type !== 'touchstart' && (event as PointerEvent).pointerType !== 'touch';
       })
       .subject((event) => {
@@ -925,19 +1048,19 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
             fy: event.subject.node.fy
           });
         } else {
-          // Tap (not drag): revert temp pin
+          // Revert pin if it was merely a tap
           event.subject.node.fx = event.subject.node.__originalFx !== undefined ? event.subject.node.__originalFx : null;
           event.subject.node.fy = event.subject.node.__originalFy !== undefined ? event.subject.node.__originalFy : null;
         }
       });
 
-    // ── Manual touch drag via pointer capture ──────────────────────────────
+    // Mobile Touch Drag via Pointer Capture
     let touchDragNode: SimNode | null = null;
     let touchDragPointerId: number | null = null;
 
     const handleTouchDragStart = (event: PointerEvent) => {
       if (event.pointerType !== 'touch') return;
-      if (isLongPress) return; // long-press handled separately
+      if (isLongPress) return;
 
       const rect = canvas.getBoundingClientRect();
       const canvasX = event.clientX - rect.left;
@@ -950,7 +1073,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
         if (node.x === undefined || node.y === undefined) return false;
         const dx = node.x - simX;
         const dy = node.y - simY;
-        return Math.sqrt(dx * dx + dy * dy) < node.radius + 20; // Must match zoom filter
+        return Math.sqrt(dx * dx + dy * dy) < node.radius + 20;
       });
 
       if (found) {
@@ -966,8 +1089,8 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
         isNodeDraggingRef.current = true;
         canvas.setPointerCapture(event.pointerId);
         if (simulationRef.current) simulationRef.current.alphaTarget(0.3).restart();
-        event.preventDefault(); // Stop browser scrolling/panning
-        event.stopImmediatePropagation(); // Prevent D3 zoom from seeing this
+        event.preventDefault();
+        event.stopImmediatePropagation();
       }
     };
 
@@ -975,7 +1098,6 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
       if (event.pointerType !== 'touch') return;
       if (!touchDragNode || event.pointerId !== touchDragPointerId) return;
 
-      // Cancel long-press if moving
       if (longPressTimer) {
         clearTimeout(longPressTimer);
         longPressTimer = null;
@@ -1015,20 +1137,16 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
       if (node.__wasDragged) {
         await updateNote(node.id, { fx: node.fx, fy: node.fy });
       } else {
-        // Tap: revert temp pin
         node.fx = node.__originalFx !== undefined ? node.__originalFx : null;
         node.fy = node.__originalFy !== undefined ? node.__originalFy : null;
       }
     };
 
-
-    // Call drag behavior first
+    // Attach drag & zoom behaviors
     d3.select(canvas).call(dragBehavior as unknown as never);
 
     canvas.addEventListener('pointerdown', handlePointerDown, { passive: false });
     canvas.addEventListener('pointerdown', handleTouchDragStart, { passive: false });
-    
-    // Call zoom behavior AFTER our custom pointerdown listeners so we can use stopImmediatePropagation
     d3.select(canvas).call(zoomBehavior);
 
     canvas.addEventListener('pointermove', handleTouchDragMove, { passive: false });
@@ -1050,9 +1168,9 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
     };
   }, []);
 
-
   return (
     <div className="graph-container" ref={containerRef} id="graph-container-root">
+      {/* Primary Canvas Element */}
       <canvas 
         ref={canvasRef} 
         width={dimensions.width}
@@ -1062,17 +1180,18 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
         style={{ touchAction: 'none', WebkitTouchCallout: 'none' }}
       />
 
-      {/* Floating Canvas Controls */}
-      <div className="canvas-controls" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        <div style={{ display: 'flex', flexDirection: 'row', gap: '8px' }}>
+      {/* Floating Canvas Controls Island */}
+      <div className="canvas-controls">
+        <div className="glass-pill" style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 6px', boxShadow: 'var(--shadow-md)' }}>
           {!isSidebarOpen && !isMobile && (
             <button
               className="canvas-btn"
               onClick={onOpenSidebar}
-              title="Open Sidebar"
+              title="Open Note Editor"
               aria-label="Open Sidebar"
+              style={{ borderRadius: 'var(--radius-pill)', border: 'none', background: 'transparent' }}
             >
-              <PanelLeft size={16} /> Sidebar
+              <PanelLeft size={15} /> <span>Editor</span>
             </button>
           )}
           {onOpenSearch && (
@@ -1082,35 +1201,36 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
                 if (onOpenSearch) onOpenSearch();
                 setShowHelp(false);
               }}
-              title="Search graph"
+              title="Filter and search notes"
               aria-label="Search"
+              style={{ borderRadius: 'var(--radius-pill)', border: 'none', background: 'transparent' }}
             >
-              <Search size={16} /> {isMobile ? '' : 'Search'}
+              <Search size={15} /> <span>{isMobile ? '' : 'Filter'}</span>
             </button>
           )}
-          <div style={{ position: 'relative' }}>
-            <button
-              className="canvas-btn"
-              onClick={() => {
-                handleExport('zip');
-                setShowHelp(false);
-                if (onCloseSearch) onCloseSearch();
-              }}
-              title="Export graph as ZIP"
-            >
-              <Download size={16} /> {isMobile ? '' : 'Export ZIP'}
-            </button>
-          </div>
+          <button
+            className="canvas-btn"
+            onClick={() => {
+              handleExport('zip');
+              setShowHelp(false);
+              if (onCloseSearch) onCloseSearch();
+            }}
+            title="Export graph as ZIP"
+            style={{ borderRadius: 'var(--radius-pill)', border: 'none', background: 'transparent' }}
+          >
+            <Download size={15} /> <span>{isMobile ? '' : 'Export'}</span>
+          </button>
           <button
             className="canvas-btn"
             onClick={() => {
               setShowHelp(!showHelp);
               if (onCloseSearch) onCloseSearch();
             }}
-            title="Show controls help"
+            title="Canvas shortcuts & syntax guide"
             aria-label="Controls help"
+            style={{ borderRadius: 'var(--radius-pill)', border: 'none', background: 'transparent', padding: '6px' }}
           >
-            <HelpCircle size={16} /> {isMobile ? '' : 'Help'}
+            <HelpCircle size={15} />
           </button>
         </div>
       </div>
@@ -1168,7 +1288,6 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <div style={{ width: '12px', height: '12px', border: '2px solid var(--node-indigo, #818cf8)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
               Generating explanation...
-              
             </div>
           ) : (
             <div>{tooltip.text}</div>
@@ -1178,3 +1297,4 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
     </div>
   );
 };
+

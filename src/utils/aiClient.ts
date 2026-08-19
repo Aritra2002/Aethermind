@@ -1,13 +1,38 @@
+/**
+ * @file aiClient.ts
+ * @description Multi-provider AI client for AetherMind.
+ * Provides unified interface and streaming abstractions for interacting with diverse LLM providers
+ * including OpenAI, Anthropic Claude, Google Gemini, DeepSeek, OpenRouter, Vercel AI Gateway,
+ * and custom OpenAI-compatible local/remote endpoints (e.g., Ollama, LM Studio, AgentRouter).
+ * Supports token streaming, abort signals, CORS proxy forwarding, and model detection.
+ */
+
+/**
+ * Supported LLM provider identifiers.
+ */
 export type AIProvider = 'anthropic' | 'deepseek' | 'openai' | 'google' | 'openrouter' | 'vercel' | 'custom';
 
+/**
+ * Configuration settings for the active AI connection.
+ */
 export interface AIConfig {
+  /** The selected LLM provider backend. */
   provider: AIProvider;
+  /** Base API endpoint URL for the provider. */
   baseUrl: string;
+  /** Secret API authentication token or key. */
   apiKey: string;
+  /** Model identifier string (e.g., 'gpt-4o-mini', 'claude-3-5-sonnet-20240620', 'gemini-2.5-flash'). */
   model: string;
+  /** Optional custom proxy gateway URL for bypassing browser CORS restrictions. */
   proxyUrl?: string;
 }
 
+/**
+ * Retrieves the current AI configuration from browser `localStorage` with provider-specific defaults.
+ *
+ * @returns The resolved {@link AIConfig} object containing provider, baseUrl, apiKey, and model.
+ */
 export const getAIConfig = (): AIConfig => {
   const provider = (localStorage.getItem('aiProvider') as AIProvider) || 'openai';
   const defaultBaseUrl: Record<string, string> = {
@@ -32,6 +57,11 @@ export const getAIConfig = (): AIConfig => {
   };
 };
 
+/**
+ * Persists updated AI connection settings into browser `localStorage`.
+ *
+ * @param config - The {@link AIConfig} parameters to store.
+ */
 export const setAIConfig = (config: AIConfig) => {
   localStorage.setItem('aiProvider', config.provider);
   localStorage.setItem('aiBaseUrl', config.baseUrl);
@@ -39,6 +69,21 @@ export const setAIConfig = (config: AIConfig) => {
   localStorage.setItem('aiModel', config.model);
 };
 
+/**
+ * Dispatches a prompt to the configured AI provider with optional real-time token streaming.
+ * Handles provider-specific request payload formatting, header configuration, CORS proxy routing,
+ * Server-Sent Events (SSE) decoding, and Ollama/CORS error diagnostics.
+ *
+ * @param systemPrompt - System prompt defining model persona, formatting constraints, and tools.
+ * @param userPrompt - User query or input prompt.
+ * @param onStream - Optional streaming callback receiving cumulative or delta text as chunks arrive.
+ * @param signal - Optional {@link AbortSignal} to cancel in-flight HTTP network requests.
+ *
+ * @returns A promise resolving to the complete response text from the LLM.
+ *
+ * @throws {Error} If required API keys or base URLs are missing, if authentication fails (401),
+ *                 if the provider returns an HTTP error, or if network connectivity is severed.
+ */
 export const callAI = async (
   systemPrompt: string,
   userPrompt: string,
@@ -64,6 +109,7 @@ export const callAI = async (
     endpoint = endpoint.replace('https:', 'https://');
   }
 
+  // Resolve default endpoints if no custom base URL is specified
   if (!endpoint && !isCustom) {
     switch (config.provider) {
       case 'anthropic': endpoint = 'https://api.anthropic.com/v1/messages'; break;
@@ -75,7 +121,7 @@ export const callAI = async (
       default: endpoint = 'https://api.openai.com/v1/chat/completions';
     }
   } else if (endpoint) {
-    // Append paths if they just provided the origin
+    // Append standard paths if the user just provided the server origin
     if (config.provider === 'anthropic' && !endpoint.includes('/v1/messages')) endpoint = endpoint.replace(/\/?$/, '') + '/v1/messages';
     else if (config.provider === 'google' && !endpoint.includes(':streamGenerateContent') && !endpoint.includes('/chat/completions')) {
       endpoint = endpoint.replace(/\/?$/, '') + '/models/' + (config.model || 'gemini-2.5-flash') + ':streamGenerateContent';
@@ -94,6 +140,7 @@ export const callAI = async (
   };
   let bodyPayload: Record<string, unknown>;
 
+  // Build provider-specific request headers and JSON payloads
   if (config.provider === 'anthropic') {
     if (config.apiKey) headers['x-api-key'] = config.apiKey;
     headers['anthropic-version'] = '2023-06-01';
@@ -111,7 +158,7 @@ export const callAI = async (
       contents: [{ role: 'user', parts: [{ text: systemPrompt + '\n\n' + userPrompt }] }]
     };
   } else {
-    // Default OpenAI format
+    // Default OpenAI-compatible format (OpenAI, DeepSeek, OpenRouter, Custom, etc.)
     if (config.apiKey) headers['Authorization'] = `Bearer ${config.apiKey}`;
     if (config.provider === 'openrouter') {
       headers['HTTP-Referer'] = window.location.origin;
@@ -120,11 +167,11 @@ export const callAI = async (
     
     if (isCustom) {
       if (config.proxyUrl || config.baseUrl.includes('agentrouter')) {
-        // Spoof headers for custom provider (e.g. AgentRouter)
-		  headers['HTTP-Referer'] = 'https://github.com/RooVetGit/Roo-Code'; 
-		  headers['X-Title'] = 'Roo Code';
-		  headers['User-Agent'] = 'Roo-Code';
-		  headers['Originator'] = 'codex_cli_rs'; // Required by AgentRouter
+        // Spoof client identification headers for custom provider gateways (e.g. AgentRouter)
+        headers['HTTP-Referer'] = 'https://github.com/RooVetGit/Roo-Code'; 
+        headers['X-Title'] = 'Roo Code';
+        headers['User-Agent'] = 'Roo-Code';
+        headers['Originator'] = 'codex_cli_rs'; // Required by AgentRouter
       } else if (config.baseUrl.includes('openrouter')) {
         headers['HTTP-Referer'] = window.location.origin;
         headers['X-Title'] = 'AetherMind';
@@ -145,8 +192,8 @@ export const callAI = async (
     let fetchHeaders = headers;
     let fetchBody = JSON.stringify(bodyPayload);
 
+    // Route request through custom backend proxy if configured to bypass browser CORS restrictions
     if (isCustom && config.proxyUrl) {
-      // Use the provided proxy URL. If empty, it bypasses the proxy and fetches directly.
       const baseProxyUrl = config.proxyUrl.replace(/\/+$/, "");
       
       fetchUrl = `${baseProxyUrl}/api/ai/proxy`;
@@ -173,6 +220,7 @@ export const callAI = async (
       throw new Error(`AI API Error (${response.status}): ${errorText}`);
     }
 
+    // Process streaming responses when onStream callback is supplied
     if (onStream) {
       const reader = response.body?.getReader();
       const decoder = new TextDecoder('utf-8');
@@ -186,6 +234,7 @@ export const callAI = async (
         
         const chunk = decoder.decode(value, { stream: true });
         
+        // Parse Google Gemini SSE chunks
         if (config.provider === 'google') {
            const textMatches = chunk.match(/"text":\s*"([^"]*)"/g);
            if (textMatches) {
@@ -208,6 +257,7 @@ export const callAI = async (
              }
            }
         } else {
+          // Parse OpenAI / Anthropic SSE streams
           const lines = chunk.split('\n');
           for (const line of lines) {
             if (line.startsWith('data: ') && line !== 'data: [DONE]') {
@@ -235,6 +285,7 @@ export const callAI = async (
       }
       return fullContent;
     } else {
+      // Non-streaming response parsing
       const data = await response.json();
       if (config.provider === 'anthropic') return data.content?.[0]?.text || '';
       if (config.provider === 'google') return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
@@ -242,6 +293,7 @@ export const callAI = async (
     }
   } catch (error: unknown) {
     if (import.meta.env.DEV) console.error('AI call failed:', error);
+    // Provide actionable diagnostic message for local Ollama instances blocked by CORS
     if (error instanceof TypeError && error.message === 'Failed to fetch' && endpoint.includes('11434')) {
       throw new Error('Failed to connect to Ollama. This is likely a CORS issue. Please restart Ollama with the environment variable OLLAMA_ORIGINS="*" or "https://aritra2002.github.io". Original error: ' + String(error));
     }
@@ -249,6 +301,15 @@ export const callAI = async (
   }
 };
 
+/**
+ * Discovers available models from an OpenAI-compatible endpoint via the standard `/v1/models` route.
+ * Supports direct requests as well as proxied requests to bypass browser CORS constraints.
+ *
+ * @param baseUrl - Base endpoint URL of the LLM service.
+ * @param apiKey - Optional API token for authorization.
+ *
+ * @returns A promise resolving to an array of discovered model objects `{ id: string; name?: string }`.
+ */
 export async function detectModels(baseUrl: string, apiKey?: string): Promise<{ id: string; name?: string }[]> {
   try {
     let base = baseUrl.replace(/\/+$/, "");
@@ -263,14 +324,14 @@ export async function detectModels(baseUrl: string, apiKey?: string): Promise<{ 
     const headers: Record<string, string> = {};
     if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
     
-    let proxyUrl = localStorage.getItem('aiProxyUrl') || '';
+    const proxyUrl = localStorage.getItem('aiProxyUrl') || '';
 
     if (proxyUrl || base.includes('agentrouter')) {
       // Spoof headers for custom provider (e.g. AgentRouter)
-	  headers['HTTP-Referer'] = 'https://github.com/RooVetGit/Roo-Code'; 
-	  headers['X-Title'] = 'Roo Code';
-	  headers['User-Agent'] = 'Roo-Code';
-	  headers['Originator'] = 'codex_cli_rs'; // Required by AgentRouter
+      headers['HTTP-Referer'] = 'https://github.com/RooVetGit/Roo-Code'; 
+      headers['X-Title'] = 'Roo Code';
+      headers['User-Agent'] = 'Roo-Code';
+      headers['Originator'] = 'codex_cli_rs'; // Required by AgentRouter
     } else if (base.includes('openrouter')) {
       headers['HTTP-Referer'] = window.location.origin;
       headers['X-Title'] = 'AetherMind';
@@ -321,4 +382,5 @@ export async function detectModels(baseUrl: string, apiKey?: string): Promise<{ 
     return [];
   }
 }
+
 
