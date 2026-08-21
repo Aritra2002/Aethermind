@@ -119,6 +119,7 @@ export const Dropdown: React.FC<DropdownProps> = ({
         window.removeEventListener('scroll', handleReposition, true);
       };
     } else {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setMenuPos(null);
     }
   }, [isOpen, calculatePosition]);
@@ -143,6 +144,7 @@ export const Dropdown: React.FC<DropdownProps> = ({
   // Synchronize input text when value changes externally
   useEffect(() => {
     if (isSearchable && selectedOption) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSearchTerm(selectedOption.label);
     }
   }, [value, selectedOption, isSearchable]);

@@ -94,66 +94,75 @@ export const SettingsModal: React.FC<SettingsModalProps> = (props) => {
 
   return (
     <div className="modal d-block" tabIndex={-1} style={{ zIndex: 1060 }} onClick={props.onClose}>
-      <div className="modal-dialog modal-xl modal-dialog-centered" style={{ maxWidth: '1000px', height: '80vh' }} onClick={e => e.stopPropagation()}>
-        <div className="modal-content glass-panel border-0 h-100 d-flex flex-column" style={{ overflow: 'hidden' }}>
-          {/* Modal Header */}
-          <div className="modal-header d-flex justify-content-between align-items-center flex-shrink-0 px-4 py-3" style={{ borderBottom: '1px solid var(--border-color)' }}>
-            {!isMobile ? (
-              <div>
+      <div className="modal-dialog modal-xl modal-dialog-centered" style={{ width: 'min(95vw, 1000px)', maxWidth: '96vw', height: 'min(88dvh, 780px)', maxHeight: '90dvh', margin: 'auto' }} onClick={e => e.stopPropagation()}>
+        <div 
+          className="modal-content glass-panel settings-modal border-0 h-100 position-relative" 
+          style={{ 
+            display: 'flex', 
+            flexDirection: isMobile ? 'column' : 'row',
+            overflow: 'hidden' 
+          }}
+        >
+          {/* Tab Navigation Sidebar */}
+          <div 
+            className={isMobile ? 'd-flex overflow-auto flex-shrink-0 gap-1 p-2' : 'd-flex flex-column flex-shrink-0 p-3 gap-1'} 
+            style={{ 
+              width: isMobile ? '100%' : 'clamp(180px, 22vw, 240px)', 
+              display: 'flex',
+              flexDirection: isMobile ? 'row' : 'column',
+              borderRight: isMobile ? 'none' : '1px solid var(--border-color)', 
+              borderBottom: isMobile ? '1px solid var(--border-color)' : 'none', 
+              background: 'var(--sidebar-tab-bg)' 
+            }}
+          >
+            {!isMobile && (
+              <div className="mb-3 px-2 pt-1">
                 <h2 className="modal-title" style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0, letterSpacing: '-0.02em' }}>Settings</h2>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>v{packageJson.version} · Local-First Knowledge Graph</div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>v{packageJson.version} · Local-First</div>
               </div>
-            ) : (
-              <div style={{ fontWeight: 700, fontSize: '1.1rem' }}>Settings</div>
             )}
-            <button type="button" className="btn-close btn-close-overlay ms-auto" onClick={props.onClose} aria-label="Close" />
+            {[
+              { id: 'data' as TabType, label: 'Data & Graph', icon: <Database size={15} /> },
+              { id: 'journal' as TabType, label: 'Journal', icon: <CalendarIcon size={15} /> },
+              { id: 'ai' as TabType, label: 'AI Integration', icon: <Brain size={15} /> },
+              { id: 'appearance' as TabType, label: 'Appearance', icon: <Palette size={15} /> },
+              { id: 'about' as TabType, label: 'About', icon: <Info size={15} /> },
+            ].map((tab) => {
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  className="tab-btn"
+                  onClick={() => setActiveTab(tab.id)}
+                  style={{ 
+                    whiteSpace: 'nowrap', 
+                    width: isMobile ? 'auto' : '100%',
+                    background: isActive ? 'var(--accent-primary)' : 'transparent',
+                    color: isActive ? '#ffffff' : 'var(--text-secondary)',
+                    fontWeight: isActive ? 600 : 500,
+                    justifyContent: 'flex-start',
+                    padding: '8px 12px',
+                    borderRadius: 'var(--radius-sm)'
+                  }}
+                >
+                  {tab.icon}
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
           </div>
 
-          {/* Modal Body: Navigation Sidebar + Tab View Content */}
-          <div className="modal-body d-flex flex-grow-1 overflow-hidden p-0" style={{ flexDirection: isMobile ? 'column' : 'row' }}>
-            {/* Tab Navigation Sidebar */}
-            <div 
-              className={isMobile ? 'd-flex overflow-auto flex-shrink-0 gap-1 p-2' : 'd-flex flex-column flex-shrink-0 p-3 gap-1'} 
-              style={{ 
-                width: isMobile ? '100%' : '200px', 
-                borderRight: isMobile ? 'none' : '1px solid var(--border-color)', 
-                borderBottom: isMobile ? '1px solid var(--border-color)' : 'none', 
-                background: 'var(--sidebar-tab-bg)' 
-              }}
-            >
-              {[
-                { id: 'data' as TabType, label: 'Data & Graph', icon: <Database size={15} /> },
-                { id: 'journal' as TabType, label: 'Journal', icon: <CalendarIcon size={15} /> },
-                { id: 'ai' as TabType, label: 'AI Integration', icon: <Brain size={15} /> },
-                { id: 'appearance' as TabType, label: 'Appearance', icon: <Palette size={15} /> },
-                { id: 'about' as TabType, label: 'About', icon: <Info size={15} /> },
-              ].map((tab) => {
-                const isActive = activeTab === tab.id;
-                return (
-                  <button
-                    key={tab.id}
-                    className="tab-btn"
-                    onClick={() => setActiveTab(tab.id)}
-                    style={{ 
-                      whiteSpace: 'nowrap', 
-                      width: isMobile ? 'auto' : '100%',
-                      background: isActive ? 'var(--accent-primary)' : 'transparent',
-                      color: isActive ? '#ffffff' : 'var(--text-secondary)',
-                      fontWeight: isActive ? 600 : 500,
-                      justifyContent: 'flex-start',
-                      padding: '8px 12px',
-                      borderRadius: 'var(--radius-sm)'
-                    }}
-                  >
-                    {tab.icon}
-                    <span>{tab.label}</span>
-                  </button>
-                );
-              })}
-            </div>
+          {/* Close Button */}
+          <button 
+            type="button" 
+            className="btn-close btn-close-overlay close-btn" 
+            onClick={props.onClose} 
+            aria-label="Close" 
+            style={{ position: 'absolute', top: '16px', right: '16px', zIndex: 10 }}
+          />
 
-            {/* Active Tab View Panel */}
-            <div className="flex-grow-1 overflow-auto p-3" style={{ scrollbarGutter: 'stable' }}>
+          {/* Active Tab View Panel */}
+          <div className="flex-grow-1 overflow-auto p-3" style={{ scrollbarGutter: 'stable' }}>
               {/* Tab 1: Data, Backups, ML Clustering, Taxonomies & Physics */}
               {activeTab === 'data' && (
                 <DataSettingsTab 
@@ -215,6 +224,5 @@ export const SettingsModal: React.FC<SettingsModalProps> = (props) => {
           </div>
         </div>
       </div>
-    </div>
   );
 };

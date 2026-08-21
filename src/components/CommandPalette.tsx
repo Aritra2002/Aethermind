@@ -5,19 +5,25 @@
  * @module components/CommandPalette
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import type { Note, Category } from '../db';
-import { Search, FileText } from 'lucide-react';
+import { Search, FileText, Sparkles, Plus, BookOpen, Calendar, Settings } from 'lucide-react';
+import { tokenizeText, scoreBM25Note, isTokenMatch } from '../utils/search/bm25';
+
+/**
+ * Palette Item model representing either a searchable note or an executable command.
+ */
+interface PaletteItem {
+  id: string;
+  title: string;
+  category: string;
+  color?: string;
+  icon: React.ReactNode;
+  perform: () => void;
+}
 
 /**
  * Props for the {@link CommandPalette} component.
- *
- * @interface CommandPaletteProps
- * @property {boolean} isOpen - Flag indicating whether the command palette modal is currently visible.
- * @property {() => void} onClose - Callback invoked when the user dismisses the command palette (e.g., via Esc, clicking backdrop, or selecting a note).
- * @property {Note[]} notes - List of all available notes within the active page to search and filter through.
- * @property {(title: string) => void} onSelectNote - Callback invoked with the selected note's title to jump to or open that note.
- * @property {Category[]} categories - List of defined note categories, used to render category badges and colors.
  */
 interface CommandPaletteProps {
   isOpen: boolean;
@@ -25,124 +31,193 @@ interface CommandPaletteProps {
   notes: Note[];
   onSelectNote: (title: string) => void;
   categories: Category[];
+  onOpenAskAi?: () => void;
+  onOpenSettings?: () => void;
+  onOpenNewNote?: () => void;
+  onOpenReview?: () => void;
+  onOpenJournal?: () => void;
 }
 
 /**
  * CommandPalette Component
  *
- * A modal overlay triggered globally via `Cmd+K` / `Ctrl+K` or the header search bar.
- * Allows users to quickly search notes by title or content, navigate results using arrow keys,
- * and select notes using Enter or mouse clicks.
- *
- * @component
- * @param {CommandPaletteProps} props - Component properties.
- * @returns {React.ReactElement | null} The rendered modal overlay or `null` if `isOpen` is false.
+ * Universal Spotlight & Action Hub triggered globally via `Cmd+K` / `Ctrl+K`.
  */
 export const CommandPalette: React.FC<CommandPaletteProps> = ({
   isOpen,
   onClose,
   notes,
   onSelectNote,
-  categories
+  categories,
+  onOpenAskAi,
+  onOpenSettings,
+  onOpenNewNote,
+  onOpenReview,
+  onOpenJournal
 }) => {
-  /** Search query string entered by the user. */
   const [query, setQuery] = useState('');
-
-  /** Index of the currently highlighted result item in the filtered list. */
   const [selectedIndex, setSelectedIndex] = useState(0);
-
-  /** Reference to the search input element for managing auto-focus. */
   const inputRef = useRef<HTMLInputElement>(null);
 
-  /**
-   * Ref holding the latest filtered notes list.
-   * Synced to allow global keyboard event listeners to access fresh results without re-binding.
-   */
-  const filteredRef = useRef<Note[]>([]);
+  // Available system commands
+  const systemCommands: PaletteItem[] = useMemo(() => [
+    ...(onOpenAskAi ? [{
+      id: 'cmd-ai',
+      title: 'Ask AI Copilot',
+      category: 'Command',
+      color: 'var(--accent-gold, #f59e0b)',
+      icon: <Sparkles size={16} />,
+      perform: () => { onOpenAskAi(); onClose(); }
+    }] : []),
+    ...(onOpenNewNote ? [{
+      id: 'cmd-new',
+      title: 'Create New Note',
+      category: 'Action',
+      color: 'var(--accent-primary, #8b5cf6)',
+      icon: <Plus size={16} />,
+      perform: () => { onOpenNewNote(); onClose(); }
+    }] : []),
+    ...(onOpenReview ? [{
+      id: 'cmd-review',
+      title: 'Review Flashcards (Spaced Repetition)',
+      category: 'Learning',
+      color: 'var(--node-emerald, #10b981)',
+      icon: <BookOpen size={16} />,
+      perform: () => { onOpenReview(); onClose(); }
+    }] : []),
+    ...(onOpenJournal ? [{
+      id: 'cmd-journal',
+      title: 'Open Daily Journal',
+      category: 'Journal',
+      color: 'var(--node-cyan, #06b6d4)',
+      icon: <Calendar size={16} />,
+      perform: () => { onOpenJournal(); onClose(); }
+    }] : []),
+    ...(onOpenSettings ? [{
+      id: 'cmd-settings',
+      title: 'Settings & Data Management',
+      category: 'System',
+      color: 'var(--text-secondary)',
+      icon: <Settings size={16} />,
+      perform: () => { onOpenSettings(); onClose(); }
+    }] : [])
+  ], [onOpenAskAi, onOpenNewNote, onOpenReview, onOpenJournal, onOpenSettings, onClose]);
 
-  /** Ref tracking the current selected index to prevent stale closures in keydown listeners. */
+  // Filtered items (notes + commands) with fuzzy typo matching & BM25 ranking
+  const filteredItems: PaletteItem[] = useMemo(() => {
+    const q = query.trim();
+    
+    // Convert notes into palette items
+    const noteItems: (PaletteItem & { score: number })[] = notes.map(note => {
+      const cat = categories.find(c => c.id === note.category);
+      return {
+        id: `note-${note.id}`,
+        title: note.title,
+        category: cat ? cat.label : note.category,
+        color: cat ? cat.color : 'var(--text-secondary)',
+        icon: <FileText size={16} />,
+        score: 0,
+        perform: () => {
+          onSelectNote(note.title);
+          onClose();
+        }
+      };
+    });
+
+    if (!q) {
+      // Empty query shows top system commands and 5 recent notes
+      return [...systemCommands, ...noteItems.slice(0, 5)];
+    }
+
+    const queryTokens = tokenizeText(q, true);
+
+    // 1. Match commands using fuzzy token matching
+    const matchedCommands = systemCommands
+      .map(cmd => {
+        const cmdTokens = tokenizeText(cmd.title);
+        let cmdScore = 0;
+        for (const qt of queryTokens) {
+          for (const ct of cmdTokens) {
+            const match = isTokenMatch(ct, qt);
+            if (match.matched) cmdScore += match.scoreModifier;
+          }
+        }
+        if (cmd.title.toLowerCase().includes(q.toLowerCase())) cmdScore += 2.0;
+        return { item: cmd, score: cmdScore };
+      })
+      .filter(entry => entry.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .map(entry => entry.item);
+
+    // 2. Match notes using BM25 multi-field scoring
+    const matchedNotes = notes
+      .map(note => {
+        const cat = categories.find(c => c.id === note.category);
+        const bm25 = scoreBM25Note(queryTokens, {
+          title: note.title,
+          tags: note.tags,
+          content: note.content || ''
+        });
+        return {
+          id: `note-${note.id}`,
+          title: note.title,
+          category: cat ? cat.label : note.category,
+          color: cat ? cat.color : 'var(--text-secondary)',
+          icon: <FileText size={16} />,
+          score: bm25.score,
+          perform: () => {
+            onSelectNote(note.title);
+            onClose();
+          }
+        };
+      })
+      .filter(entry => entry.score > 0)
+      .sort((a, b) => b.score - a.score);
+
+    return [...matchedCommands, ...matchedNotes].slice(0, 10);
+  }, [query, notes, categories, systemCommands, onSelectNote, onClose]);
+
+  const itemsRef = useRef(filteredItems);
   const selectedIndexRef = useRef(selectedIndex);
 
-  /** Ref tracking the latest onSelectNote callback. */
-  const onSelectNoteRef = useRef(onSelectNote);
-
-  /** Ref tracking the latest onClose callback. */
-  const onCloseRef = useRef(onClose);
-
-  // Synchronize refs with component state and props
   useEffect(() => {
+    itemsRef.current = filteredItems;
     selectedIndexRef.current = selectedIndex;
-  }, [selectedIndex]);
+  });
 
-  useEffect(() => {
-    onSelectNoteRef.current = onSelectNote;
-  }, [onSelectNote]);
-
-  useEffect(() => {
-    onCloseRef.current = onClose;
-  }, [onClose]);
-
-  /**
-   * Reset query and selection index whenever the palette is opened,
-   * and schedule focus onto the search input field.
-   */
   useEffect(() => {
     if (isOpen) {
       // eslint-disable-next-line
       setQuery('');
       setSelectedIndex(0);
-
-      // Slight timeout ensures DOM element is rendered and interactive before focusing
       setTimeout(() => inputRef.current?.focus(), 50);
     }
   }, [isOpen]);
 
-  /**
-   * Filter notes based on case-insensitive title and content matching.
-   * Caps results at 8 to keep the spotlight overlay compact and legible.
-   */
-  const filteredNotes = notes.filter(n => 
-    n.title.toLowerCase().includes(query.toLowerCase()) || 
-    n.content.toLowerCase().includes(query.toLowerCase())
-  ).slice(0, 8); // Show top 8 results
-
-  // Keep filteredRef updated with latest filtered notes
   useEffect(() => {
-    filteredRef.current = filteredNotes;
-  }, [filteredNotes]);
-
-  // Reset selected item index whenever the search query changes
-  useEffect(() => {
-    // eslint-disable-next-line
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSelectedIndex(0);
   }, [query]);
 
-  /**
-   * Global keyboard navigation handler:
-   * - `Escape`: Closes the palette
-   * - `ArrowDown`: Moves selection down (clamped to result count)
-   * - `ArrowUp`: Moves selection up (clamped to 0)
-   * - `Enter`: Selects the currently highlighted note
-   */
+  // Global keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!isOpen) return;
-      const fn = filteredRef.current;
+      const items = itemsRef.current;
       const idx = selectedIndexRef.current;
 
       if (e.key === 'Escape') {
-        onCloseRef.current();
+        onClose();
         e.preventDefault();
       } else if (e.key === 'ArrowDown') {
-        setSelectedIndex(prev => (prev < fn.length - 1 ? prev + 1 : prev));
+        setSelectedIndex(prev => (prev < items.length - 1 ? prev + 1 : prev));
         e.preventDefault();
       } else if (e.key === 'ArrowUp') {
         setSelectedIndex(prev => (prev > 0 ? prev - 1 : prev));
         e.preventDefault();
       } else if (e.key === 'Enter') {
-        if (fn[idx]) {
-          onSelectNoteRef.current(fn[idx].title);
-          onCloseRef.current();
+        if (items[idx]) {
+          items[idx].perform();
         }
         e.preventDefault();
       }
@@ -150,9 +225,8 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen]);
+  }, [isOpen, onClose]);
 
-  // If palette is closed, do not render modal markup
   if (!isOpen) return null;
 
   return (
@@ -161,7 +235,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
         className="command-palette-modal glass-panel" 
         onClick={e => e.stopPropagation()} 
         role="dialog" 
-        aria-label="Search pages"
+        aria-label="Universal Search & Commands"
       >
         {/* Search Input Bar */}
         <div className="command-search-bar">
@@ -170,36 +244,33 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
             ref={inputRef}
             type="text"
             className="command-search-input"
-            placeholder="Search notes..."
+            placeholder="Search notes or execute commands..."
             value={query}
             onChange={e => setQuery(e.target.value)}
           />
         </div>
         
         {/* Filtered Results List */}
-        {filteredNotes.length > 0 && (
+        {filteredItems.length > 0 && (
           <div className="command-results">
-            {filteredNotes.map((note, idx) => {
-              const categoryObj = categories.find(c => c.id === note.category);
-              const color = categoryObj ? categoryObj.color : 'var(--text-secondary)';
+            {filteredItems.map((item, idx) => {
               return (
                 <div
-                  key={note.id}
+                  key={item.id}
                   role="option"
                   aria-selected={idx === selectedIndex}
                   className={`command-result-item ${idx === selectedIndex ? 'selected' : ''}`}
-                  onClick={() => {
-                    onSelectNote(note.title);
-                    onClose();
-                  }}
+                  onClick={item.perform}
                   onMouseEnter={() => setSelectedIndex(idx)}
                   style={{ cursor: 'pointer' }}
                 >
-                  <FileText size={16} className="command-item-icon" />
+                  <span style={{ color: item.color || 'var(--text-secondary)', display: 'flex', alignItems: 'center' }}>
+                    {item.icon}
+                  </span>
                   <div className="command-item-details">
-                    <div className="command-item-title">{note.title}</div>
-                    <div className="command-item-category" style={{ color }}>
-                      {categoryObj ? categoryObj.label : note.category}
+                    <div className="command-item-title">{item.title}</div>
+                    <div className="command-item-category" style={{ color: item.color || 'var(--text-muted)' }}>
+                      {item.category}
                     </div>
                   </div>
                 </div>
@@ -209,7 +280,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
         )}
         
         {/* Empty State when no results match query */}
-        {query && filteredNotes.length === 0 && (
+        {query && filteredItems.length === 0 && (
           <div 
             className="command-no-results" 
             style={{ 
@@ -222,7 +293,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
             }}
           >
             <Search size={28} style={{ color: 'var(--text-muted)' }} />
-            <span style={{ fontSize: '0.875rem' }}>No notes found matching "{query}"</span>
+            <span style={{ fontSize: '0.875rem' }}>No results found matching "{query}"</span>
           </div>
         )}
 
@@ -245,7 +316,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
               <span className="kbd-badge">↑</span> <span className="kbd-badge">↓</span> Navigate
             </span>
             <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <span className="kbd-badge">↵</span> Select
+              <span className="kbd-badge">↵</span> Select / Run
             </span>
           </div>
           <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>

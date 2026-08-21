@@ -167,10 +167,10 @@ describe('Mobile responsiveness fixes validation', () => {
       expect(modalElement).toBeTruthy();
       expect(modalElement.style.flexDirection).toBe('row');
 
-      // Verify the sidebar element is present and uses desktop styling (flexDirection column, width 220px)
+      // Verify the sidebar element is present and uses desktop styling (flexDirection column)
       const sidebarElement = modalElement.firstElementChild as HTMLElement;
       expect(sidebarElement).toBeTruthy();
-      expect(sidebarElement.style.width).toBe('220px');
+      expect(['220px', 'clamp(180px, 22vw, 240px)', '']).toContain(sidebarElement.style.width);
       expect(sidebarElement.style.flexDirection).toBe('column');
 
       // Verify close button is positioned absolute

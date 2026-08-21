@@ -25,9 +25,8 @@ import React, { useState, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db';
 import type { Note } from '../db';
-import DOMPurify from 'dompurify';
+import { safeRenderMarkdown } from '../utils/sanitizer';
 import { BrainCircuit, Loader2 } from 'lucide-react';
-import { marked } from 'marked';
 
 /**
  * Props for the ReviewModal component.
@@ -164,8 +163,8 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({ onClose }) => {
 
   return (
     <div className="modal d-block" tabIndex={-1} style={{ zIndex: 1060 }} onClick={onClose}>
-      <div className="modal-dialog modal-dialog-centered modal-lg" style={{ maxWidth: '600px' }} onClick={e => e.stopPropagation()}>
-        <div className="modal-content glass-panel border-0" style={{ maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}>
+      <div className="modal-dialog modal-dialog-centered modal-lg" style={{ width: 'min(94vw, 640px)', maxWidth: '96vw', margin: 'auto' }} onClick={e => e.stopPropagation()}>
+        <div className="modal-content glass-panel border-0" style={{ maxHeight: 'min(88dvh, 760px)', display: 'flex', flexDirection: 'column' }}>
           {/* Modal Header */}
           <div className="modal-header border-0">
             <h5 className="modal-title d-flex align-items-center gap-2">
@@ -204,11 +203,11 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({ onClose }) => {
                     <div 
                       className="p-3 rounded flex-grow-1 overflow-auto" 
                       style={{ backgroundColor: 'var(--surface-glass, rgba(15, 20, 40, 0.75))' }}
-                      dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(marked.parse(currentNote.content) as string) }} 
+                      dangerouslySetInnerHTML={{ __html: safeRenderMarkdown(currentNote.content) }} 
                     />
                     
                     {/* Recall Rating Buttons */}
-                    <div className="d-flex flex-wrap gap-2 mt-3 justify-content-center">
+                    <div className="flashcard-actions d-flex flex-wrap gap-2 mt-3 justify-content-center" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'center' }}>
                       <button 
                         className="btn" 
                         onClick={() => handleGrade(1)} 

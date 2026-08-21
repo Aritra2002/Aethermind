@@ -45,10 +45,10 @@
   --glow-primary:     rgba(139, 92, 246, 0.35);
   --glow-secondary:   rgba(6, 182, 212, 0.30);
   
-  --surface-glass:       rgba(13, 18, 38, 0.82);
-  --surface-glass-heavy: rgba(9, 12, 26, 0.94);
-  --surface-glass-light: rgba(22, 30, 60, 0.65);
-  --surface-card:        rgba(15, 21, 44, 0.92);
+  --surface-glass:       rgba(13, 18, 38, 0.94);
+  --surface-glass-heavy: rgba(9, 12, 26, 0.97);
+  --surface-glass-light: rgba(22, 30, 60, 0.88);
+  --surface-card:        rgba(15, 21, 44, 0.97);
   --border-glow:         rgba(139, 92, 246, 0.25);
 
   /* Z-Index Scale */
@@ -77,12 +77,12 @@
   --text-muted: #64748b;
 
   --node-emerald: #10b981;
-  --node-indigo: #8b5cf6;
+  --node-indigo: #818cf8;
   --node-muted: #64748b;
   --node-work: #06b6d4;
-  --node-personal: #8b5cf6;
-  --node-ideas: #f59e0b;
-  --node-amber: #f59e0b;
+  --node-personal: #f43f5e;
+  --node-ideas: #fbbf24;
+  --node-amber: #fbbf24;
   --node-cyan: #22d3ee;
   --link-color: rgba(255, 255, 255, 0.20);
   --link-highlight: #06b6d4;
@@ -103,20 +103,20 @@
   --bg-gradient-2: #060714;
   --bg-gradient-3: #070d1e;
 
-  --glass-panel-bg-1: rgba(16, 22, 48, 0.88);
-  --glass-panel-bg-2: rgba(9, 13, 30, 0.94);
+  --glass-panel-bg-1: rgba(16, 22, 48, 0.96);
+  --glass-panel-bg-2: rgba(9, 13, 30, 0.98);
   --glass-panel-border: rgba(255, 255, 255, 0.10);
   --glass-panel-glow: rgba(139, 92, 246, 0.16);
   --glass-panel-shadow: rgba(0, 0, 0, 0.60);
   --glass-panel-inset-shadow: rgba(255, 255, 255, 0.12);
 
-  --input-bg: rgba(12, 16, 36, 0.75);
+  --input-bg: rgba(12, 16, 36, 0.92);
   --input-border: rgba(255, 255, 255, 0.12);
-  --input-focus-bg: rgba(15, 20, 46, 0.95);
+  --input-focus-bg: rgba(15, 20, 46, 0.98);
   --input-focus-border: var(--accent-primary);
   --input-focus-glow: rgba(139, 92, 246, 0.25);
-  --code-bg: rgba(255, 255, 255, 0.08);
-  --pre-bg: rgba(4, 6, 14, 0.65);
+  --code-bg: rgba(255, 255, 255, 0.10);
+  --pre-bg: rgba(4, 6, 14, 0.85);
 
   /* Surface & Badge Tokens for Theme Parity */
   --surface-pill-bg: rgba(255, 255, 255, 0.06);
@@ -142,34 +142,34 @@ html[data-theme="light"] {
   --accent-danger: #e11d48;
   --glow-primary: rgba(99, 102, 241, 0.20);
   --glow-secondary: rgba(2, 132, 199, 0.20);
-  --surface-glass: rgba(255, 255, 255, 0.88);
-  --surface-glass-heavy: rgba(248, 250, 252, 0.95);
-  --surface-glass-light: rgba(255, 255, 255, 0.70);
-  --surface-card: rgba(255, 255, 255, 0.96);
+  --surface-glass: rgba(255, 255, 255, 0.96);
+  --surface-glass-heavy: rgba(248, 250, 252, 0.98);
+  --surface-glass-light: rgba(255, 255, 255, 0.90);
+  --surface-card: rgba(255, 255, 255, 0.98);
   --border-glow: rgba(99, 102, 241, 0.20);
   --bg-gradient-1: #f1f5f9;
   --bg-gradient-2: #f8fafc;
   --bg-gradient-3: #e2e8f0;
-  --glass-panel-bg-1: rgba(255, 255, 255, 0.92);
-  --glass-panel-bg-2: rgba(248, 250, 252, 0.98);
+  --glass-panel-bg-1: rgba(255, 255, 255, 0.96);
+  --glass-panel-bg-2: rgba(248, 250, 252, 0.99);
   --glass-panel-border: rgba(15, 23, 42, 0.08);
   --glass-panel-glow: rgba(99, 102, 241, 0.10);
   --glass-panel-shadow: rgba(15, 23, 42, 0.10);
   --glass-panel-inset-shadow: rgba(255, 255, 255, 0.95);
-  --input-bg: rgba(255, 255, 255, 0.90);
+  --input-bg: rgba(255, 255, 255, 0.96);
   --input-border: rgba(15, 23, 42, 0.15);
   --input-focus-bg: #ffffff;
   --input-focus-border: var(--accent-primary);
   --input-focus-glow: rgba(99, 102, 241, 0.20);
   --link-color: rgba(15, 23, 42, 0.25);
-  --link-highlight: #6366f1;
-  --node-indigo: #6366f1;
-  --node-personal: #8b5cf6;
-  --node-work: #0284c7;
+  --link-highlight: #4f46e5;
+  --node-indigo: #4f46e5;
+  --node-personal: #db2777;
+  --node-work: #059669;
   --node-ideas: #d97706;
   --node-amber: #d97706;
   --node-emerald: #059669;
-  --node-cyan: #0891b2;
+  --node-cyan: #0284c7;
   --code-bg: rgba(15, 23, 42, 0.06);
   --pre-bg: rgba(15, 23, 42, 0.04);
   --surface-pill-bg: rgba(15, 23, 42, 0.05);
@@ -195,30 +195,30 @@ html[data-theme="sepia"] {
   --accent-danger: #c2410c;
   --glow-primary: rgba(150, 79, 39, 0.20);
   --glow-secondary: rgba(180, 83, 9, 0.20);
-  --surface-glass: rgba(250, 246, 240, 0.88);
-  --surface-glass-heavy: rgba(245, 239, 230, 0.95);
-  --surface-glass-light: rgba(250, 246, 240, 0.70);
-  --surface-card: rgba(250, 246, 240, 0.96);
+  --surface-glass: rgba(250, 246, 240, 0.95);
+  --surface-glass-heavy: rgba(245, 239, 230, 0.98);
+  --surface-glass-light: rgba(250, 246, 240, 0.90);
+  --surface-card: rgba(250, 246, 240, 0.98);
   --border-glow: rgba(150, 79, 39, 0.20);
   --bg-gradient-1: #ebdcd0;
   --bg-gradient-2: #f5efe6;
   --bg-gradient-3: #e2cebf;
-  --glass-panel-bg-1: rgba(250, 246, 240, 0.92);
-  --glass-panel-bg-2: rgba(245, 239, 230, 0.97);
+  --glass-panel-bg-1: rgba(250, 246, 240, 0.96);
+  --glass-panel-bg-2: rgba(245, 239, 230, 0.99);
   --glass-panel-border: rgba(61, 46, 36, 0.10);
   --glass-panel-glow: rgba(150, 79, 39, 0.10);
   --glass-panel-shadow: rgba(61, 46, 36, 0.12);
   --glass-panel-inset-shadow: rgba(255, 255, 255, 0.90);
-  --input-bg: rgba(250, 246, 240, 0.90);
+  --input-bg: rgba(250, 246, 240, 0.96);
   --input-border: rgba(61, 46, 36, 0.15);
   --input-focus-bg: #fdfaf6;
   --input-focus-border: var(--accent-primary);
   --input-focus-glow: rgba(150, 79, 39, 0.20);
   --link-color: rgba(61, 46, 36, 0.25);
-  --link-highlight: #964f27;
-  --node-indigo: #964f27;
-  --node-personal: #8b5cf6;
-  --node-work: #b45309;
+  --link-highlight: #4338ca;
+  --node-indigo: #4338ca;
+  --node-personal: #be123c;
+  --node-work: #15803d;
   --node-ideas: #b45309;
   --node-amber: #b45309;
   --node-emerald: #15803d;
@@ -248,34 +248,34 @@ html[data-theme="midnight"] {
   --accent-danger: #f43f5e;
   --glow-primary: rgba(244, 63, 94, 0.35);
   --glow-secondary: rgba(168, 85, 247, 0.30);
-  --surface-glass: rgba(10, 10, 14, 0.88);
-  --surface-glass-heavy: rgba(4, 4, 8, 0.96);
-  --surface-glass-light: rgba(18, 18, 26, 0.70);
-  --surface-card: rgba(14, 14, 20, 0.95);
+  --surface-glass: rgba(10, 10, 14, 0.95);
+  --surface-glass-heavy: rgba(4, 4, 8, 0.98);
+  --surface-glass-light: rgba(18, 18, 26, 0.88);
+  --surface-card: rgba(14, 14, 20, 0.98);
   --border-glow: rgba(244, 63, 94, 0.25);
   --bg-gradient-1: #0c0a14;
   --bg-gradient-2: #020205;
   --bg-gradient-3: #000000;
-  --glass-panel-bg-1: rgba(12, 12, 18, 0.90);
-  --glass-panel-bg-2: rgba(5, 5, 8, 0.96);
+  --glass-panel-bg-1: rgba(12, 12, 18, 0.96);
+  --glass-panel-bg-2: rgba(5, 5, 8, 0.99);
   --glass-panel-border: rgba(255, 255, 255, 0.08);
   --glass-panel-glow: rgba(244, 63, 94, 0.12);
   --glass-panel-shadow: rgba(0, 0, 0, 0.85);
   --glass-panel-inset-shadow: rgba(255, 255, 255, 0.08);
-  --input-bg: rgba(10, 10, 14, 0.80);
+  --input-bg: rgba(10, 10, 14, 0.92);
   --input-border: rgba(255, 255, 255, 0.10);
-  --input-focus-bg: rgba(16, 16, 24, 0.95);
+  --input-focus-bg: rgba(16, 16, 24, 0.98);
   --input-focus-border: var(--accent-primary);
   --input-focus-glow: rgba(244, 63, 94, 0.25);
   --link-color: rgba(255, 255, 255, 0.20);
   --link-highlight: #f43f5e;
   --node-indigo: #a855f7;
-  --node-personal: #f43f5e;
-  --node-work: #a855f7;
-  --node-ideas: #f59e0b;
-  --node-amber: #f59e0b;
-  --node-emerald: #10b981;
-  --node-cyan: #22d3ee;
+  --node-personal: #ff007f;
+  --node-work: #00f0ff;
+  --node-ideas: #ffd700;
+  --node-amber: #ffd700;
+  --node-emerald: #00f0ff;
+  --node-cyan: #00f0ff;
   --code-bg: rgba(255, 255, 255, 0.08);
   --pre-bg: rgba(0, 0, 0, 0.70);
   --surface-pill-bg: rgba(255, 255, 255, 0.06);
@@ -301,34 +301,34 @@ html[data-theme="ocean"] {
   --accent-danger: #f43f5e;
   --glow-primary: rgba(2, 132, 199, 0.35);
   --glow-secondary: rgba(20, 184, 166, 0.30);
-  --surface-glass: rgba(8, 28, 46, 0.85);
-  --surface-glass-heavy: rgba(4, 18, 30, 0.95);
-  --surface-glass-light: rgba(14, 42, 68, 0.70);
-  --surface-card: rgba(8, 28, 46, 0.95);
+  --surface-glass: rgba(8, 28, 46, 0.94);
+  --surface-glass-heavy: rgba(4, 18, 30, 0.98);
+  --surface-glass-light: rgba(14, 42, 68, 0.88);
+  --surface-card: rgba(8, 28, 46, 0.98);
   --border-glow: rgba(2, 132, 199, 0.25);
   --bg-gradient-1: #082842;
   --bg-gradient-2: #04121e;
   --bg-gradient-3: #0a1f33;
-  --glass-panel-bg-1: rgba(8, 32, 54, 0.90);
-  --glass-panel-bg-2: rgba(4, 18, 32, 0.96);
+  --glass-panel-bg-1: rgba(8, 32, 54, 0.96);
+  --glass-panel-bg-2: rgba(4, 18, 32, 0.99);
   --glass-panel-border: rgba(56, 189, 248, 0.15);
   --glass-panel-glow: rgba(2, 132, 199, 0.15);
   --glass-panel-shadow: rgba(0, 0, 0, 0.70);
   --glass-panel-inset-shadow: rgba(255, 255, 255, 0.10);
-  --input-bg: rgba(6, 24, 40, 0.80);
+  --input-bg: rgba(6, 24, 40, 0.92);
   --input-border: rgba(56, 189, 248, 0.20);
-  --input-focus-bg: rgba(10, 36, 60, 0.95);
+  --input-focus-bg: rgba(10, 36, 60, 0.98);
   --input-focus-border: var(--accent-primary);
   --input-focus-glow: rgba(2, 132, 199, 0.30);
   --link-color: rgba(125, 211, 252, 0.25);
   --link-highlight: #14b8a6;
-  --node-indigo: #0284c7;
-  --node-personal: #8b5cf6;
-  --node-work: #14b8a6;
-  --node-ideas: #f59e0b;
-  --node-amber: #f59e0b;
+  --node-indigo: #38bdf8;
+  --node-personal: #f43f5e;
+  --node-work: #10b981;
+  --node-ideas: #fbbf24;
+  --node-amber: #fbbf24;
   --node-emerald: #10b981;
-  --node-cyan: #22d3ee;
+  --node-cyan: #38bdf8;
   --code-bg: rgba(56, 189, 248, 0.10);
   --pre-bg: rgba(2, 10, 18, 0.75);
   --surface-pill-bg: rgba(56, 189, 248, 0.08);
@@ -463,6 +463,60 @@ input[type="email"]:focus,
   box-shadow: 0 0 0 3px var(--input-focus-glow), inset 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
+/* Unified Segmented Control & Glass Pill System */
+.segmented-control,
+.glass-pill,
+.glass-pill-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px;
+  background: var(--surface-pill-bg, rgba(255, 255, 255, 0.05));
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-pill, 9999px) !important;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.15);
+  box-sizing: border-box;
+}
+
+.segmented-control .segment-btn,
+.glass-pill .tab-btn,
+.glass-pill-group button,
+.segmented-control button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 4px 14px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-pill, 9999px) !important;
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+  transition: all 160ms var(--ease-out);
+  min-height: 28px;
+}
+
+.segmented-control .segment-btn:hover:not(.active),
+.glass-pill .tab-btn:hover:not(.active),
+.glass-pill-group button:hover:not(.active) {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.segmented-control .segment-btn.active,
+.segmented-control .segment-btn[aria-selected="true"],
+.glass-pill .tab-btn.active,
+.glass-pill-group button.active {
+  color: #ffffff !important;
+  background: var(--accent-primary) !important;
+  font-weight: 600;
+  box-shadow: 0 2px 8px var(--glow-primary);
+}
+
 /* Missing Component Classes / Utilities */
 .icon-only-btn {
   background: transparent;
@@ -571,6 +625,19 @@ input[type="email"]:focus,
 
 .spinning {
   animation: spin 1s linear infinite;
+}
+
+/* Accessibility: Focus-Visible Keyboard Navigation */
+:focus-visible {
+  outline: 2px solid var(--accent-primary, #8b5cf6) !important;
+  outline-offset: 2px !important;
+  box-shadow: 0 0 0 4px var(--glow-primary, rgba(139, 92, 246, 0.25)) !important;
+}
+
+button:focus:not(:focus-visible),
+input:focus:not(:focus-visible),
+textarea:focus:not(:focus-visible) {
+  outline: none;
 }
 
 /* Accessibility: prefers-reduced-motion */

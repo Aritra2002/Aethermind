@@ -24,15 +24,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 
 import { callAI } from '../utils/aiClient';
-import { semanticSearch } from '../utils/vectorSearch';
-import { searchDocuments, buildRagContext } from '../utils/rag';
-import { marked } from 'marked';
-import DOMPurify from 'dompurify';
-import { Sparkles, ArrowRight } from 'lucide-react';
-import { parseAiResponse, executeAiAction, validateActionPreflight, AiAction } from '../utils/aiActions';
+import { searchHybridRag, buildRagContextWithCitations, type RagCitation } from '../utils/rag';
+import { safeRenderMarkdown } from '../utils/sanitizer';
+import { Sparkles, ArrowRight, Layers, FileText as FileIcon, Globe, BookOpen, Check, X as XIcon, AlertTriangle, ShieldAlert, Square } from 'lucide-react';
+import { parseAiResponse, executeAiAction, validateActionPreflight, generateActionDiff, type AiAction, type ActionDiff } from '../utils/aiActions';
 import { fetchUrlContent } from '../utils/urlFetcher';
-import { ConfirmActionToast } from './ConfirmActionToast';
 import { useToast } from './ToastContext';
+import { db } from '../db';
 
 /**
  * Props for the AskAiModal component.
@@ -44,48 +42,83 @@ interface AskAiModalProps {
   onClose: () => void;
   /** Primary key ID of the active page/workspace context for created/edited notes */
   activePageId: number;
+  /** Optional navigation callback to jump directly to a note by title */
+  onJumpToNote?: (title: string) => void;
 }
 
 /**
- * AiActionCard Component
- * 
- * Renders a visual status card summarizing the outcome of an executed AI action
- * (e.g. note creation details with tags and links, or error status).
- * 
- * @param {object} props - Component properties.
- * @param {object} props.result - The action outcome containing the action payload, success flag, and message.
- * @returns {React.ReactElement} Visual card displaying action details.
+ * Visual diff preview card displaying proposed changes before execution.
  */
-const AiActionCard = ({ result }: { result: { action: AiAction; success: boolean; message: string } }) => {
-  if (!result.success) {
-    return (
-      <div style={{ color: 'var(--accent-danger, #ef4444)', marginTop: '12px' }}>
-        Action failed: {result.message}
-      </div>
-    );
-  }
-  
-  if (result.action.action === 'create_note') {
-    return (
-      <div style={{ background: 'var(--card-nested-bg)', border: '1px solid var(--accent-primary)', padding: '12px', borderRadius: '8px', marginTop: '12px' }}>
-        <div>Created note: <strong>"{result.action.title}"</strong></div>
-        {result.action.tags && result.action.tags.length > 0 && (
-          <div style={{ fontSize: '0.9em', color: 'var(--text-secondary)', marginTop: '4px' }}>
-            Tags: {result.action.tags.join(', ')}
-          </div>
-        )}
-        {result.action.linkTo && result.action.linkTo.length > 0 && (
-          <div style={{ fontSize: '0.9em', color: 'var(--text-secondary)', marginTop: '4px' }}>
-            Linked to: {result.action.linkTo.join(', ')}
-          </div>
-        )}
-      </div>
-    );
-  }
-
+const ActionDiffCard: React.FC<{
+  action: AiAction;
+  diff: ActionDiff;
+  onApply: () => void;
+  onReject: () => void;
+}> = ({ action, diff, onApply, onReject }) => {
   return (
-    <div style={{ background: 'var(--card-nested-bg)', border: '1px solid var(--accent-primary)', padding: '12px', borderRadius: '8px', marginTop: '12px' }}>
-      {result.message}
+    <div style={{
+      background: 'var(--card-nested-bg)',
+      border: '1px solid var(--border-color)',
+      borderRadius: 'var(--radius-md)',
+      padding: '12px 14px',
+      marginTop: '12px',
+      fontSize: '0.85rem'
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+        <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span style={{
+            padding: '2px 6px',
+            borderRadius: '4px',
+            fontSize: '0.72rem',
+            textTransform: 'uppercase',
+            background: diff.riskLevel === 'DESTRUCTIVE' 
+              ? 'rgba(239, 68, 68, 0.25)' 
+              : diff.riskLevel === 'HIGH_RISK_WRITE'
+              ? 'rgba(245, 158, 11, 0.25)'
+              : 'rgba(139, 92, 246, 0.2)',
+            color: diff.riskLevel === 'DESTRUCTIVE'
+              ? 'var(--accent-danger, #ef4444)'
+              : diff.riskLevel === 'HIGH_RISK_WRITE'
+              ? 'var(--accent-gold, #f59e0b)'
+              : 'var(--accent-primary)',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '3px'
+          }}>
+            {diff.riskLevel === 'DESTRUCTIVE' && <ShieldAlert size={11} />}
+            {diff.riskLevel === 'HIGH_RISK_WRITE' && <AlertTriangle size={11} />}
+            {action.action.replace('_', ' ')}
+          </span>
+          <span>{diff.targetTitle}</span>
+        </div>
+        <div style={{ display: 'flex', gap: '6px' }}>
+          <button 
+            className="btn btn-sm btn-primary"
+            onClick={onApply}
+            style={{ padding: '3px 10px', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+          >
+            <Check size={13} /> Apply
+          </button>
+          <button 
+            className="btn btn-sm btn-secondary"
+            onClick={onReject}
+            style={{ padding: '3px 8px', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+          >
+            <XIcon size={13} /> Skip
+          </button>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', color: 'var(--text-secondary)' }}>
+        {diff.changes.map((c, i) => (
+          <div key={i} style={{ display: 'flex', gap: '6px', alignItems: 'baseline' }}>
+            <span style={{ color: c.type === 'remove' ? 'var(--accent-danger, #ef4444)' : 'var(--node-emerald, #10b981)' }}>
+              {c.type === 'remove' ? '−' : '+'}
+            </span>
+            <span>{c.to || c.from}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 };
@@ -95,22 +128,25 @@ const AiActionCard = ({ result }: { result: { action: AiAction; success: boolean
  * 
  * Main modal dialog handling user queries, AI streaming interactions,
  * contextual knowledge retrieval, and tool action staging.
- * 
- * @param {AskAiModalProps} props - Component properties.
- * @returns {React.ReactElement | null} Rendered modal dialog or null if closed.
  */
-export const AskAiModal: React.FC<AskAiModalProps> = ({ isOpen, onClose, activePageId }) => {
+export const AskAiModal: React.FC<AskAiModalProps> = ({ isOpen, onClose, activePageId, onJumpToNote }) => {
   /** User text input in the search field */
   const [query, setQuery] = useState('');
+
+  /** Active knowledge search scope */
+  const [scope, setScope] = useState<'auto' | 'vault' | 'documents' | 'general'>('auto');
 
   /** Streaming or final response text received from the AI model */
   const [aiResponse, setAiResponse] = useState<string | null>(null);
 
+  /** Retrieved citations used in this response */
+  const [citations, setCitations] = useState<RagCitation[]>([]);
+
   /** Loading indicator flag while awaiting AI streaming responses */
   const [isAiLoading, setIsAiLoading] = useState(false);
 
-  /** Queue of pending AI actions requiring user confirmation */
-  const [stagedActions, setStagedActions] = useState<AiAction[]>([]);
+  /** Queue of pending AI actions with calculated diffs */
+  const [stagedActionDiffs, setStagedActionDiffs] = useState<Array<{ action: AiAction; diff: ActionDiff }>>([]);
 
   /** Execution log of completed or rejected actions */
   const [actionResults, setActionResults] = useState<{ action: AiAction; success: boolean; message: string }[]>([]);
@@ -135,8 +171,9 @@ export const AskAiModal: React.FC<AskAiModalProps> = ({ isOpen, onClose, activeP
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setQuery('');
       setAiResponse(null);
+      setCitations([]);
       setIsAiLoading(false);
-      setStagedActions([]);
+      setStagedActionDiffs([]);
       setActionResults([]);
       setTimeout(() => inputRef.current?.focus(), 50);
     }
@@ -153,8 +190,9 @@ export const AskAiModal: React.FC<AskAiModalProps> = ({ isOpen, onClose, activeP
     try {
       setIsAiLoading(true);
       setAiResponse('');
+      setCitations([]);
       setActionResults([]);
-      setStagedActions([]);
+      setStagedActionDiffs([]);
       
       let finalQuery = query;
       let contextPrefix = "";
@@ -182,24 +220,24 @@ export const AskAiModal: React.FC<AskAiModalProps> = ({ isOpen, onClose, activeP
       finalQuery = contextPrefix ? contextPrefix + query : query;
       
       // Step 2: Determine if user is querying personal graph data vs general knowledge
-      const asksAboutOwnData = /(?:my|the|from|in|across|among)\s+(?:notes?|documents?|files?|data|knowledge|graph|nodes?|content|uploaded)/i.test(query)
-        || /what\s+(?:do\s+)?(?:I|we)\s+have\s+(?:on|about|regarding)/i.test(query)
-        || /(?:according|based)\s+to\s+(?:my|the)/i.test(query)
-        || /(?:search|find|look)\s+(?:in|through|my)\s+(?:notes?|documents?|files?|data)/i.test(query);
+      const asksAboutOwnData = scope === 'vault' || scope === 'documents' || (
+        scope === 'auto' && (
+          /(?:my|the|from|in|across|among)\s+(?:notes?|documents?|files?|data|knowledge|graph|nodes?|content|uploaded)/i.test(query)
+          || /what\s+(?:do\s+)?(?:I|we)\s+have\s+(?:on|about|regarding)/i.test(query)
+          || /(?:according|based)\s+to\s+(?:my|the)/i.test(query)
+          || /(?:search|find|look)\s+(?:in|through|my)\s+(?:notes?|documents?|files?|data)/i.test(query)
+        )
+      );
 
       let ragContext = '';
-      let notesContext = '';
+      let retrievedCitations: RagCitation[] = [];
 
       // Step 3: Run semantic RAG vector search across notes and documents if requested
       if (asksAboutOwnData) {
-        const [relevantNotes, ragResults] = await Promise.all([
-          semanticSearch(query, 5),
-          searchDocuments(query, 5),
-        ]);
-        ragContext = buildRagContext(ragResults);
-        notesContext = relevantNotes.length > 0
-          ? relevantNotes.map(n => `Title: ${n.title}\nContent: ${n.content}`).join('\n\n---\n\n')
-          : '';
+        const typeFilter = scope === 'documents' ? 'documents' : scope === 'vault' ? 'notes' : 'all';
+        retrievedCitations = await searchHybridRag(query, 5, typeFilter);
+        setCitations(retrievedCitations);
+        ragContext = buildRagContextWithCitations(retrievedCitations);
       }
 
       // Step 4: Assemble system prompt with formatting rules and action schemas
@@ -244,8 +282,7 @@ Always follow the JSON block with a human-readable explanation.
 Only perform actions the user explicitly requested.`;
       
       const contextParts: string[] = [];
-      if (ragContext) contextParts.push(`<document_context>\n${ragContext}\n</document_context>`);
-      if (notesContext) contextParts.push(`<existing_notes>\n${notesContext}\n</existing_notes>`);
+      if (ragContext) contextParts.push(`<retrieved_knowledge>\n${ragContext}\n</retrieved_knowledge>`);
 
       const userPrompt = contextParts.length > 0
         ? `${contextParts.join('\n\n')}\n\nUser request: ${finalQuery}`
@@ -284,8 +321,19 @@ Only perform actions the user explicitly requested.`;
             }
           }
         }
+
+        const diffs: Array<{ action: AiAction; diff: ActionDiff }> = [];
+        for (const action of staged) {
+          let existingNote = null;
+          if ('title' in action) {
+            existingNote = await db.notes.where('title').equalsIgnoreCase(action.title).and(n => n.pageId === pageId).first();
+          }
+          const diff = generateActionDiff(action, existingNote);
+          diffs.push({ action, diff });
+        }
+
         setActionResults(results);
-        setStagedActions(staged);
+        setStagedActionDiffs(diffs);
       }
       
     } catch (e: unknown) {
@@ -296,15 +344,15 @@ Only perform actions the user explicitly requested.`;
   };
 
   /**
-   * Confirms and executes the head staged action, updates the action history log,
-   * and displays a toast notification.
-   * 
-   * @param {AiAction} action - The staged AI action to execute.
+   * Applies a staged action diff.
    */
-  const handleConfirmStaged = async (action: AiAction) => {
-    setStagedActions(prev => prev.slice(1));
-    const result = await executeAiAction(action, pageId);
-    setActionResults(prev => [...prev, { action, success: result.success, message: result.message }]);
+  const handleApplyStagedDiff = async (index: number) => {
+    const item = stagedActionDiffs[index];
+    if (!item) return;
+
+    setStagedActionDiffs(prev => prev.filter((_, i) => i !== index));
+    const result = await executeAiAction(item.action, pageId);
+    setActionResults(prev => [...prev, { action: item.action, success: result.success, message: result.message }]);
     if (result.success) {
       showToast(result.message, 'success');
     } else {
@@ -313,13 +361,32 @@ Only perform actions the user explicitly requested.`;
   };
 
   /**
+   * Rejects/skips a staged action diff.
+   */
+  const handleRejectStagedDiff = (index: number) => {
+    setStagedActionDiffs(prev => prev.filter((_, i) => i !== index));
+    showToast('Action skipped', 'info');
+  };
+
+  /**
+   * Immediately aborts in-flight AI generation and resets loading state.
+   */
+  const handleStopAi = () => {
+    abortRef.current?.abort();
+    setIsAiLoading(false);
+    showToast('AI response stopped', 'info');
+  };
+
+  /**
    * Handles keyboard events for modal dismissal and form submission.
-   * 
-   * @param {React.KeyboardEvent} e - Keyboard event.
    */
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Escape') {
-      onClose();
+      if (isAiLoading) {
+        handleStopAi();
+      } else {
+        onClose();
+      }
     } else if (e.key === 'Enter' && !isAiLoading && aiResponse === null) {
       e.preventDefault();
       handleAskAi();
@@ -329,100 +396,222 @@ Only perform actions the user explicitly requested.`;
   if (!isOpen) return null;
 
   return (
-    <>
-      <div className="modal d-block" tabIndex={-1} style={{ zIndex: 1060 }} onClick={onClose}>
-        <div className="modal-dialog modal-dialog-centered modal-lg" style={{ maxWidth: '600px' }} onClick={e => e.stopPropagation()}>
-          <div className="modal-content glass-panel border-0">
-            {/* Modal Header */}
-            <div className="modal-header border-0">
-              <div className="d-flex align-items-center gap-2" style={{ color: 'var(--accent-gold)' }}>
-                <Sparkles size={18} />
-                <h5 className="modal-title">Ask AI</h5>
-              </div>
+    <div className="modal d-block" tabIndex={-1} style={{ zIndex: 1060 }} onClick={onClose}>
+      <div className="modal-dialog modal-dialog-centered modal-lg" style={{ width: 'min(94vw, 680px)', maxWidth: '96vw', margin: 'auto' }} onClick={e => e.stopPropagation()}>
+        <div className="modal-content glass-panel border-0" style={{ maxHeight: 'min(88dvh, 760px)' }}>
+          {/* Modal Header */}
+          <div className="modal-header border-0 pb-1">
+            <div className="d-flex align-items-center gap-2" style={{ color: 'var(--accent-gold)' }}>
+              <Sparkles size={18} />
+              <h5 className="modal-title">Ask AI Copilot</h5>
+            </div>
+            <div className="d-flex align-items-center gap-2">
+              {isAiLoading && (
+                <button
+                  type="button"
+                  className="btn btn-sm btn-danger"
+                  onClick={handleStopAi}
+                  style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '3px 10px', fontSize: '0.75rem', borderRadius: '4px' }}
+                >
+                  <Square size={11} fill="currentColor" /> Stop
+                </button>
+              )}
               <button type="button" className="btn-close btn-close-overlay" onClick={onClose} aria-label="Close" />
             </div>
+          </div>
 
-            {/* Modal Body */}
-            <div className="modal-body">
-              {aiResponse !== null ? (
-                /* AI Output View: Rendered Markdown + Action History */
-                <div className="ai-response-container" style={{ color: 'var(--text-primary)' }}>
-                  {isAiLoading && !aiResponse && (
-                    <div className="spin-pulse" style={{ color: 'var(--text-secondary)' }}>
-                      Analyzing your knowledge graph...
-                    </div>
-                  )}
-                  <div 
-                    className="markdown-body" 
-                    dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(marked.parse(aiResponse) as string) }} 
-                  />
-                  
-                  {/* Action Execution Outcome Badges */}
-                  {actionResults.map((res, i) => (
-                    <AiActionCard key={i} result={res} />
-                  ))}
-                  
-                  {/* Reset to query prompt */}
-                  {!isAiLoading && (
-                    <button 
-                      className="btn btn-secondary mt-3" 
-                      onClick={() => {
-                        setAiResponse(null);
-                        setQuery('');
-                        setActionResults([]);
-                        setTimeout(() => inputRef.current?.focus(), 50);
-                      }}
-                    >
-                      Ask Another Question
-                    </button>
-                  )}
-                </div>
-              ) : (
-                /* Initial Query Input View */
-                <div className="d-flex flex-column gap-3">
-                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', lineHeight: 1.5, margin: 0 }}>
-                    Ask a question, paste a link to research it, or ask AI to structure and link notes.
-                  </p>
-                  
-                  <div className="d-flex gap-2 align-items-center">
-                    <div className="search-bar-container flex-grow-1" style={{ padding: '8px 12px' }}>
-                      <input
-                        ref={inputRef}
-                        type="text"
-                        className="search-input"
-                        placeholder="What do you want to explore or create?"
-                        value={query}
-                        onChange={e => setQuery(e.target.value)}
-                        onKeyDown={handleKeyDown}
-                        style={{ fontSize: '0.95rem' }}
-                      />
+          {/* Modal Body */}
+          <div className="modal-body pt-1">
+            {aiResponse !== null ? (
+              /* AI Output View: Rendered Markdown + Action History + Citations */
+              <div className="ai-response-container" style={{ color: 'var(--text-primary)' }}>
+                {isAiLoading && (
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: '12px',
+                    padding: '8px 12px',
+                    borderRadius: '6px',
+                    background: 'var(--card-nested-bg)',
+                    border: '1px solid var(--border-color)'
+                  }}>
+                    <div className="spin-pulse" style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+                      {aiResponse ? 'Streaming AI response...' : 'Analyzing knowledge graph & formulating response...'}
                     </div>
                     <button 
-                      className="btn btn-primary d-flex align-items-center justify-content-center flex-shrink-0"
-                      onClick={handleAskAi}
-                      disabled={!query.trim() || isAiLoading}
-                      style={{ width: '42px', height: '42px', borderRadius: 'var(--radius-sm)' }}
-                      title="Send query"
+                      type="button" 
+                      className="btn btn-sm btn-danger"
+                      onClick={handleStopAi}
+                      style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '3px 10px', fontSize: '0.78rem' }}
                     >
-                      <ArrowRight size={18} />
+                      <Square size={12} fill="currentColor" /> Stop
                     </button>
                   </div>
+                )}
+                <div 
+                  className="markdown-body" 
+                  dangerouslySetInnerHTML={{ __html: safeRenderMarkdown(aiResponse) }} 
+                />
+
+                {/* Staged Action Diff Cards (Before vs After) */}
+                {stagedActionDiffs.length > 0 && (
+                  <div style={{ marginTop: '14px' }}>
+                    <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
+                      Proposed Graph Mutations ({stagedActionDiffs.length})
+                    </div>
+                    {stagedActionDiffs.map((item, idx) => (
+                      <ActionDiffCard
+                        key={idx}
+                        action={item.action}
+                        diff={item.diff}
+                        onApply={() => handleApplyStagedDiff(idx)}
+                        onReject={() => handleRejectStagedDiff(idx)}
+                      />
+                    ))}
+                  </div>
+                )}
+                
+                {/* Action Execution Outcome Badges */}
+                {actionResults.length > 0 && (
+                  <div style={{ marginTop: '12px' }}>
+                    {actionResults.map((res, i) => (
+                      <div key={i} style={{ padding: '8px 12px', borderRadius: '6px', background: res.success ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)', color: res.success ? 'var(--node-emerald)' : 'var(--accent-danger)', fontSize: '0.85rem', marginTop: '6px' }}>
+                        {res.message}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Structured RAG Citations */}
+                {citations.length > 0 && (
+                  <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '1px solid var(--border-color)' }}>
+                    <div style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <BookOpen size={13} /> Cited Evidence Sources ({citations.length})
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      {citations.map((c) => (
+                        <div 
+                          key={c.index}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'baseline',
+                            gap: '8px',
+                            padding: '6px 10px',
+                            background: 'var(--card-nested-bg)',
+                            borderRadius: '6px',
+                            fontSize: '0.8rem'
+                          }}
+                        >
+                          <span style={{ fontWeight: 700, color: 'var(--accent-primary)', fontFamily: 'var(--font-mono)' }}>[{c.index}]</span>
+                          <span 
+                            style={{ 
+                              fontWeight: 600, 
+                              color: c.isNote ? 'var(--accent-secondary)' : 'var(--text-primary)',
+                              cursor: c.isNote && onJumpToNote ? 'pointer' : 'default',
+                              textDecoration: c.isNote && onJumpToNote ? 'underline' : 'none'
+                            }}
+                            onClick={() => {
+                              if (c.isNote && onJumpToNote) {
+                                onJumpToNote(c.sourceName.replace(/^\[Note\]\s*/, ''));
+                                onClose();
+                              }
+                            }}
+                          >
+                            {c.sourceName}
+                          </span>
+                          <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem', marginLeft: 'auto', fontFamily: 'var(--font-mono)' }}>
+                            {(c.score * 100).toFixed(0)}% match
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Reset to query prompt */}
+                {!isAiLoading && (
+                  <button 
+                    className="btn btn-secondary mt-3" 
+                    onClick={() => {
+                      setAiResponse(null);
+                      setQuery('');
+                      setCitations([]);
+                      setActionResults([]);
+                      setStagedActionDiffs([]);
+                      setTimeout(() => inputRef.current?.focus(), 50);
+                    }}
+                  >
+                    Ask Another Question
+                  </button>
+                )}
+              </div>
+            ) : (
+              /* Initial Query Input View */
+              <div className="d-flex flex-column gap-3">
+                {/* Knowledge Scope Target Pills */}
+                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                  {[
+                    { id: 'auto' as const, label: '✨ Auto Scope', icon: <Sparkles size={12} /> },
+                    { id: 'vault' as const, label: '🧠 Notes & Vault', icon: <Layers size={12} /> },
+                    { id: 'documents' as const, label: '📄 Documents (RAG)', icon: <FileIcon size={12} /> },
+                    { id: 'general' as const, label: '🌐 General / Web', icon: <Globe size={12} /> }
+                  ].map(tab => (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      className="tab-btn"
+                      onClick={() => setScope(tab.id)}
+                      style={{
+                        padding: '3px 10px',
+                        fontSize: '0.75rem',
+                        borderRadius: 'var(--radius-pill)',
+                        background: scope === tab.id ? 'var(--accent-primary)' : 'var(--surface-pill-bg)',
+                        color: scope === tab.id ? '#ffffff' : 'var(--text-secondary)',
+                        border: '1px solid var(--border-subtle)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
+                    >
+                      {tab.icon}
+                      <span>{tab.label}</span>
+                    </button>
+                  ))}
                 </div>
-              )}
-            </div>
+
+                <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', lineHeight: 1.4, margin: 0 }}>
+                  Ask questions, research topics, synthesize web articles, or command AI to create and interconnect knowledge nodes.
+                </p>
+                
+                <div className="d-flex gap-2 align-items-center">
+                  <div className="search-bar-container flex-grow-1" style={{ padding: '8px 12px' }}>
+                    <input
+                      ref={inputRef}
+                      type="text"
+                      className="search-input"
+                      placeholder="What do you want to explore, research, or create?"
+                      value={query}
+                      onChange={e => setQuery(e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      style={{ fontSize: '0.95rem' }}
+                    />
+                  </div>
+                  <button 
+                    className="btn btn-primary d-flex align-items-center justify-content-center flex-shrink-0"
+                    onClick={handleAskAi}
+                    disabled={!query.trim() || isAiLoading}
+                    style={{ width: '42px', height: '42px', borderRadius: 'var(--radius-sm)' }}
+                    title="Send query"
+                  >
+                    <ArrowRight size={18} />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
-      
-      {/* Staged Action Confirmation Toast */}
-      {stagedActions.length > 0 && (
-        <ConfirmActionToast 
-          action={stagedActions[0]} 
-          pageId={pageId}
-          onConfirm={() => handleConfirmStaged(stagedActions[0])} 
-          onCancel={() => setStagedActions(prev => prev.slice(1))} 
-        />
-      )}
-    </>
+    </div>
   );
 };

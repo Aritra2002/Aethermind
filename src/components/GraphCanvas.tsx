@@ -7,13 +7,14 @@
  * @module components/GraphCanvas
  */
 
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useMemo } from 'react';
 import * as d3 from 'd3';
 import { db, type Note, type Link, type Category } from '../db';
 import { updateNote } from '../db/helpers';
-import { HelpCircle, PanelLeft, Download, Search } from 'lucide-react';
+import { HelpCircle, PanelLeft, Download, Search, Route, Activity } from 'lucide-react';
 import { cosineSimilarity } from '../utils/vectorSearch';
 import { callAI } from '../utils/aiClient';
+import { calculateGraphStats, findShortestPath } from '../utils/graph/algorithms';
 
 /**
  * Props for the {@link GraphCanvas} component.
@@ -242,6 +243,25 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
     text: string;
     linkId?: number;
   }>({ visible: false, x: 0, y: 0, loading: false, text: '' });
+
+  /** Visibility state for graph metrics HUD */
+  const [showStatsHUD, setShowStatsHUD] = useState(false);
+
+  /** Shortest path finder state */
+  const [pathFinder, setPathFinder] = useState<{
+    active: boolean;
+    startNodeId: number | null;
+    endNodeId: number | null;
+    pathSet: Set<number>;
+  }>({
+    active: false,
+    startNodeId: null,
+    endNodeId: null,
+    pathSet: new Set()
+  });
+
+  /** Computes graph topological stats */
+  const graphStats = useMemo(() => calculateGraphStats(notes, links), [notes, links]);
 
   /**
    * Exports graph data into SVG vector graphic, PNG image raster, or full ZIP archive with Markdown notes.
@@ -569,34 +589,51 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
       const linkForce = sim.force('link') as d3.ForceLink<SimNode, d3.SimulationLinkDatum<SimNode>>;
       const currentLinks = linkForce ? (linkForce.links() as { source: SimNode; target: SimNode }[]) : [];
 
-      // 1. Draw Links
+      // Viewport Bounds for Hardware-Accelerated Culling
+      const padding = 100 / Math.max(0.1, transform.k);
+      const minX = -transform.x / transform.k - padding;
+      const maxX = (dimensions.width - transform.x) / transform.k + padding;
+      const minY = -transform.y / transform.k - padding;
+      const maxY = (dimensions.height - transform.y) / transform.k + padding;
+      const isZoomedFarOut = transform.k < 0.45;
+
+      // 1. Draw Links with Culling
       currentLinks.forEach((link) => {
         const source = link.source;
         const target = link.target;
 
         if (source.x === undefined || source.y === undefined || target.x === undefined || target.y === undefined) return;
 
+        // Skip links where both endpoints are offscreen
+        const sourceIn = source.x >= minX && source.x <= maxX && source.y >= minY && source.y <= maxY;
+        const targetIn = target.x >= minX && target.x <= maxX && target.y >= minY && target.y <= maxY;
+        if (!sourceIn && !targetIn) return;
+
         const isSourceActive = source.id === activeNodeId;
         const isTargetActive = target.id === activeNodeId;
         const isConnectionActive = isSourceActive || isTargetActive;
+        const isPathLink = pathFinder.active && pathFinder.pathSet.has(source.id) && pathFinder.pathSet.has(target.id);
 
         ctx.beginPath();
         ctx.moveTo(source.x, source.y);
         ctx.lineTo(target.x, target.y);
 
-        // Link appearance and flow styling
-        if (source.isDimmed || target.isDimmed) {
+        if (isPathLink) {
+          ctx.strokeStyle = '#f59e0b';
+          ctx.lineWidth = 3.5;
+          ctx.globalAlpha = 1.0;
+          ctx.setLineDash([8, 4]);
+          ctx.lineDashOffset = -(Date.now() / 60) % 24;
+        } else if (source.isDimmed || target.isDimmed) {
           ctx.strokeStyle = themeColorsRef.current.linkColor;
           ctx.lineWidth = 1;
           ctx.setLineDash([]);
-          ctx.globalAlpha = 0.1;
+          ctx.globalAlpha = 0.08;
         } else if (isConnectionActive) {
           ctx.globalAlpha = 1.0;
-          // Glow highlighting for connected notes
           const activeColor = activeNote?.color || categories.find(c => c.id === activeNote?.category)?.color || '#818cf8';
           ctx.strokeStyle = activeColor;
           ctx.lineWidth = 2;
-          // Dashed animated offset for active graph flow
           const dashOffset = (Date.now() / 80) % 20;
           ctx.setLineDash([6, 4]);
           ctx.lineDashOffset = -dashOffset;
@@ -614,12 +651,16 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
       // Reset dash before drawing nodes
       ctx.setLineDash([]);
 
-      // 2. Draw Nodes
+      // 2. Draw Nodes with Spatial Culling
       currentNodes.forEach((node) => {
         if (node.x === undefined || node.y === undefined) return;
 
+        // Skip off-screen nodes entirely
+        if (node.x < minX || node.x > maxX || node.y < minY || node.y > maxY) return;
+
         const isActive = node.id === activeNodeId;
-        const opacity = node.isDimmed ? 0.15 : 1.0;
+        const isPathNode = pathFinder.active && pathFinder.pathSet.has(node.id);
+        const opacity = node.isDimmed && !isPathNode ? 0.15 : 1.0;
 
         ctx.save();
         ctx.globalAlpha = opacity;
@@ -628,24 +669,22 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
         const categoryObj = categories.find(c => c.id === node.category);
         let color = categoryObj?.color || '#818cf8';
         if (node.color) color = node.color;
+        if (isPathNode) color = '#f59e0b';
 
-        // Render glow bloom
-        if (!node.isDimmed) {
-          // Heatmap effect: more visits = brighter glow
+        // Render glow bloom (LOD throttling when zoomed out)
+        if (!node.isDimmed && !isZoomedFarOut) {
           const heatmapIntensity = Math.min(20, node.visits * 2);
-          
-          // Animated breathing pulse
           const time = Date.now() / 1000;
           const pulsingBloom = Math.sin(time * 2 + node.id) * 6;
           
-          ctx.shadowBlur = isActive ? 24 + pulsingBloom + heatmapIntensity : 12 + (pulsingBloom/2) + heatmapIntensity;
+          ctx.shadowBlur = isActive || isPathNode ? 24 + pulsingBloom + heatmapIntensity : 12 + (pulsingBloom/2) + heatmapIntensity;
           ctx.shadowColor = color;
           ctx.globalCompositeOperation = 'lighter';
         }
 
         // Draw Circle
         ctx.beginPath();
-        ctx.arc(node.x, node.y, isActive ? node.radius + 4 : node.radius, 0, 2 * Math.PI);
+        ctx.arc(node.x, node.y, isActive || isPathNode ? node.radius + 4 : node.radius, 0, 2 * Math.PI);
         ctx.fillStyle = color;
         ctx.fill();
         
@@ -670,18 +709,20 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
           ctx.stroke();
         }
 
-        // 3. Draw Labels with background stroke for readability
-        ctx.shadowBlur = 0;
-        ctx.shadowColor = 'transparent';
-        ctx.font = '500 12px ' + getComputedStyle(document.documentElement).getPropertyValue('--font-sans').trim() || 'Inter';
-        ctx.fillStyle = isActive ? themeColorsRef.current.textPrimary : themeColorsRef.current.textSecondary;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'top';
+        // 3. Draw Labels with background stroke for readability (omitted at extreme zoom out)
+        if (!isZoomedFarOut || isActive || isPathNode) {
+          ctx.shadowBlur = 0;
+          ctx.shadowColor = 'transparent';
+          ctx.font = '500 12px ' + getComputedStyle(document.documentElement).getPropertyValue('--font-sans').trim() || 'Inter';
+          ctx.fillStyle = isActive || isPathNode ? themeColorsRef.current.textPrimary : themeColorsRef.current.textSecondary;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'top';
 
-        ctx.strokeStyle = themeColorsRef.current.bgPrimary;
-        ctx.lineWidth = 3;
-        ctx.strokeText(node.title, node.x, node.y + (isActive ? 24 : 16));
-        ctx.fillText(node.title, node.x, node.y + (isActive ? 24 : 16));
+          ctx.strokeStyle = themeColorsRef.current.bgPrimary;
+          ctx.lineWidth = 3;
+          ctx.strokeText(node.title, node.x, node.y + (isActive ? 24 : 16));
+          ctx.fillText(node.title, node.x, node.y + (isActive ? 24 : 16));
+        }
 
         ctx.restore();
       });
@@ -695,13 +736,13 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
     return () => {
       cancelAnimationFrame(animationFrameId);
     };
-  }, [dimensions, transform, activeNote, searchQuery, selectedTags, dateRange, categories]);
+  }, [dimensions, transform, activeNote, searchQuery, selectedTags, dateRange, categories, pathFinder]);
 
   /** State ref ensuring event listeners access latest state without re-attaching listeners */
-  const stateRef = useRef({ transform, notes, links, activeNote, onCreateNote, onSelectNote });
+  const stateRef = useRef({ transform, notes, links, activeNote, onCreateNote, onSelectNote, pathFinder, setPathFinder });
   useEffect(() => {
-    stateRef.current = { transform, notes, links, activeNote, onCreateNote, onSelectNote };
-  });
+    stateRef.current = { transform, notes, links, activeNote, onCreateNote, onSelectNote, pathFinder, setPathFinder };
+  }, [transform, notes, links, activeNote, onCreateNote, onSelectNote, pathFinder, setPathFinder]);
 
   /**
    * Binds D3 Drag, Zoom, Pointer capture, and click/double-click listeners to the canvas element.
@@ -812,6 +853,16 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
       });
 
       if (clickedNode) {
+        if (state.pathFinder.active) {
+          if (!state.pathFinder.startNodeId) {
+            state.setPathFinder(p => ({ ...p, startNodeId: clickedNode.id, endNodeId: null, pathSet: new Set([clickedNode.id]) }));
+          } else if (!state.pathFinder.endNodeId) {
+            const pathRes = findShortestPath(state.pathFinder.startNodeId, clickedNode.id, state.notes, state.links);
+            state.setPathFinder(p => ({ ...p, endNodeId: clickedNode.id, pathSet: new Set(pathRes.pathNodeIds) }));
+          }
+          return;
+        }
+
         const note = state.notes.find(n => n.id === clickedNode.id);
         if (note) setTimeout(() => state.onSelectNote(note), 0);
       } else {
@@ -1208,6 +1259,39 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
               <Search size={15} /> <span>{isMobile ? '' : 'Filter'}</span>
             </button>
           )}
+
+          {/* Graph Metrics HUD Toggle */}
+          <button
+            className="canvas-btn"
+            onClick={() => setShowStatsHUD(!showStatsHUD)}
+            title="Toggle Graph Statistics HUD"
+            aria-label="Graph Statistics"
+            style={{ borderRadius: 'var(--radius-pill)', border: 'none', background: showStatsHUD ? 'var(--accent-primary)' : 'transparent', color: showStatsHUD ? '#fff' : 'inherit' }}
+          >
+            <Activity size={15} /> <span>{isMobile ? '' : 'Stats'}</span>
+          </button>
+
+          {/* Path Finder Mode */}
+          <button
+            className="canvas-btn"
+            onClick={() => {
+              if (pathFinder.active) {
+                setPathFinder({ active: false, startNodeId: null, endNodeId: null, pathSet: new Set() });
+              } else {
+                if (activeNote?.id) {
+                  setPathFinder({ active: true, startNodeId: activeNote.id, endNodeId: null, pathSet: new Set([activeNote.id]) });
+                } else {
+                  setPathFinder({ active: true, startNodeId: null, endNodeId: null, pathSet: new Set() });
+                }
+              }
+            }}
+            title="Shortest Path Finder"
+            aria-label="Path Finder"
+            style={{ borderRadius: 'var(--radius-pill)', border: 'none', background: pathFinder.active ? 'var(--accent-gold, #f59e0b)' : 'transparent', color: pathFinder.active ? '#000' : 'inherit' }}
+          >
+            <Route size={15} /> <span>{isMobile ? '' : 'Path'}</span>
+          </button>
+
           <button
             className="canvas-btn"
             onClick={() => {
@@ -1234,6 +1318,88 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Graph Metrics HUD Overlay */}
+      {showStatsHUD && (
+        <div className="glass-panel" style={{
+          position: 'absolute',
+          top: '70px',
+          left: '16px',
+          padding: '12px 16px',
+          borderRadius: 'var(--radius-md)',
+          zIndex: 1000,
+          minWidth: '200px',
+          fontSize: '0.8rem'
+        }}>
+          <div style={{ fontWeight: 600, marginBottom: '8px', color: 'var(--accent-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Activity size={14} /> Knowledge Graph Metrics
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 14px' }}>
+            <div>
+              <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>Total Nodes</div>
+              <div style={{ fontWeight: 600, fontSize: '1rem' }}>{graphStats.totalNodes}</div>
+            </div>
+            <div>
+              <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>Total Links</div>
+              <div style={{ fontWeight: 600, fontSize: '1rem' }}>{graphStats.totalLinks}</div>
+            </div>
+            <div>
+              <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>Density</div>
+              <div style={{ fontWeight: 600, fontSize: '1rem' }}>{(graphStats.density * 100).toFixed(1)}%</div>
+            </div>
+            <div>
+              <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>Isolated Nodes</div>
+              <div style={{ fontWeight: 600, fontSize: '1rem' }}>{graphStats.isolatedNodesCount}</div>
+            </div>
+            {graphStats.topHubs.length > 0 && (
+              <div style={{ gridColumn: 'span 2', borderTop: '1px solid var(--border-subtle)', paddingTop: '6px', marginTop: '2px' }}>
+                <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', marginBottom: '4px' }}>Top Connected Hubs</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                  {graphStats.topHubs.slice(0, 3).map(hub => (
+                    <div key={hub.noteId} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem' }}>
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '140px' }}>{hub.title}</span>
+                      <span style={{ fontWeight: 600, color: 'var(--accent-primary)' }}>{hub.degree} links</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Path Finder Banner */}
+      {pathFinder.active && (
+        <div className="glass-pill" style={{
+          position: 'absolute',
+          top: '70px',
+          right: '16px',
+          padding: '6px 14px',
+          borderRadius: 'var(--radius-pill)',
+          zIndex: 1000,
+          fontSize: '0.8rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          border: '1px solid var(--accent-gold, #f59e0b)'
+        }}>
+          <Route size={14} style={{ color: 'var(--accent-gold, #f59e0b)' }} />
+          <span>
+            {!pathFinder.startNodeId
+              ? 'Click starting node on canvas'
+              : !pathFinder.endNodeId
+                ? 'Click destination node'
+                : `Path found: ${pathFinder.pathSet.size} nodes`}
+          </span>
+          <button
+            className="btn btn-sm btn-secondary"
+            style={{ padding: '2px 6px', fontSize: '0.72rem' }}
+            onClick={() => setPathFinder({ active: false, startNodeId: null, endNodeId: null, pathSet: new Set() })}
+          >
+            Clear
+          </button>
+        </div>
+      )}
 
       {/* Help Modal Popup */}
       {showHelp && (

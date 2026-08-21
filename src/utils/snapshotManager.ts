@@ -120,13 +120,93 @@ export const restoreSnapshot = async (snapshotId: number, pageId: number): Promi
 };
 
 /**
+ * Structural diff result between two snapshot states.
+ */
+export interface SnapshotDiff {
+  addedNotes: Note[];
+  removedNotes: Note[];
+  modifiedNotes: {
+    before: Note;
+    after: Note;
+    changedFields: string[];
+  }[];
+  addedLinksCount: number;
+  removedLinksCount: number;
+}
+
+/**
+ * Computes the difference between two snapshot datasets.
+ * Matches notes by UUID (if present) or title.
+ *
+ * @param before - Base snapshot state
+ * @param after - Target snapshot state
+ * @returns Structured {@link SnapshotDiff} summary
+ */
+export function computeSnapshotDiff(
+  before: { notes: Note[]; links: Link[] },
+  after: { notes: Note[]; links: Link[] }
+): SnapshotDiff {
+  const getNoteKey = (n: Note) => n.uuid || n.title.toLowerCase().trim();
+
+  const beforeMap = new Map<string, Note>();
+  before.notes.forEach(n => beforeMap.set(getNoteKey(n), n));
+
+  const afterMap = new Map<string, Note>();
+  after.notes.forEach(n => afterMap.set(getNoteKey(n), n));
+
+  const addedNotes: Note[] = [];
+  const modifiedNotes: SnapshotDiff['modifiedNotes'] = [];
+
+  for (const [key, afterNote] of afterMap.entries()) {
+    const beforeNote = beforeMap.get(key);
+    if (!beforeNote) {
+      addedNotes.push(afterNote);
+    } else {
+      const changedFields: string[] = [];
+      if (beforeNote.title !== afterNote.title) changedFields.push('title');
+      if (beforeNote.content !== afterNote.content) changedFields.push('content');
+      if (beforeNote.category !== afterNote.category) changedFields.push('category');
+      if (JSON.stringify(beforeNote.tags) !== JSON.stringify(afterNote.tags)) changedFields.push('tags');
+      if (beforeNote.color !== afterNote.color) changedFields.push('color');
+
+      if (changedFields.length > 0) {
+        modifiedNotes.push({
+          before: beforeNote,
+          after: afterNote,
+          changedFields
+        });
+      }
+    }
+  }
+
+  const removedNotes: Note[] = [];
+  for (const [key, beforeNote] of beforeMap.entries()) {
+    if (!afterMap.has(key)) {
+      removedNotes.push(beforeNote);
+    }
+  }
+
+  const beforeLinkCount = before.links.length;
+  const afterLinkCount = after.links.length;
+
+  return {
+    addedNotes,
+    removedNotes,
+    modifiedNotes,
+    addedLinksCount: Math.max(0, afterLinkCount - beforeLinkCount),
+    removedLinksCount: Math.max(0, beforeLinkCount - afterLinkCount)
+  };
+}
+
+/**
  * Deletes a saved snapshot record from IndexedDB.
  *
  * @param snapshotId - Primary key ID of the snapshot to delete.
- *
  * @returns A promise that resolves when the snapshot is deleted.
  */
 export const deleteSnapshot = async (snapshotId: number): Promise<void> => {
   await db.snapshots.delete(snapshotId);
 };
+
+
 

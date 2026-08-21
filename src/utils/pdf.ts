@@ -5,11 +5,6 @@
  * extracting plain text across all document pages for note creation or RAG ingestion.
  */
 
-import * as pdfjsLib from 'pdfjs-dist';
-
-// Configure the PDF.js background worker script source from the bundled package distribution
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).href;
-
 /**
  * Extracts concatenated plain text content across all pages of an uploaded PDF file.
  *
@@ -21,16 +16,24 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.mi
  * @returns A promise resolving to the trimmed plain text extracted from all pages of the PDF.
  *
  * @throws {Error} If the PDF file is corrupted, password-protected, or fails during parsing.
- *
- * @example
- * ```ts
- * const fileInput = document.querySelector('input[type="file"]');
- * const file = fileInput.files[0];
- * const extractedText = await extractTextFromPDF(file);
- * console.log('Extracted PDF Content:', extractedText);
- * ```
  */
 export const extractTextFromPDF = async (file: File): Promise<string> => {
+  // Ensure DOMMatrix exists for Node.js / test environments
+  if (typeof globalThis !== 'undefined' && typeof (globalThis as unknown as { DOMMatrix?: unknown }).DOMMatrix === 'undefined') {
+    (globalThis as unknown as { DOMMatrix: unknown }).DOMMatrix = class DOMMatrix {};
+  }
+
+  const pdfjsLib = await import('pdfjs-dist');
+
+  // Configure the PDF.js background worker script source
+  if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
+    try {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).href;
+    } catch {
+      // Fallback for non-browser/test environments
+    }
+  }
+
   // Convert the File blob into an ArrayBuffer for PDF.js binary loading
   const arrayBuffer = await file.arrayBuffer();
   const typedArray = new Uint8Array(arrayBuffer);
@@ -54,4 +57,3 @@ export const extractTextFromPDF = async (file: File): Promise<string> => {
   
   return fullText.trim();
 };
-

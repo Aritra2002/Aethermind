@@ -20,9 +20,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import type { Note } from '../db';
 import { callAI } from '../utils/aiClient';
-import { marked } from 'marked';
-import DOMPurify from 'dompurify';
-import { Sparkles } from 'lucide-react';
+import { safeRenderMarkdown } from '../utils/sanitizer';
+import { Sparkles, Square } from 'lucide-react';
 
 /**
  * Props for the DiscoveryDigestModal component.
@@ -66,6 +65,7 @@ export const DiscoveryDigestModal: React.FC<DiscoveryDigestModalProps> = ({ isOp
   // Reset state whenever the modal opens
   useEffect(() => {
     if (isOpen) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setDigest(null);
       setError('');
     }
@@ -73,7 +73,7 @@ export const DiscoveryDigestModal: React.FC<DiscoveryDigestModalProps> = ({ isOp
 
   // Trigger automated serendipity generation upon opening
   useEffect(() => {
-    if (!isOpen || isLoading) return;
+    if (!isOpen) return;
 
     let cancelled = false;
 
@@ -126,29 +126,57 @@ export const DiscoveryDigestModal: React.FC<DiscoveryDigestModalProps> = ({ isOp
 
   return (
     <div className="modal d-block" tabIndex={-1} style={{ zIndex: 1060 }} onClick={onClose}>
-      <div className="modal-dialog modal-dialog-centered modal-lg" style={{ maxWidth: '600px' }} onClick={e => e.stopPropagation()}>
-        <div className="modal-content glass-panel border-0">
+      <div className="modal-dialog modal-dialog-centered modal-lg" style={{ width: 'min(94vw, 640px)', maxWidth: '96vw', margin: 'auto' }} onClick={e => e.stopPropagation()}>
+        <div className="modal-content glass-panel border-0" style={{ maxHeight: 'min(88dvh, 760px)' }}>
           {/* Modal Header */}
           <div className="modal-header border-0">
             <div className="d-flex align-items-center gap-2" style={{ color: 'var(--accent-gold)' }}>
               <Sparkles size={18} />
               <h5 className="modal-title">Daily Discovery Digest</h5>
             </div>
-            <button type="button" className="btn-close btn-close-overlay" onClick={onClose} aria-label="Close" />
+            <div className="d-flex align-items-center gap-2">
+              {isLoading && (
+                <button
+                  type="button"
+                  className="btn btn-sm btn-danger d-flex align-items-center gap-1"
+                  onClick={() => {
+                    abortRef.current?.abort();
+                    setIsLoading(false);
+                  }}
+                  style={{ padding: '3px 8px', fontSize: '0.75rem' }}
+                >
+                  <Square size={11} fill="currentColor" /> Stop
+                </button>
+              )}
+              <button type="button" className="btn-close btn-close-overlay" onClick={onClose} aria-label="Close" />
+            </div>
           </div>
 
           {/* Modal Body */}
           <div className="modal-body">
             {error && <div style={{ color: '#ef4444' }}>{error}</div>}
             {isLoading && !digest && (
-              <div className="spin-pulse" style={{ color: 'var(--text-secondary)' }}>
-                Finding a surprising connection...
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: 'var(--card-nested-bg)', borderRadius: '6px' }}>
+                <div className="spin-pulse" style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+                  Finding a surprising connection...
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-danger"
+                  onClick={() => {
+                    abortRef.current?.abort();
+                    setIsLoading(false);
+                  }}
+                  style={{ padding: '3px 10px', fontSize: '0.78rem' }}
+                >
+                  <Square size={11} fill="currentColor" /> Stop
+                </button>
               </div>
             )}
             {digest && (
               <div 
                 className="markdown-body" 
-                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(marked.parse(digest) as string) }} 
+                dangerouslySetInnerHTML={{ __html: safeRenderMarkdown(digest) }} 
               />
             )}
           </div>

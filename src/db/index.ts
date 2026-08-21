@@ -69,6 +69,50 @@ export interface Note {
   // Semantic Search & AI
   /** High-dimensional vector embedding representing the note's semantic content. */
   embedding?: number[];
+
+  // Rich Metadata & Lifecycle (Version 8)
+  /** Unique stable UUID string for sync and deep linking. */
+  uuid?: string;
+  /** 1 if pinned/favorited, 0 otherwise (indexed number for Dexie boolean queries). */
+  isFavorite?: number | boolean;
+  /** 1 if archived, 0 otherwise. */
+  isArchived?: number | boolean;
+  /** 1 if moved to trash bin, 0 otherwise. */
+  isTrash?: number | boolean;
+  /** Unix epoch timestamp when the note was moved to trash. */
+  trashDate?: number;
+  /** Alternative alias titles for wiki-linking. */
+  aliases?: string[];
+  /** Original external source URL if imported from web or clipper. */
+  sourceUrl?: string;
+  /** Origin source category. */
+  sourceType?: 'manual' | 'web-clipper' | 'pdf' | 'docx' | 'ai';
+  /** Computed word count of note content. */
+  wordCount?: number;
+  /** Estimated reading time in minutes (assuming 200 wpm). */
+  readingTime?: number;
+  /** Short AI-generated or user summary of the note. */
+  summary?: string;
+}
+
+/**
+ * Audit log entry for tracking state changes executed by AI or user.
+ */
+export interface AuditLogEntry {
+  /** Auto-incrementing primary key. */
+  id?: number;
+  /** Unix epoch timestamp when the action occurred. */
+  timestamp: number;
+  /** Action category (e.g. 'create_note', 'edit_note', 'delete_note', 'import_zip'). */
+  actionType: string;
+  /** Title or identifier of target entity. */
+  targetTitle: string;
+  /** Result status. */
+  status: 'applied' | 'rejected' | 'failed' | 'restored';
+  /** Human-readable details or diff summary. */
+  details?: string;
+  /** Optional error message if failed. */
+  error?: string;
 }
 
 /**
@@ -154,6 +198,8 @@ export class AetherMindDB extends Dexie {
   snapshots!: Table<GraphSnapshot, number>;
   /** Table containing document chunks and embeddings for RAG. */
   documents!: Table<DocumentChunk, number>;
+  /** Table containing historical audit logs. */
+  auditLogs!: Table<AuditLogEntry, number>;
 
   /**
    * Initializes the IndexedDB database instance with all schema versions and migration rules.
@@ -208,9 +254,33 @@ export class AetherMindDB extends Dexie {
     this.version(7).stores({
       documents: '++id, documentId, documentName, createdAt'
     });
+
+    // Version 8: Note lifecycle states (isFavorite, isArchived, isTrash, uuid) and Audit Logs
+    this.version(8).stores({
+      notes: '++id, pageId, title, *tags, category, createdAt, updatedAt, nextReview, isFavorite, isArchived, isTrash, uuid',
+      auditLogs: '++id, timestamp, actionType, targetTitle, status'
+    }).upgrade(async tx => {
+      await tx.table('notes').toCollection().modify((note: Partial<Note>) => {
+        if (note.isFavorite === undefined) note.isFavorite = 0;
+        if (note.isArchived === undefined) note.isArchived = 0;
+        if (note.isTrash === undefined) note.isTrash = 0;
+        if (!note.uuid) {
+          note.uuid = 'note_' + Math.random().toString(36).substring(2, 9) + '_' + Date.now().toString(36);
+        }
+        if (note.wordCount === undefined && note.content) {
+          const words = note.content.trim().split(/\s+/).filter(Boolean).length;
+          note.wordCount = words;
+          note.readingTime = Math.ceil(words / 200);
+        }
+      });
+    });
   }
 }
 
 /** Global singleton instance of {@link AetherMindDB}. */
 export const db = new AetherMindDB();
+
+export { notesRepository, type NoteFilterOptions } from './repositories/notesRepository';
+export { linksRepository } from './repositories/linksRepository';
+export { pagesRepository } from './repositories/pagesRepository';
 

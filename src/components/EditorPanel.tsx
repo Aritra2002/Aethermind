@@ -8,14 +8,13 @@
  */
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { marked } from 'marked';
-import DOMPurify from 'dompurify';
+import { safeRenderMarkdown } from '../utils/sanitizer';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db';
 import type { Note, Link, Category } from '../db';
-import { updateNote, deleteNote } from '../db/helpers';
+import { updateNote, deleteNote, toggleFavoriteNote, archiveNote, restoreNote } from '../db/helpers';
 import { useDebounce } from '../hooks/useDebounce';
-import { X, Trash2, Edit3, Tag, Folder, Bold, Italic, Heading, Code, Link as LinkIcon, Wand2, PlusCircle, FileText, SplitSquareHorizontal, PenTool, Sparkles } from 'lucide-react';
+import { X, Trash2, Edit3, Tag, Folder, Bold, Italic, Heading, Code, Link as LinkIcon, Wand2, PlusCircle, FileText, SplitSquareHorizontal, PenTool, Sparkles, Star, Archive, ArchiveRestore, Square, GripHorizontal } from 'lucide-react';
 import Prism from 'prismjs';
 import 'prismjs/themes/prism-tomorrow.css';
 import { ColorPicker } from './ColorPicker';
@@ -25,6 +24,7 @@ import { useToast } from './ToastContext';
 import { cosineSimilarity } from '../utils/vectorSearch';
 import { ConnectionDiscovery } from './ConnectionDiscovery';
 import { Dropdown } from './ui/Dropdown';
+import { formatShortcut, isModifierKeyCombo } from '../utils/keyboardUtils';
 
 /**
  * Props for the {@link EditorPanel} component.
@@ -72,7 +72,8 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
   const abortRef = useRef<AbortController | null>(null);
 
   /** All notes in the database queried live for category/link resolution. */
-  const allNotes = useLiveQuery(() => db.notes.toArray()) || [];
+  const allNotesRaw = useLiveQuery(() => db.notes.toArray());
+  const allNotes = useMemo(() => allNotesRaw || [], [allNotesRaw]);
 
   /** Local state for note title. */
   const [title, setTitle] = useState('');
@@ -121,6 +122,9 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
   /** DOM ref to the markdown textarea editor element. */
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  /** DOM ref to the resizable note content container (enclosing textarea and preview). */
+  const contentContainerRef = useRef<HTMLDivElement>(null);
+
   /**
    * Computes the Set of note IDs connected to the currently open note across all links.
    */
@@ -130,24 +134,89 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
       .flatMap(l => [l.sourceId, l.targetId])
   ), [links, note?.id]);
 
+  // Online / Offline tracking
+  const [isOnline, setIsOnline] = useState<boolean>(typeof navigator !== 'undefined' ? navigator.onLine : true);
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  /** Dynamic save state status ('saved' | 'saving' | 'error'). */
+  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error'>('saved');
+
+  /** Reference holding the latest pending content for loss-prevention immediate flush. */
+  const pendingContentRef = useRef<string>(note?.content || '');
+  const activeNoteIdRef = useRef<number | undefined>(note?.id);
+
   // Synchronize local form inputs when selected note changes
   useEffect(() => {
     if (note) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setTitle(note.title);
       setContent(note.content);
+      pendingContentRef.current = note.content;
+      activeNoteIdRef.current = note.id;
       setCategory(note.category || 'general');
       setNodeColor(note.color || '');
       setTagsInput(note.tags ? note.tags.join(', ') : '');
+      setSaveStatus('saved');
     }
   }, [note]);
+
+  /**
+   * Immediately flushes any unpersisted edits to IndexedDB before switching notes or exiting.
+   */
+  const flushSaveImmediately = async () => {
+    const id = activeNoteIdRef.current;
+    const text = pendingContentRef.current;
+    if (id && text !== undefined) {
+      try {
+        const words = text.trim().split(/\s+/).filter(Boolean).length;
+        await updateNote(id, { content: text, wordCount: words, readingTime: Math.max(1, Math.ceil(words / 200)) });
+        setSaveStatus('saved');
+      } catch (err) {
+        console.error('Immediate flush save error:', err);
+      }
+    }
+  };
+
+  // Immediate flush before window unload
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      flushSaveImmediately();
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      flushSaveImmediately();
+    };
+  }, []);
+
+  /** Word count of current content. */
+  const wordCount = useMemo(() => content.trim().split(/\s+/).filter(Boolean).length, [content]);
+
+  /** Estimated reading time in minutes. */
+  const readingTime = useMemo(() => Math.max(1, Math.ceil(wordCount / 200)), [wordCount]);
 
   /**
    * Debounced automatic persistence for note markdown body (500ms debounce).
    */
   const debouncedSaveContent = useDebounce(async (id: number, val: string) => {
-    await updateNote(id, { content: val });
-  }, 500, (err) => showToast('Auto-save failed: ' + err, 'error'));
+    try {
+      const words = val.trim().split(/\s+/).filter(Boolean).length;
+      await updateNote(id, { content: val, wordCount: words, readingTime: Math.max(1, Math.ceil(words / 200)) });
+      setSaveStatus('saved');
+    } catch (err: unknown) {
+      setSaveStatus('error');
+      showToast('Auto-save failed: ' + (err instanceof Error ? err.message : String(err)), 'error');
+    }
+  }, 500);
 
   /**
    * Debounced automatic persistence for note tags (800ms debounce).
@@ -159,6 +228,36 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
       .filter(t => t.length > 0);
     await updateNote(id, { tags: tagsArray });
   }, 800);
+
+  /** Wiki-link autocomplete state */
+  const [wikiSuggest, setWikiSuggest] = useState<{
+    isOpen: boolean;
+    query: string;
+    selectedIndex: number;
+    cursorPos: number;
+    top: number;
+    left: number;
+  } | null>(null);
+
+  /** Matching note candidates for wiki-link autocomplete */
+  const wikiMatches = useMemo(() => {
+    if (!wikiSuggest || !wikiSuggest.isOpen) return [];
+    const q = wikiSuggest.query.toLowerCase();
+    const pageNotes = allNotes.filter(n => n.pageId === note?.pageId && n.id !== note?.id);
+    return pageNotes.filter(n => n.title.toLowerCase().includes(q)).slice(0, 8);
+  }, [wikiSuggest, allNotes, note?.pageId, note?.id]);
+
+  /** Notes that link to or mention this note (Backlinks) */
+  const incomingBacklinks = useMemo(() => {
+    if (!note) return [];
+    const lowerTitle = note.title.toLowerCase();
+    const wikiToken = `[[${lowerTitle}]]`;
+    return allNotes.filter(n =>
+      n.pageId === note.pageId &&
+      n.id !== note.id &&
+      (n.content.toLowerCase().includes(wikiToken) || (n.linkedNoteIds && n.linkedNoteIds.includes(note.id!)))
+    );
+  }, [allNotes, note]);
 
   /**
    * Persists note title changes immediately when the title input loses focus.
@@ -209,15 +308,81 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
   };
 
   /**
-   * Handles markdown body edits and triggers debounced save.
-   *
-   * @param {React.ChangeEvent<HTMLTextAreaElement>} e - Change event.
+   * Completes the wiki-link insertion when an autocomplete candidate is selected.
+   */
+  const handleSelectWikiCandidate = (candidateTitle: string) => {
+    const textarea = textareaRef.current;
+    if (!textarea || !wikiSuggest) return;
+
+    const cursorPos = textarea.selectionStart;
+    const textBefore = content.substring(0, cursorPos);
+    const lastOpenIdx = textBefore.lastIndexOf('[[');
+    if (lastOpenIdx === -1) return;
+
+    const prefix = content.substring(0, lastOpenIdx);
+    const suffix = content.substring(cursorPos);
+    const inserted = `[[${candidateTitle}]] `;
+    const updatedContent = prefix + inserted + suffix;
+
+    setContent(updatedContent);
+    pendingContentRef.current = updatedContent;
+    setSaveStatus('saving');
+    if (note) debouncedSaveContent(note.id!, updatedContent);
+
+    setWikiSuggest(null);
+    setTimeout(() => {
+      textarea.focus();
+      const newCursor = prefix.length + inserted.length;
+      textarea.setSelectionRange(newCursor, newCursor);
+    }, 0);
+  };
+
+  /**
+   * Handles markdown body edits, updates pending content ref, and triggers autocomplete detection.
    */
   const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const val = e.target.value;
     setContent(val);
+    pendingContentRef.current = val;
+    setSaveStatus('saving');
     if (note) {
       debouncedSaveContent(note.id!, val);
+    }
+
+    // Wiki-link autocomplete detection
+    const cursorPos = e.target.selectionStart;
+    const textBefore = val.substring(0, cursorPos);
+    const lastOpenIdx = textBefore.lastIndexOf('[[');
+    const lastCloseIdx = textBefore.lastIndexOf(']]');
+
+    if (lastOpenIdx !== -1 && lastOpenIdx >= lastCloseIdx) {
+      const query = textBefore.substring(lastOpenIdx + 2);
+      if (!query.includes('\n')) {
+        const textarea = textareaRef.current;
+        if (textarea) {
+          const lines = textBefore.split('\n');
+          const currentLine = lines.length;
+          const currentLineLength = lines[lines.length - 1].length;
+          const lineHeight = parseInt(getComputedStyle(textarea).lineHeight, 10) || 24;
+          const charWidth = parseInt(getComputedStyle(textarea).fontSize, 10) * 0.6 || 8;
+
+          const top = Math.min((currentLine * lineHeight) - textarea.scrollTop + 10, textarea.clientHeight - 140);
+          const left = Math.min((currentLineLength * charWidth) + 16, textarea.clientWidth - 220);
+
+          setWikiSuggest({
+            isOpen: true,
+            query,
+            selectedIndex: 0,
+            cursorPos,
+            top: Math.max(20, top),
+            left: Math.max(10, left)
+          });
+        }
+      } else {
+        setWikiSuggest(null);
+      }
+    } else {
+      setWikiSuggest(null);
     }
   };
 
@@ -266,6 +431,7 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
     const text = textarea.value;
     const newText = text.substring(0, start) + before + text.substring(start, end) + after + text.substring(end);
     setContent(newText);
+    pendingContentRef.current = newText;
     if (note) debouncedSaveContent(note.id!, newText);
     
     setTimeout(() => {
@@ -371,11 +537,147 @@ Return exactly and ONLY the summary text, with no markdown code blocks or conver
   };
 
   /**
-   * Keyboard handler for triggering slash command menu on `/` or dismissing on `Escape`.
-   *
-   * @param {React.KeyboardEvent<HTMLTextAreaElement>} e - Keyboard event.
+   * Transforms currently selected or entire note text using contextual AI writing instructions.
+   */
+  const handleInlineAiTransform = async (instruction: string) => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const hasSelection = start !== end;
+    const targetText = hasSelection ? textarea.value.substring(start, end).trim() : textarea.value.trim();
+    
+    if (!targetText) {
+      showToast('Write or select content to transform with AI', 'info');
+      return;
+    }
+
+    try {
+      setIsAiLoading(true);
+      const systemPrompt = `You are an expert AI writing assistant for a personal knowledge graph.
+Instruction: ${instruction}
+Requirements:
+1. Return ONLY the replacement text in clean markdown format.
+2. Do not wrap the response in outer code blocks (\`\`\`) unless code is specifically requested.
+3. Do not include conversational greetings or explanations.`;
+
+      const userPrompt = `Target Text:\n${targetText}`;
+      abortRef.current?.abort();
+      abortRef.current = new AbortController();
+      const response = await callAI(systemPrompt, userPrompt, undefined, abortRef.current.signal);
+      
+      const trimmedResponse = response.trim();
+      const updatedText = hasSelection
+        ? textarea.value.substring(0, start) + trimmedResponse + textarea.value.substring(end)
+        : trimmedResponse;
+
+      setContent(updatedText);
+      pendingContentRef.current = updatedText;
+      if (note) debouncedSaveContent(note.id!, updatedText);
+      showToast('AI Transformation Applied', 'success');
+    } catch (e: unknown) {
+      showToast(e instanceof Error ? e.message : 'AI operation failed', 'error');
+    } finally {
+      setIsAiLoading(false);
+    }
+  };
+
+  /** Custom user-dragged vertical height for the note textarea/preview canvas (in pixels). */
+  const [customTextareaHeight, setCustomTextareaHeight] = useState<number | null>(null);
+  const isDraggingResize = useRef(false);
+  const startDragY = useRef(0);
+  const startDragHeight = useRef(0);
+
+  /**
+   * Interactive pointer drag handler for vertical textarea & preview canvas resizing.
+   */
+  const handleResizePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    isDraggingResize.current = true;
+    startDragY.current = e.clientY;
+    const currentH = contentContainerRef.current?.getBoundingClientRect().height 
+      || textareaRef.current?.getBoundingClientRect().height 
+      || previewRef.current?.getBoundingClientRect().height 
+      || 300;
+    startDragHeight.current = currentH;
+
+    const handlePointerMove = (moveEvent: PointerEvent) => {
+      if (!isDraggingResize.current) return;
+      const delta = moveEvent.clientY - startDragY.current;
+      const minH = 140;
+      const maxH = Math.max(minH, window.innerHeight * 0.85);
+      const nextHeight = Math.round(Math.max(minH, Math.min(maxH, startDragHeight.current + delta)));
+      setCustomTextareaHeight(nextHeight);
+    };
+
+    const handlePointerUp = () => {
+      isDraggingResize.current = false;
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+    };
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+  };
+
+  /**
+   * Keyboard handler for autocomplete navigation, formatting shortcuts, and slash commands.
    */
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // 1. Handle Wiki-Link Autocomplete Menu Navigation
+    if (wikiSuggest?.isOpen && wikiMatches.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setWikiSuggest(s => s ? ({ ...s, selectedIndex: (s.selectedIndex + 1) % wikiMatches.length }) : null);
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setWikiSuggest(s => s ? ({ ...s, selectedIndex: (s.selectedIndex - 1 + wikiMatches.length) % wikiMatches.length }) : null);
+        return;
+      }
+      if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        handleSelectWikiCandidate(wikiMatches[wikiSuggest.selectedIndex].title);
+        return;
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setWikiSuggest(null);
+        return;
+      }
+    }
+
+    // 2. Keyboard Formatting & Productivity Shortcuts (Universal across Mac/Windows/Android/iOS)
+    if (isModifierKeyCombo(e, 's')) {
+      e.preventDefault();
+      flushSaveImmediately();
+      showToast('Note saved', 'info');
+      return;
+    }
+    if (isModifierKeyCombo(e, 'b')) {
+      e.preventDefault();
+      insertText('**', '**');
+      return;
+    }
+    if (isModifierKeyCombo(e, 'i')) {
+      e.preventDefault();
+      insertText('_', '_');
+      return;
+    }
+    if (isModifierKeyCombo(e, 'k')) {
+      e.preventDefault();
+      insertText('[[', ']]');
+      return;
+    }
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      insertText('  ');
+      return;
+    }
+
+    // 3. Slash Command trigger
     if (e.key === '/') {
       const textarea = textareaRef.current;
       if (textarea) {
@@ -437,6 +739,28 @@ Return exactly and ONLY the summary text, with no markdown code blocks or conver
           activeLinks.push({ element: link, listener });
         }
       });
+      // Setup interactive task checkbox toggles in preview
+      const checkboxes = previewRef.current.querySelectorAll('input[type="checkbox"]');
+      checkboxes.forEach((cb, index) => {
+        const checkboxListener = () => {
+          let count = 0;
+          const updatedContent = content.replace(/- \[( |x|X)\]/g, (match) => {
+            if (count === index) {
+              count++;
+              return match.includes('x') || match.includes('X') ? '- [ ]' : '- [x]';
+            }
+            count++;
+            return match;
+          });
+          setContent(updatedContent);
+          if (note) {
+            debouncedSaveContent(note.id!, updatedContent);
+          }
+        };
+        (cb as HTMLElement).style.cursor = 'pointer';
+        cb.removeAttribute('disabled');
+        cb.addEventListener('click', checkboxListener);
+      });
     }
 
     return () => {
@@ -444,31 +768,15 @@ Return exactly and ONLY the summary text, with no markdown code blocks or conver
         element.removeEventListener('click', listener);
       });
     };
-  }, [editMode, content, onSplitRight, onJumpToNote]);
+  }, [editMode, content, onSplitRight, onJumpToNote, note, debouncedSaveContent]);
 
   /**
    * Converts `[[Wiki Links]]` to custom HTML hash anchors, parses Markdown to HTML,
-   * and sanitizes using DOMPurify.
+   * and sanitizes using safeRenderMarkdown.
    */
   const renderedContent = useMemo(() => {
     if (!content) return '<p style="color: var(--text-secondary); font-style: italic; user-select: none;">No content yet. Write something...</p>';
-    
-    // Replace [[Wiki Note Name]] with a custom link schema <a href="#wiki-Wiki%20Note%20Name">Wiki Note Name</a>
-    const processedContent = content.replace(/\[\[(.*?)\]\]/g, (_, p1) => {
-      const cleanTitle = p1.trim();
-      return `[${cleanTitle}](#wiki-${encodeURIComponent(cleanTitle)})`;
-    });
-
-    try {
-      // Safely parse and sanitize markdown
-      const rawHtml = marked.parse(processedContent) as string;
-      return DOMPurify.sanitize(rawHtml, {
-        ADD_ATTR: ['href'],
-        ALLOWED_URI_REGEXP: /^(https?|ftp|mailto|#wiki-)/i,
-      });
-    } catch {
-      return '<p>Error rendering markdown.</p>';
-    }
+    return safeRenderMarkdown(content);
   }, [content]);
 
   // Empty state when no note is selected
@@ -518,19 +826,63 @@ Return exactly and ONLY the summary text, with no markdown code blocks or conver
       {/* Panel Header */}
       <div className="editor-header">
         <div className="category-indicator" style={{ backgroundColor: categoryColor }}></div>
-        <span className="note-status-badge">Note Saved</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          <span className={`note-status-badge ${!isOnline ? 'offline' : saveStatus}`}>
+            {!isOnline ? 'Offline (Saved)' : saveStatus === 'saving' ? 'Saving...' : saveStatus === 'error' ? 'Save Error' : 'Note Saved'}
+          </span>
+          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+            {wordCount} words · {readingTime}m read
+          </span>
+        </div>
         <div className="header-actions">
+          {/* Favorite Toggle */}
+          <button 
+            className="icon-btn" 
+            onClick={async () => {
+              if (note?.id) {
+                const isFav = await toggleFavoriteNote(note.id);
+                showToast(isFav ? 'Pinned to Favorites' : 'Removed from Favorites', 'info');
+              }
+            }}
+            aria-label="Toggle Favorite"
+            title={Number(note?.isFavorite) === 1 ? 'Favorited' : 'Add to Favorites'}
+            style={{ color: Number(note?.isFavorite) === 1 ? 'var(--accent-gold, #f59e0b)' : 'inherit' }}
+          >
+            <Star size={17} fill={Number(note?.isFavorite) === 1 ? 'var(--accent-gold, #f59e0b)' : 'none'} />
+          </button>
+
+          {/* Archive Toggle */}
+          <button 
+            className="icon-btn" 
+            onClick={async () => {
+              if (note?.id) {
+                if (Number(note.isArchived) === 1) {
+                  await restoreNote(note.id);
+                  showToast('Note restored from Archive', 'info');
+                } else {
+                  await archiveNote(note.id);
+                  showToast('Note moved to Archive', 'info');
+                }
+              }
+            }}
+            aria-label="Toggle Archive"
+            title={Number(note?.isArchived) === 1 ? 'Restore from Archive' : 'Archive Note'}
+            style={{ color: Number(note?.isArchived) === 1 ? 'var(--accent-primary)' : 'inherit' }}
+          >
+            {Number(note?.isArchived) === 1 ? <ArchiveRestore size={17} /> : <Archive size={17} />}
+          </button>
+
           <button className="icon-btn ai-btn" onClick={handleAiSummarize} disabled={isAiLoading || !content.trim()} aria-label="Summarize with AI" title="Auto-Summarize Note (AI)">
-            <FileText size={18} className={isAiLoading ? 'spin-pulse' : ''} style={{ color: 'var(--node-amber)' }} />
+            <FileText size={17} className={isAiLoading ? 'spin-pulse' : ''} style={{ color: 'var(--node-amber)' }} />
           </button>
           <button className="icon-btn ai-btn" onClick={handleAiAutoTag} disabled={isAiLoading} aria-label="Auto-Tag with AI" title="Auto-Tag & Suggest Links (AI)">
-            <Wand2 size={18} className={isAiLoading ? 'spin-pulse' : ''} style={{ color: 'var(--node-amber)' }} />
+            <Wand2 size={17} className={isAiLoading ? 'spin-pulse' : ''} style={{ color: 'var(--node-amber)' }} />
           </button>
           <button className="icon-btn delete-btn" onClick={handleDelete} aria-label="Delete note" title="Delete note">
-            <Trash2 size={18} />
+            <Trash2 size={17} />
           </button>
           <button className="icon-btn close-btn" onClick={onClose} aria-label="Close panel" title="Close panel">
-            <X size={18} />
+            <X size={17} />
           </button>
         </div>
       </div>
@@ -586,32 +938,20 @@ Return exactly and ONLY the summary text, with no markdown code blocks or conver
         {/* Mode Switcher & Toolbar */}
         <div style={{ display: 'flex', gap: '8px', paddingBottom: '10px', borderBottom: '1px solid var(--border-color)', marginBottom: '12px', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
           {/* Segmented Mode Pill */}
-          <div className="glass-pill" style={{ display: 'flex', padding: '3px', gap: '2px', background: 'var(--surface-pill-bg)' }}>
+          <div className="segmented-control glass-pill">
             <button 
-              className="tab-btn"
+              type="button"
+              className={`tab-btn ${editMode ? 'active' : ''}`}
               onClick={() => setEditMode(true)}
-              style={{
-                padding: '4px 12px',
-                fontSize: '0.78rem',
-                borderRadius: 'var(--radius-pill)',
-                background: editMode ? 'var(--accent-primary)' : 'transparent',
-                color: editMode ? '#ffffff' : 'var(--text-secondary)',
-                fontWeight: editMode ? 600 : 500
-              }}
+              aria-pressed={editMode}
             >
-              <PenTool size={13} /> Edit
+              <PenTool size={13} /> Edit Mode
             </button>
             <button 
-              className="tab-btn"
+              type="button"
+              className={`tab-btn ${!editMode ? 'active' : ''}`}
               onClick={() => setEditMode(false)}
-              style={{
-                padding: '4px 12px',
-                fontSize: '0.78rem',
-                borderRadius: 'var(--radius-pill)',
-                background: !editMode ? 'var(--accent-primary)' : 'transparent',
-                color: !editMode ? '#ffffff' : 'var(--text-secondary)',
-                fontWeight: !editMode ? 600 : 500
-              }}
+              aria-pressed={!editMode}
             >
               <FileText size={13} /> Preview
             </button>
@@ -619,59 +959,168 @@ Return exactly and ONLY the summary text, with no markdown code blocks or conver
 
           {/* Quick Format Actions (visible in Edit mode) */}
           {editMode && (
-            <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-              <button className="icon-btn" onClick={() => insertText('**', '**')} aria-label="Bold" title="Bold (**)"><Bold size={13} /></button>
-              <button className="icon-btn" onClick={() => insertText('_', '_')} aria-label="Italic" title="Italic (_)"><Italic size={13} /></button>
+            <div style={{ display: 'flex', gap: '4px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <button className="icon-btn" onClick={() => insertText('**', '**')} aria-label="Bold" title={`Bold (${formatShortcut('B')})`}><Bold size={13} /></button>
+              <button className="icon-btn" onClick={() => insertText('_', '_')} aria-label="Italic" title={`Italic (${formatShortcut('I')})`}><Italic size={13} /></button>
               <button className="icon-btn" onClick={() => insertText('### ')} aria-label="Heading" title="Heading (###)"><Heading size={13} /></button>
               <button className="icon-btn" onClick={() => insertText('```\n', '\n```')} aria-label="Code Block" title="Code Block (```)"><Code size={13} /></button>
-              <button className="icon-btn" onClick={() => insertText('[[', ']]')} aria-label="Wiki Link" title="Wiki Link ([[]])"><LinkIcon size={13} /></button>
+              <button className="icon-btn" onClick={() => insertText('[[', ']]')} aria-label="Wiki Link" title={`Wiki Link (${formatShortcut('K')})`}><LinkIcon size={13} /></button>
+              
+              {/* Quick AI Writing Assistant */}
+              {isAiLoading ? (
+                <button
+                  type="button"
+                  className="btn btn-sm btn-danger d-flex align-items-center gap-1"
+                  onClick={() => {
+                    abortRef.current?.abort();
+                    setIsAiLoading(false);
+                    showToast('AI writing stopped', 'info');
+                  }}
+                  style={{ padding: '3px 8px', fontSize: '0.78rem' }}
+                  title="Cancel active AI writing operation"
+                >
+                  <Square size={11} fill="currentColor" /> Stop AI
+                </button>
+              ) : (
+                <Dropdown
+                  value=""
+                  onChange={(val) => {
+                    if (val === 'fix') handleInlineAiTransform('Fix all spelling, grammar, and improve phrasing while preserving markdown structure.');
+                    else if (val === 'simplify') handleInlineAiTransform('Simplify this text to make it clear, concise, and easy to read.');
+                    else if (val === 'pro') handleInlineAiTransform('Rewrite in a polished, professional, and clear executive tone.');
+                    else if (val === 'tasks') handleInlineAiTransform('Extract all action items, todos, and next steps into a markdown task checklist (- [ ] task).');
+                    else if (val === 'flashcard') handleInlineAiTransform('Generate 2-3 high-yield spaced repetition Q&A flashcards based on this content.');
+                  }}
+                  options={[
+                    { value: "", label: "✨ AI Assistant..." },
+                    { value: "fix", label: "✨ Polish & Fix Grammar" },
+                    { value: "simplify", label: "✨ Simplify Language" },
+                    { value: "pro", label: "✨ Executive Tone" },
+                    { value: "tasks", label: "✨ Extract Action Items" },
+                    { value: "flashcard", label: "✨ Create Flashcards" }
+                  ]}
+                  style={{ width: '150px' }}
+                />
+              )}
             </div>
           )}
         </div>
 
-        {editMode ? (
-          <div style={{ position: 'relative', flex: 1, display: 'flex', flexDirection: 'column' }}>
-            <textarea
-              ref={textareaRef}
-              id="editor-note-body"
-              className="note-textarea"
-              value={content}
-              onChange={handleContentChange}
-              onKeyDown={handleKeyDown}
-              placeholder="Type your markdown notes here. Use [[Double Brackets]] to link nodes. Type '/' for block commands..."
-              style={{ flex: 1 }}
+        {/* Main Note Canvas (Resizable in both Edit and Preview modes) */}
+        <div 
+          ref={contentContainerRef}
+          className="note-content-container" 
+          style={{
+            position: 'relative',
+            width: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            flexShrink: 0,
+            ...(customTextareaHeight ? { height: `${customTextareaHeight}px` } : { minHeight: '260px', flex: '1 1 auto' })
+          }}
+        >
+          {editMode ? (
+            <div className="note-textarea-wrapper" style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+              <textarea
+                ref={textareaRef}
+                id="editor-note-body"
+                className="note-textarea"
+                value={content}
+                onChange={handleContentChange}
+                onKeyDown={handleKeyDown}
+                placeholder="Type your markdown notes here. Use [[Double Brackets]] to link nodes. Type '/' for block commands..."
+                style={{ width: '100%', height: '100%', flex: 1, resize: 'none' }}
+              />
+              {/* Wiki-link autocomplete popup menu */}
+              {wikiSuggest?.isOpen && wikiMatches.length > 0 && (
+                <div className="glass-panel" style={{
+                  position: 'absolute',
+                  top: wikiSuggest.top,
+                  left: wikiSuggest.left,
+                  padding: '6px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '2px',
+                  zIndex: 'var(--z-dropdown, 50)',
+                  minWidth: '200px',
+                  maxWidth: '280px',
+                  borderRadius: 'var(--radius-md)',
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.35)',
+                  background: 'var(--surface-dropdown, #181926)'
+                }}>
+                  <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', padding: '2px 8px', textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}>Link to Note</div>
+                  {wikiMatches.map((matchNote, idx) => (
+                    <button
+                      key={matchNote.id}
+                      className="btn btn-sm"
+                      onClick={() => handleSelectWikiCandidate(matchNote.title)}
+                      style={{
+                        justifyContent: 'flex-start',
+                        width: '100%',
+                        fontSize: '0.8rem',
+                        padding: '4px 8px',
+                        borderRadius: 'var(--radius-sm)',
+                        background: idx === wikiSuggest.selectedIndex ? 'var(--accent-primary)' : 'transparent',
+                        color: idx === wikiSuggest.selectedIndex ? '#ffffff' : 'var(--text-primary)',
+                        border: 'none',
+                        textAlign: 'left',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap'
+                      }}
+                    >
+                      [[{matchNote.title}]]
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Slash command block popup */}
+              {slashMenuPos && (
+                <div className="glass-panel" style={{
+                  position: 'absolute',
+                  top: slashMenuPos.top,
+                  left: slashMenuPos.left,
+                  padding: '6px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '3px',
+                  zIndex: 'var(--z-dropdown, 40)',
+                  minWidth: '160px',
+                  borderRadius: 'var(--radius-md)'
+                }}>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', padding: '2px 8px', textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}>Blocks</div>
+                  <button className="btn btn-secondary btn-sm" onClick={() => handleSlashCommand('### ')} style={{ justifyContent: 'flex-start', width: '100%', fontSize: '0.8rem' }}>H3 Heading</button>
+                  <button className="btn btn-secondary btn-sm" onClick={() => handleSlashCommand('- [ ] ')} style={{ justifyContent: 'flex-start', width: '100%', fontSize: '0.8rem' }}>Todo List</button>
+                  <button className="btn btn-secondary btn-sm" onClick={() => handleSlashCommand('> ')} style={{ justifyContent: 'flex-start', width: '100%', fontSize: '0.8rem' }}>Quote</button>
+                  <button className="btn btn-secondary btn-sm" onClick={() => handleSlashCommand('```\n\n```')} style={{ justifyContent: 'flex-start', width: '100%', fontSize: '0.8rem' }}>Code Block</button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div
+              ref={previewRef}
+              id="editor-note-preview"
+              className="note-preview markdown-body"
+              dangerouslySetInnerHTML={{ __html: renderedContent }}
+              style={{ width: '100%', height: '100%', flex: 1, overflowY: 'auto', padding: '6px 0' }}
             />
-            {/* Slash command block popup */}
-            {slashMenuPos && (
-              <div className="glass-panel" style={{
-                position: 'absolute',
-                top: slashMenuPos.top,
-                left: slashMenuPos.left,
-                padding: '6px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '3px',
-                zIndex: 'var(--z-dropdown, 40)',
-                minWidth: '160px',
-                borderRadius: 'var(--radius-md)'
-              }}>
-                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', padding: '2px 8px', textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}>Blocks</div>
-                <button className="btn btn-secondary btn-sm" onClick={() => handleSlashCommand('### ')} style={{ justifyContent: 'flex-start', width: '100%', fontSize: '0.8rem' }}>H3 Heading</button>
-                <button className="btn btn-secondary btn-sm" onClick={() => handleSlashCommand('- [ ] ')} style={{ justifyContent: 'flex-start', width: '100%', fontSize: '0.8rem' }}>Todo List</button>
-                <button className="btn btn-secondary btn-sm" onClick={() => handleSlashCommand('> ')} style={{ justifyContent: 'flex-start', width: '100%', fontSize: '0.8rem' }}>Quote</button>
-                <button className="btn btn-secondary btn-sm" onClick={() => handleSlashCommand('```\n\n```')} style={{ justifyContent: 'flex-start', width: '100%', fontSize: '0.8rem' }}>Code Block</button>
-              </div>
-            )}
+          )}
+
+          {/* Unified Visual & interactive vertical resize drag handle */}
+          <div 
+            className="textarea-resize-handle" 
+            onPointerDown={handleResizePointerDown}
+            onDoubleClick={() => setCustomTextareaHeight(null)}
+            title="Drag up/down to resize height (double-click to reset)"
+          >
+            <div className="resize-splitter-line" />
+            <div className="resize-grip-pill">
+              <GripHorizontal size={13} />
+              <span>Resize</span>
+            </div>
           </div>
-        ) : (
-          <div
-            ref={previewRef}
-            id="editor-note-preview"
-            className="note-preview markdown-body"
-            dangerouslySetInnerHTML={{ __html: renderedContent }}
-            style={{ width: '100%', flex: 1, overflowY: 'auto' }}
-          />
-        )}
+        </div>
         
         {/* Semantic Related Notes Section */}
         {note.embedding && allNotes.some(n => n.id !== note.id && n.embedding) && (
@@ -787,6 +1236,44 @@ Return exactly and ONLY the summary text, with no markdown code blocks or conver
                   </div>
                 );
               })
+            )}
+          </div>
+        </div>
+
+        {/* Backlinks / Linked References Section */}
+        <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid var(--border-color)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+            <h4 style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0, textTransform: 'uppercase', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <LinkIcon size={13} /> Backlinks ({incomingBacklinks.length})
+            </h4>
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+            {incomingBacklinks.length === 0 ? (
+              <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>No other notes link to this note yet.</span>
+            ) : (
+              incomingBacklinks.map(backlinkNote => (
+                <div key={backlinkNote.id} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 10px', background: 'var(--surface-pill-bg)', border: '1px solid var(--border-color)', borderRadius: '16px', fontSize: '0.85rem' }}>
+                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--node-indigo)' }}></div>
+                  <button
+                    type="button"
+                    style={{ cursor: 'pointer', background: 'transparent', border: 'none', color: 'inherit', padding: 0, font: 'inherit' }}
+                    onClick={() => onJumpToNote(backlinkNote.title)}
+                    aria-label={`Open backlink ${backlinkNote.title}`}
+                  >
+                    {backlinkNote.title}
+                  </button>
+                  {onSplitRight && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onSplitRight(backlinkNote.title); }}
+                      style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: 0, marginLeft: '4px' }}
+                      title="Open in split view"
+                      aria-label="Open in split view"
+                    >
+                      <SplitSquareHorizontal size={12} />
+                    </button>
+                  )}
+                </div>
+              ))
             )}
           </div>
         </div>

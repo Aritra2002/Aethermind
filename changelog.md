@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+[1.31.0]: https://github.com/Aritra2002/Aethermind/compare/v1.30.0...v1.31.0
 [1.30.0]: https://github.com/Aritra2002/Aethermind/compare/v1.29.2...v1.30.0
 [1.29.2]: https://github.com/Aritra2002/Aethermind/compare/v1.29.1...v1.29.2
 [1.29.1]: https://github.com/Aritra2002/Aethermind/compare/v1.28.3...v1.29.1
@@ -53,6 +54,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [1.6.0]: https://github.com/Aritra2002/Aethermind/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/Aritra2002/Aethermind/compare/v1.0.0...v1.5.0
 [1.0.0]: https://github.com/Aritra2002/Aethermind/releases/tag/v1.0.0
+
+
+## [1.31.0] - 2026-08-21
+
+### Added
+
+- **Universal Fluid Layout & Sizing System (`layout.css`, `modals.css`, `canvas.css`)**: Eradicated all hardcoded pixel bounds across the application. Implemented dynamic `clamp()`, `min()`, `max()`, and `dvh` units across all modal dialogs, sidebars, HUDs, and panels for seamless responsiveness across mobile (320px+), tablets, split windows, and 4K displays.
+- **Bidirectional Note Resizing Engine (`EditorPanel.tsx`, `editor.css`)**: Added high-visibility linear drag handle with centered grab pill (`GripHorizontal`) supporting smooth upward/downward vertical height adjustment and symmetric Preview Mode height matching without layout occlusion.
+- **Unified Segmented Control & Corner Radius Continuity (`base.css`)**: Standardized `.segmented-control`, `.glass-pill`, and nested geometric radius continuity (`r_inner = r_outer - padding`), eliminating misaligned square track backgrounds behind rounded pills.
+- **Security & Data Safety Verification Suite**: Expanded automated testing coverage across 26 test suites (145 tests) with repository unit abstractions, SSRF validation, and DOMPurify sanitization.
+
+### Fixed
+
+- **Fixed Hardcoded Settings Modal Bounds**: Replaced static `1000px` max-width and `80vh` height with fluid `min(95vw, 1000px)` and `min(88dvh, 780px)`.
+- **Fixed Note Content & Connections Overlapping**: Encapsulated edit/preview viewports in `.note-content-container` in standard document flow to guarantee zero occlusion of backlinks, related notes, or discovery modules.
+- **Fixed Active Segment Corner Glitches**: Resolved mismatched rectangular track corners behind active mode switchers and search filter chips.
 
 
 ## [1.30.0] - 2026-08-19

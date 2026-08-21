@@ -32,6 +32,93 @@ export const DEFAULT_CUSTOM_COLORS: Record<string, string> = {
 };
 
 /**
+ * Theme-matched default node category color palettes.
+ * Calibrated with maximum inter-category hue separation and contrast ratios
+ * to ensure every node type is immediately distinguishable to the human eye.
+ */
+export const THEME_CATEGORY_PALETTES: Record<string, Record<string, string>> = {
+  // Dark Space: High-vibrancy cosmic quad (Indigo, Cyan, Rose, Gold)
+  dark: {
+    general: '#818cf8',  // Indigo / Periwinkle (235° hue)
+    work: '#06b6d4',     // Bright Cyan (188° hue)
+    personal: '#f43f5e', // Vibrant Rose Pink (349° hue)
+    ideas: '#fbbf24'     // Warm Amber Gold (42° hue)
+  },
+  // Light Clean: Deeply saturated jewel tones with strong light-canvas contrast
+  light: {
+    general: '#4f46e5',  // Deep Royal Indigo (243° hue)
+    work: '#059669',     // Vivid Emerald Green (160° hue)
+    personal: '#db2777', // Deep Magenta Pink (330° hue)
+    ideas: '#d97706'     // Rich Ochre Amber (37° hue)
+  },
+  // Sepia Warm: Vintage archival heritage tones (Delft Blue, Forest, Ruby, Rust)
+  sepia: {
+    general: '#4338ca',  // Vintage Navy / Delft Blue (244° hue)
+    work: '#15803d',     // Deep Forest Green (142° hue)
+    personal: '#be123c', // Ruby Crimson (344° hue)
+    ideas: '#b45309'     // Warm Rust Amber (30° hue)
+  },
+  // Midnight: High-chroma cyber neon spectrum against pure OLED black
+  midnight: {
+    general: '#a855f7',  // Electric Neon Purple (271° hue)
+    work: '#00f0ff',     // Cyber Neon Cyan (184° hue)
+    personal: '#ff007f', // Electric Neon Pink (330° hue)
+    ideas: '#ffd700'     // High-Vis Electric Gold (51° hue)
+  },
+  // Ocean Tide: Aquatic-complementary marine palette on deep abyssal navy
+  ocean: {
+    general: '#38bdf8',  // Bright Sky Azure (199° hue)
+    work: '#10b981',     // Seafoam Emerald (160° hue)
+    personal: '#f43f5e', // Coral Reef Pink (349° hue)
+    ideas: '#fbbf24'     // Sunlight Gold (42° hue)
+  }
+};
+
+/**
+ * Returns the theme-harmonized default category colors for a given theme.
+ */
+export const getThemeCategoryColors = (
+  theme: string,
+  customThemeColors?: Record<string, string>
+): Record<string, string> => {
+  if (theme === 'custom' && customThemeColors) {
+    return {
+      general: customThemeColors.accentPrimary || '#7c3aed',
+      work: customThemeColors.accentSecondary || '#06b6d4',
+      personal: '#ec4899',
+      ideas: '#f59e0b'
+    };
+  }
+  return THEME_CATEGORY_PALETTES[theme] || THEME_CATEGORY_PALETTES.dark;
+};
+
+/**
+ * Updates default category colors in Dexie IndexedDB to harmonize with the selected theme.
+ */
+export const syncThemeCategoryColors = async (
+  theme: string,
+  customThemeColors?: Record<string, string>
+): Promise<void> => {
+  const palette = getThemeCategoryColors(theme, customThemeColors);
+  try {
+    const { db } = await import('../db');
+    for (const [id, color] of Object.entries(palette)) {
+      const existing = await db.categories.get(id);
+      if (existing) {
+        if (existing.color !== color) {
+          await db.categories.update(id, { color });
+        }
+      } else {
+        const label = id.charAt(0).toUpperCase() + id.slice(1);
+        await db.categories.put({ id, label, color });
+      }
+    }
+  } catch (err) {
+    console.error('Failed to sync theme category colors:', err);
+  }
+};
+
+/**
  * Calculates standard perceived relative luminance (0.0 = pure black, 1.0 = pure white).
  * Uses the ITU-R BT.601 formula: Y = 0.299*R + 0.587*G + 0.114*B.
  * 

@@ -1,18 +1,109 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <meta charset="utf-8">
   <style>
-    body { width: 300px; padding: 10px; font-family: sans-serif; background: #0f172a; color: #f8fafc; }
-    h3 { margin-top: 0; color: #818cf8; }
-    button { width: 100%; padding: 10px; background: #6366f1; color: white; border: none; border-radius: 4px; cursor: pointer; margin-top: 10px; }
-    button:hover { background: #4f46e5; }
-    .status { margin-top: 10px; font-size: 0.9em; color: #94a3b8; }
+    body {
+      width: 320px;
+      margin: 0;
+      padding: 16px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #090a16;
+      color: #f8fafc;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    h3 {
+      margin: 0;
+      font-size: 1.1rem;
+      background: linear-gradient(135deg, #a78bfa, #818cf8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .badge {
+      font-size: 0.7rem;
+      padding: 2px 6px;
+      background: rgba(129, 140, 248, 0.2);
+      color: #818cf8;
+      border-radius: 999px;
+      border: 1px solid rgba(129, 140, 248, 0.3);
+    }
+    p {
+      font-size: 0.8rem;
+      color: #94a3b8;
+      margin: 0 0 14px 0;
+      line-height: 1.4;
+    }
+    .btn-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    button {
+      width: 100%;
+      padding: 10px 12px;
+      background: rgba(255, 255, 255, 0.06);
+      color: #f8fafc;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      transition: all 0.2s ease;
+    }
+    button:hover {
+      background: #6366f1;
+      border-color: #6366f1;
+      color: white;
+    }
+    button.primary {
+      background: #6366f1;
+      border-color: #4f46e5;
+    }
+    button.primary:hover {
+      background: #4f46e5;
+    }
+    .status {
+      margin-top: 14px;
+      padding: 8px 10px;
+      font-size: 0.78rem;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.04);
+      color: #cbd5e1;
+      display: none;
+      word-break: break-word;
+    }
   </style>
 </head>
 <body>
-  <h3>AetherMind Clipper</h3>
-  <p>Save this page to your local knowledge graph.</p>
-  <button id="clipBtn">Clip Page</button>
+  <div class="header">
+    <h3>AetherMind</h3>
+    <span class="badge">Web Clipper</span>
+  </div>
+  <p>Capture research, articles, and bookmarks directly into your local knowledge graph.</p>
+
+  <div class="btn-group">
+    <button id="clipArticleBtn" class="primary">
+      <span>📄 Clip Full Article</span>
+      <span>➔</span>
+    </button>
+    <button id="clipSelectionBtn">
+      <span>✂️ Clip Selected Text</span>
+      <span>➔</span>
+    </button>
+    <button id="clipBookmarkBtn">
+      <span>🔖 Save Bookmark Link</span>
+      <span>➔</span>
+    </button>
+  </div>
+
   <div id="status" class="status"></div>
   <script src="popup.js"></script>
 </body>

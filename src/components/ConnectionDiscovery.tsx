@@ -148,7 +148,7 @@ If none connect, return {"connected": false}`;
       clearTimeout(timer);
       abortRef.current?.abort();
     };
-  }, [noteId, content]);
+  }, [noteId, content, dismissed, suggestion, showToast]);
 
   // If no suggestion is currently ready, show discovering indicator or nothing
   if (!suggestion) {

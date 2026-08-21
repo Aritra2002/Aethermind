@@ -9,8 +9,7 @@
  */
 
 import { db } from '../db';
-import { marked } from 'marked';
-import DOMPurify from 'dompurify';
+import { safeRenderMarkdown } from './sanitizer';
 
 /**
  * Validates and normalizes 3-digit or 6-digit hexadecimal color codes into standard 6-digit hex string.
@@ -460,7 +459,7 @@ export const exportToHtml = async (pageId: number, pageTitle: string = 'Graph') 
           <span class="tag category-tag" style="color: ${color}; border-color: ${color}40; background: ${color}10;">${categoryObj?.label || 'General'}</span>
           ${note.tags && note.tags.length > 0 ? note.tags.map(tag => `<span class="tag">#${tag}</span>`).join('') : ''}
         </div>
-        <div class="note-content">${DOMPurify.sanitize(marked.parse(content) as string)}</div>
+        <div class="note-content">${safeRenderMarkdown(content)}</div>
       </div>
 `;
   }

@@ -48,7 +48,7 @@ export const TimelineSlider: React.FC<TimelineSliderProps> = ({
   onExitHistory
 }) => {
   /** Array of all note creation timestamps. */
-  const timestamps = useMemo(() => notes.length > 0 ? notes.map(n => n.createdAt) : [Date.now()], [notes]);
+  const timestamps = useMemo(() => notes.length > 0 ? notes.map(n => n.createdAt) : [0], [notes]);
 
   /** Earliest note timestamp minus 1 minute buffer for padding. */
   const minDate = useMemo(() => Math.min(...timestamps) - 1000 * 60, [timestamps]);

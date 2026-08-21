@@ -8,6 +8,7 @@
 
 import { db, type DocumentChunk } from '../db';
 import { generateEmbedding, cosineSimilarity } from './vectorSearch';
+import { tokenizeText, scoreBM25Note } from './search/bm25';
 
 /**
  * Splits a long text document into smaller, overlapping segments suitable for embedding and retrieval.
@@ -224,6 +225,108 @@ export const deleteDocument = async (documentId: string): Promise<number> => {
 };
 
 /**
+ * Structured citation representing an evidence snippet used in RAG generation.
+ */
+export interface RagCitation {
+  /** 1-based citation reference index for referencing in answers like [1]. */
+  index: number;
+  /** Unique document identifier. */
+  sourceId: string;
+  /** Human-readable document or note title. */
+  sourceName: string;
+  /** Zero-based chunk slice index within parent document. */
+  chunkIndex: number;
+  /** Extracted excerpt text snippet. */
+  content: string;
+  /** Combined relevance score between 0.0 and 1.0. */
+  score: number;
+  /** Whether the source is an existing workspace note. */
+  isNote: boolean;
+  /** Foreign key note ID if isNote is true. */
+  noteId?: number;
+}
+
+/**
+ * Searches stored document chunks and notes using hybrid dense vector + BM25 keyword ranking.
+ *
+ * @param query - Search query text
+ * @param limit - Maximum number of citations to return (default: 5)
+ * @param typeFilter - Optional filter by source type ('all' | 'notes' | 'documents')
+ * @returns Ranked array of {@link RagCitation} objects.
+ */
+export const searchHybridRag = async (
+  query: string,
+  limit: number = 5,
+  typeFilter: 'all' | 'notes' | 'documents' = 'all'
+): Promise<RagCitation[]> => {
+  const queryTrimmed = query.trim();
+  if (!queryTrimmed) return [];
+
+  let queryEmbedding: number[] | null = null;
+  try {
+    queryEmbedding = await generateEmbedding(queryTrimmed);
+  } catch (e) {
+    console.warn('RAG embedding failed, using BM25 lexical fallback:', e);
+  }
+
+  let chunks = await db.documents.toArray();
+
+  if (typeFilter === 'notes') {
+    chunks = chunks.filter(c => c.metadata?.type === 'note');
+  } else if (typeFilter === 'documents') {
+    chunks = chunks.filter(c => c.metadata?.type !== 'note');
+  }
+
+  if (chunks.length === 0) return [];
+
+  const queryTokens = tokenizeText(queryTrimmed, true);
+  const avgDocLength = chunks.reduce((acc, c) => acc + (c.content?.length || 0), 0) / chunks.length;
+
+  const scored = chunks.map(chunk => {
+    const vectorScore = queryEmbedding && chunk.embedding
+      ? Math.max(0, cosineSimilarity(queryEmbedding, chunk.embedding))
+      : 0;
+
+    const bm25Result = scoreBM25Note(
+      queryTokens,
+      {
+        title: chunk.documentName,
+        content: chunk.content
+      },
+      avgDocLength
+    );
+
+    // Hybrid blend: 60% semantic + 40% BM25 lexical
+    const finalScore = queryEmbedding
+      ? Math.min(1.0, 0.6 * vectorScore + 0.4 * bm25Result.score)
+      : bm25Result.score;
+
+    const isNote = chunk.metadata?.type === 'note';
+    const noteId = typeof chunk.metadata?.noteId === 'number' ? chunk.metadata.noteId : undefined;
+
+    return {
+      sourceId: chunk.documentId,
+      sourceName: chunk.documentName,
+      chunkIndex: chunk.chunkIndex,
+      content: chunk.content,
+      score: finalScore,
+      isNote,
+      noteId
+    };
+  });
+
+  const topResults = scored
+    .filter(item => item.score > 0.05)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit);
+
+  return topResults.map((item, idx) => ({
+    ...item,
+    index: idx + 1
+  }));
+};
+
+/**
  * Formats an array of scored semantic search results into an annotated context string
  * suitable for inclusion in an LLM prompt.
  *
@@ -236,6 +339,20 @@ export const buildRagContext = (results: Array<DocumentChunk & { score: number }
 
   return results
     .map((r, i) => `[Source ${i + 1}: "${r.documentName}" (score: ${r.score.toFixed(3)})]\n${r.content}`)
+    .join('\n\n---\n\n');
+};
+
+/**
+ * Formats structured RAG citations into an unambiguous LLM prompt context block.
+ *
+ * @param citations - Array of {@link RagCitation} records
+ * @returns Guarded prompt context string with numbered citations.
+ */
+export const buildRagContextWithCitations = (citations: RagCitation[]): string => {
+  if (citations.length === 0) return '';
+
+  return citations
+    .map(c => `[Citation ${c.index}: "${c.sourceName}" (Score: ${(c.score * 100).toFixed(0)}%)]\n${c.content}`)
     .join('\n\n---\n\n');
 };
 

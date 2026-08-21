@@ -19,6 +19,14 @@ let embedder: FeatureExtractionPipeline | null = null;
 let transformersModule: any = null;
 /** Global flag tracking whether the transformer pipeline failed and fallback TF-IDF should be used permanently. */
 let useFallback = false;
+
+/**
+ * Sets the fallback flag (used in unit test environments to guarantee instant, offline execution).
+ */
+export const setUseFallbackForTesting = (flag: boolean) => {
+  useFallback = flag;
+};
+
 /** Standard vector dimensionality (384 dimensions matches all-MiniLM-L6-v2). */
 const FALLBACK_DIM = 384;
 
@@ -109,31 +117,81 @@ export const initEmbedder = async () => {
   return embedder;
 };
 
+/** Maximum capacity of the in-memory LRU embedding cache */
+const MAX_EMBEDDING_CACHE_SIZE = 500;
+
+/** In-memory LRU cache storing text -> vector embedding arrays */
+const EMBEDDING_CACHE = new Map<string, number[]>();
+
+/**
+ * Clears the in-memory embedding cache (useful for testing or manual cache purge).
+ */
+export const clearEmbeddingCache = () => {
+  EMBEDDING_CACHE.clear();
+};
+
+/**
+ * Retrieves the current number of cached embeddings in memory.
+ */
+export const getEmbeddingCacheSize = (): number => EMBEDDING_CACHE.size;
+
 /**
  * Generates a high-dimensional dense vector embedding for a given text string.
  * Automatically tries the local ONNX/WASM transformer pipeline first; if unavailable
  * or if a runtime exception occurs, transparently falls back to deterministic TF-IDF feature hashing.
  *
- * @param text - The text content to embed.
+ * Utilizes an in-memory LRU cache to deliver instant (0ms) responses for repeated queries or note texts.
  *
+ * @param text - The text content to embed.
  * @returns A promise resolving to a 384-element normalized vector array of numbers.
  */
 export const generateEmbedding = async (text: string): Promise<number[]> => {
-  // Use TF-IDF fallback immediately if already flagged
-  if (useFallback) return tfidfEmbed(tokenize(text));
-
-  const e = await initEmbedder();
-  if (!e) return tfidfEmbed(tokenize(text));
-
-  try {
-    const output = await e(text, { pooling: 'mean', normalize: true });
-    return Array.from(output.data);
-  } catch {
-    // Transformer failed at runtime, switch to fallback permanently
-    useFallback = true;
-    console.warn('Transformer failed at runtime, switching to TF-IDF fallback');
-    return tfidfEmbed(tokenize(text));
+  const normalizedText = text.trim();
+  if (!normalizedText) {
+    return new Array(FALLBACK_DIM).fill(0);
   }
+
+  // Check LRU cache hit
+  if (EMBEDDING_CACHE.has(normalizedText)) {
+    const cached = EMBEDDING_CACHE.get(normalizedText)!;
+    // Refresh LRU access order
+    EMBEDDING_CACHE.delete(normalizedText);
+    EMBEDDING_CACHE.set(normalizedText, cached);
+    return cached;
+  }
+
+  let vector: number[];
+
+  // Use TF-IDF fallback immediately if already flagged
+  if (useFallback) {
+    vector = tfidfEmbed(tokenize(normalizedText));
+  } else {
+    const e = await initEmbedder();
+    if (!e) {
+      vector = tfidfEmbed(tokenize(normalizedText));
+    } else {
+      try {
+        const output = await e(normalizedText, { pooling: 'mean', normalize: true });
+        vector = Array.from(output.data);
+      } catch {
+        // Transformer failed at runtime, switch to fallback permanently
+        useFallback = true;
+        console.warn('Transformer failed at runtime, switching to TF-IDF fallback');
+        vector = tfidfEmbed(tokenize(normalizedText));
+      }
+    }
+  }
+
+  // Enforce LRU cache capacity
+  if (EMBEDDING_CACHE.size >= MAX_EMBEDDING_CACHE_SIZE) {
+    const oldestKey = EMBEDDING_CACHE.keys().next().value;
+    if (oldestKey !== undefined) {
+      EMBEDDING_CACHE.delete(oldestKey);
+    }
+  }
+  EMBEDDING_CACHE.set(normalizedText, vector);
+
+  return vector;
 };
 
 /**
@@ -159,6 +217,60 @@ export const cosineSimilarity = (a: number[], b: number[]): number => {
 };
 
 /**
+ * Identifies notes in the database that lack vector embeddings or require re-indexing.
+ *
+ * @returns A promise resolving to an array of notes needing embedding.
+ */
+export const detectStaleNotes = async (): Promise<Note[]> => {
+  const notes = await db.notes.toArray();
+  return notes.filter(n => Number(n.isTrash) !== 1 && (!n.embedding || n.embedding.length === 0));
+};
+
+/**
+ * Throttled background indexing queue that processes un-embedded notes incrementally
+ * using micro-delays between items to prevent UI jank.
+ *
+ * @param onProgress - Optional callback reporting indexing progress
+ * @param batchSize - Number of items before yielding thread (default: 5)
+ * @returns A promise resolving to the number of indexed notes
+ */
+export const indexNotesBackground = async (
+  onProgress?: (progress: { current: number; total: number; noteTitle: string }) => void,
+  batchSize: number = 5
+): Promise<number> => {
+  const staleNotes = await detectStaleNotes();
+  const total = staleNotes.length;
+  if (total === 0) return 0;
+
+  let processed = 0;
+
+  for (let i = 0; i < total; i++) {
+    const note = staleNotes[i];
+    if (!note.id) continue;
+
+    if (onProgress) {
+      onProgress({ current: i + 1, total, noteTitle: note.title });
+    }
+
+    try {
+      const text = `${note.title}\n\n${note.content || ''}`;
+      const embedding = await generateEmbedding(text);
+      await db.notes.update(note.id, { embedding });
+      processed++;
+    } catch (e) {
+      console.warn(`Failed background embedding for note "${note.title}":`, e);
+    }
+
+    // Yield control back to browser event loop every batchSize items
+    if ((i + 1) % batchSize === 0) {
+      await new Promise(resolve => setTimeout(resolve, 30));
+    }
+  }
+
+  return processed;
+};
+
+/**
  * Scans all notes in the database and computes vector embeddings for any notes lacking an embedding.
  *
  * @param onProgress - Optional callback reporting indexing status and current note title.
@@ -166,17 +278,118 @@ export const cosineSimilarity = (a: number[], b: number[]): number => {
  * @returns A promise that resolves when all notes have embeddings persisted to IndexedDB.
  */
 export const reindexNotes = async (onProgress?: (msg: string) => void) => {
-  const notes = await db.notes.toArray();
-  for (let i = 0; i < notes.length; i++) {
-    const note = notes[i];
-    if (!note.embedding) {
-      if (onProgress) onProgress(`Indexing ${i + 1}/${notes.length}: ${note.title}`);
-      const text = `${note.title}\n\n${note.content}`;
-      const embedding = await generateEmbedding(text);
-      await db.notes.update(note.id!, { embedding });
-    }
+  const stale = await detectStaleNotes();
+  for (let i = 0; i < stale.length; i++) {
+    const note = stale[i];
+    if (onProgress) onProgress(`Indexing ${i + 1}/${stale.length}: ${note.title}`);
+    const text = `${note.title}\n\n${note.content || ''}`;
+    const embedding = await generateEmbedding(text);
+    await db.notes.update(note.id!, { embedding });
   }
   if (onProgress) onProgress('Indexing complete!');
+};
+
+/**
+ * Computes BM25 keyword relevance score between a query and document text.
+ *
+ * @param queryTokens - Tokenized search query
+ * @param docText - Document content to score
+ * @param avgDocLength - Average document character/word length across corpus
+ * @returns Normalized BM25 score between 0.0 and 1.0
+ */
+export const calculateBM25Score = (
+  queryTokens: string[],
+  docText: string,
+  avgDocLength: number = 200
+): number => {
+  if (!queryTokens.length || !docText) return 0;
+  const docTokens = tokenize(docText);
+  const docLen = docTokens.length || 1;
+  if (docLen === 0) return 0;
+
+  const k1 = 1.2;
+  const b = 0.75;
+  const lenNorm = 1 - b + b * (docLen / (avgDocLength || 1));
+
+  // Count term frequencies
+  const tfMap: Record<string, number> = {};
+  for (const t of docTokens) tfMap[t] = (tfMap[t] || 0) + 1;
+
+  let rawScore = 0;
+  for (const q of queryTokens) {
+    const tf = tfMap[q] || 0;
+    if (tf > 0) {
+      const termScore = (tf * (k1 + 1)) / (tf + k1 * lenNorm);
+      rawScore += termScore;
+    }
+  }
+
+  // Normalize roughly between 0.0 and 1.0
+  return Math.min(1.0, rawScore / Math.max(1, queryTokens.length * 1.5));
+};
+
+/**
+ * Performs hybrid search combining keyword BM25 scoring and dense vector cosine similarity.
+ *
+ * @param query - User search query
+ * @param pageId - Optional filter by workspace page ID
+ * @param limit - Maximum results to return
+ * @param alpha - Weight between vector similarity (alpha = 1.0) and keyword BM25 (alpha = 0.0). Default: 0.65.
+ * @returns Ranked notes with hybrid score breakdown
+ */
+export const hybridSearchNotes = async (
+  query: string,
+  pageId?: number,
+  limit: number = 8,
+  alpha: number = 0.65
+): Promise<Array<Note & { score: number; vectorScore: number; keywordScore: number }>> => {
+  const queryTrimmed = query.trim();
+  if (!queryTrimmed) return [];
+
+  let notes = await db.notes.toArray();
+  if (pageId !== undefined) {
+    notes = notes.filter(n => n.pageId === pageId);
+  }
+  // Filter out trashed notes by default
+  notes = notes.filter(n => Number(n.isTrash) !== 1);
+
+  if (notes.length === 0) return [];
+
+  const queryTokens = tokenize(queryTrimmed);
+  const queryEmbedding = await generateEmbedding(queryTrimmed);
+  const avgDocLength = notes.reduce((acc, n) => acc + (n.content?.length || 0), 0) / notes.length;
+
+  const scoredNotes = notes.map(note => {
+    // Vector similarity score
+    const vectorScore = note.embedding
+      ? Math.max(0, cosineSimilarity(queryEmbedding, note.embedding))
+      : 0;
+
+    // Keyword BM25 score
+    const textToMatch = `${note.title} ${note.tags?.join(' ') || ''} ${note.content}`;
+    const keywordScore = calculateBM25Score(queryTokens, textToMatch, avgDocLength);
+
+    // Exact title match boost
+    let titleBoost = 0;
+    if (note.title.toLowerCase() === queryTrimmed.toLowerCase()) {
+      titleBoost = 0.3;
+    } else if (note.title.toLowerCase().includes(queryTrimmed.toLowerCase())) {
+      titleBoost = 0.15;
+    }
+
+    const hybridScore = Math.min(1.0, alpha * vectorScore + (1 - alpha) * keywordScore + titleBoost);
+
+    return {
+      ...note,
+      score: hybridScore,
+      vectorScore,
+      keywordScore
+    };
+  });
+
+  return scoredNotes
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit);
 };
 
 /**
@@ -193,7 +406,7 @@ export const semanticSearch = async (query: string, limit: number = 5): Promise<
   const notes = await db.notes.toArray();
 
   const results = notes
-    .filter(n => n.embedding)
+    .filter(n => n.embedding && Number(n.isTrash) !== 1)
     .map(n => ({
       ...n,
       score: cosineSimilarity(queryEmbedding, n.embedding!)

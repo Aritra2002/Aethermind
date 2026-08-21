@@ -203,6 +203,210 @@ export async function deleteNote(id: number): Promise<void> {
 }
 
 /**
+ * Moves a note to the archived state.
+ *
+ * @param id - Note primary key ID
+ */
+export async function archiveNote(id: number): Promise<void> {
+  await db.notes.update(id, { isArchived: 1, updatedAt: Date.now() });
+}
+
+/**
+ * Restores an archived note to the active workspace state.
+ *
+ * @param id - Note primary key ID
+ */
+export async function restoreNote(id: number): Promise<void> {
+  await db.notes.update(id, { isArchived: 0, updatedAt: Date.now() });
+}
+
+/**
+ * Moves a note to the Trash bin (soft delete).
+ *
+ * @param id - Note primary key ID
+ */
+export async function moveToTrash(id: number): Promise<void> {
+  await db.notes.update(id, {
+    isTrash: 1,
+    trashDate: Date.now(),
+    updatedAt: Date.now()
+  });
+}
+
+/**
+ * Restores a note from the Trash bin back to active workspace state.
+ *
+ * @param id - Note primary key ID
+ */
+export async function restoreFromTrash(id: number): Promise<void> {
+  await db.notes.update(id, {
+    isTrash: 0,
+    trashDate: undefined,
+    updatedAt: Date.now()
+  });
+}
+
+/**
+ * Permanently removes all notes currently located in the Trash bin.
+ *
+ * @param pageId - Optional filter by page ID, or purges all trashed notes if omitted.
+ * @returns Total count of permanently purged notes.
+ */
+export async function emptyTrash(pageId?: number): Promise<number> {
+  let query = db.notes.filter(n => Number(n.isTrash) === 1);
+  if (pageId !== undefined) {
+    query = query.filter(n => n.pageId === pageId);
+  }
+  const trashedNotes = await query.toArray();
+  for (const note of trashedNotes) {
+    if (note.id) {
+      await deleteNote(note.id);
+    }
+  }
+  return trashedNotes.length;
+}
+
+/**
+ * Toggles the favorite/pinned status of a note.
+ *
+ * @param id - Note primary key ID
+ * @returns The new favorite boolean state.
+ */
+export async function toggleFavoriteNote(id: number): Promise<boolean> {
+  const note = await db.notes.get(id);
+  if (!note) return false;
+  const isFav = Number(note.isFavorite) === 1;
+  const nextFav = isFav ? 0 : 1;
+  await db.notes.update(id, { isFavorite: nextFav, updatedAt: Date.now() });
+  return nextFav === 1;
+}
+
+/**
+ * Database health diagnostics report interface.
+ */
+export interface DatabaseDiagnostics {
+  totalPages: number;
+  totalNotes: number;
+  activeNotes: number;
+  archivedNotes: number;
+  trashedNotes: number;
+  totalLinks: number;
+  orphanLinks: number;
+  unindexedEmbeddings: number;
+  totalDocumentChunks: number;
+  estimatedStorageBytes: number;
+}
+
+/**
+ * Scans database tables and computes integrity, consistency, and storage metrics.
+ *
+ * @returns {@link DatabaseDiagnostics}
+ */
+export async function runDatabaseDiagnostics(): Promise<DatabaseDiagnostics> {
+  const totalPages = await db.pages.count();
+  const allNotes = await db.notes.toArray();
+  const allLinks = await db.links.toArray();
+  const totalChunks = await db.documents.count();
+
+  const noteIdSet = new Set(allNotes.map(n => n.id));
+  let orphanLinks = 0;
+  for (const link of allLinks) {
+    if (!noteIdSet.has(link.sourceId) || !noteIdSet.has(link.targetId)) {
+      orphanLinks++;
+    }
+  }
+
+  let activeNotes = 0;
+  let archivedNotes = 0;
+  let trashedNotes = 0;
+  let unindexedEmbeddings = 0;
+
+  for (const note of allNotes) {
+    if (Number(note.isTrash) === 1) trashedNotes++;
+    else if (Number(note.isArchived) === 1) archivedNotes++;
+    else activeNotes++;
+
+    if (!note.embedding || note.embedding.length === 0) {
+      unindexedEmbeddings++;
+    }
+  }
+
+  // Estimate storage usage
+  let storageBytes = 0;
+  if (navigator.storage && navigator.storage.estimate) {
+    try {
+      const estimate = await navigator.storage.estimate();
+      storageBytes = estimate.usage || 0;
+    } catch {
+      storageBytes = 0;
+    }
+  }
+
+  return {
+    totalPages,
+    totalNotes: allNotes.length,
+    activeNotes,
+    archivedNotes,
+    trashedNotes,
+    totalLinks: allLinks.length,
+    orphanLinks,
+    unindexedEmbeddings,
+    totalDocumentChunks: totalChunks,
+    estimatedStorageBytes: storageBytes
+  };
+}
+
+/**
+ * Renames a tag across all notes in the database.
+ *
+ * @param oldTag - Existing tag string
+ * @param newTag - New replacement tag string
+ * @returns Count of notes updated
+ */
+export async function renameTagGlobally(oldTag: string, newTag: string): Promise<number> {
+  const cleanOld = oldTag.trim().toLowerCase();
+  const cleanNew = newTag.trim().toLowerCase();
+  if (!cleanOld || !cleanNew || cleanOld === cleanNew) return 0;
+
+  const notesWithTag = await db.notes.filter(n => (n.tags || []).some(t => t.toLowerCase() === cleanOld)).toArray();
+  let updatedCount = 0;
+
+  for (const note of notesWithTag) {
+    if (!note.id) continue;
+    const newTags = Array.from(new Set(
+      (note.tags || []).map(t => (t.toLowerCase() === cleanOld ? cleanNew : t))
+    ));
+    await db.notes.update(note.id, { tags: newTags, updatedAt: Date.now() });
+    updatedCount++;
+  }
+
+  return updatedCount;
+}
+
+/**
+ * Deletes a tag from all notes in the database.
+ *
+ * @param tag - Tag string to remove
+ * @returns Count of notes updated
+ */
+export async function deleteTagGlobally(tag: string): Promise<number> {
+  const cleanTag = tag.trim().toLowerCase();
+  if (!cleanTag) return 0;
+
+  const notesWithTag = await db.notes.filter(n => (n.tags || []).some(t => t.toLowerCase() === cleanTag)).toArray();
+  let updatedCount = 0;
+
+  for (const note of notesWithTag) {
+    if (!note.id) continue;
+    const newTags = (note.tags || []).filter(t => t.toLowerCase() !== cleanTag);
+    await db.notes.update(note.id, { tags: newTags, updatedAt: Date.now() });
+    updatedCount++;
+  }
+
+  return updatedCount;
+}
+
+/**
  * Populates an empty database with introductory guide notes, sample graph links, and categories.
  */
 export async function seedDatabase(): Promise<void> {

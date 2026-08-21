@@ -31,7 +31,8 @@ import { DiscoveryDigestModal } from './components/DiscoveryDigestModal';
 import { Dropdown } from './components/ui/Dropdown';
 import { ingestDocument } from './utils/rag';
 import { saveSnapshot, loadSnapshot, getSnapshots, restoreSnapshot } from './utils/snapshotManager';
-import { applyCustomThemeLive, clearCustomThemeStyles, DEFAULT_CUSTOM_COLORS } from './utils/themeUtils';
+import { applyCustomThemeLive, clearCustomThemeStyles, DEFAULT_CUSTOM_COLORS, syncThemeCategoryColors } from './utils/themeUtils';
+import { formatShortcutBadge, formatShortcut, isModifierKeyCombo } from './utils/keyboardUtils';
 
 import { Brain, Plus, Settings, Calendar, Sparkles, Edit2, Trash2, Loader2, Compass, FileArchive, FileUp, Search } from 'lucide-react';
 
@@ -168,6 +169,11 @@ export default function App() {
     } else {
       clearCustomThemeStyles();
     }
+    // Synchronize default node category colors to match the active theme
+    syncThemeCategoryColors(activeTheme, customThemeColors).catch(e => {
+      if (import.meta.env.DEV) console.warn('Failed to sync theme category colors:', e);
+    });
+
     const timer = setTimeout(() => {
       const prev = localStorage.getItem('aethermind-custom-themes');
       const next = JSON.stringify(customThemeColors);
@@ -300,10 +306,10 @@ export default function App() {
     seedDatabase().catch(e => console.error('Seed failed', e));
   }, []);
 
-  // Global Command Palette Shortcut Listener (Cmd+K / Ctrl+K)
+  // Global Command Palette Shortcut Listener (Universal Ctrl+K / Cmd+K)
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+      if (isModifierKeyCombo(e, 'k')) {
         e.preventDefault();
         setShowCommandPalette(prev => !prev);
       }
@@ -585,6 +591,13 @@ export default function App() {
       if (!target.files || target.files.length === 0) return;
       const file = target.files[0];
 
+      // File size validation (max 25MB)
+      const { validateFileSize, guardUntrustedContent } = await import('./utils/security');
+      if (!validateFileSize(file, 25 * 1024 * 1024)) {
+        showToast('File size exceeds the 25MB safety limit.', 'error');
+        return;
+      }
+
       setDocLoading(true);
       setDocStatus('Reading document...');
 
@@ -661,9 +674,15 @@ Format:
   { "action": "create_link", "from": "Concept A", "to": "Concept B" }
 ]
 \`\`\``;
+          const guardedChunk = guardUntrustedContent(chunks[i], {
+            title: file.name,
+            source: file.name,
+            type: file.name.endsWith('.pdf') ? 'pdf' : 'txt'
+          });
+
           let userPrompt = `Analyze this chunk and create notes + links:\n`;
           if (existingTitles) userPrompt += `Existing notes: ${existingTitles}\n`;
-          userPrompt += `\n---\n${chunks[i]}\n---`;
+          userPrompt += `\n${guardedChunk}`;
 
           try {
             let aiResponse = '';
@@ -671,11 +690,14 @@ Format:
             const parsed = parseAiResponse(aiResponse);
             if (parsed && parsed.actions.length > 0) {
               for (const action of parsed.actions) {
-                await executeAiAction(action, currentPageId);
-                if (action.action === 'create_note') {
-                  const existing = createdNodes.find(n => n.title === action.title);
-                  if (existing) existing.content += `\n\n${action.content}`;
-                  else createdNodes.push({ title: action.title, content: action.content });
+                // Safety guard: only permit constructive creation actions during file ingestion
+                if (action.action === 'create_note' || action.action === 'create_link') {
+                  await executeAiAction(action, currentPageId);
+                  if (action.action === 'create_note') {
+                    const existing = createdNodes.find(n => n.title === action.title);
+                    if (existing) existing.content += `\n\n${action.content}`;
+                    else createdNodes.push({ title: action.title, content: action.content });
+                  }
                 }
               }
             } else {
@@ -808,11 +830,11 @@ Format:
         <div 
           className="header-search-pill d-none d-md-flex" 
           onClick={() => setShowCommandPalette(true)}
-          title="Search notes and commands (⌘K)"
+          title={`Search notes and commands (${formatShortcut('K')})`}
         >
           <Search size={14} style={{ color: 'var(--text-muted)' }} />
           <span>Search notes...</span>
-          <span className="kbd-badge">⌘K</span>
+          <span className="kbd-badge">{formatShortcutBadge('K')}</span>
         </div>
 
         {/* Right Header Action Dock */}
@@ -842,7 +864,7 @@ Format:
           <button className="header-btn d-none d-md-inline-flex" onClick={handleImportZip} title="Import Markdown ZIP">
             <FileArchive size={15} />
           </button>
-          <button className="header-btn d-none d-md-inline-flex" onClick={handleUploadDocument} title="Upload PDF/DOCX (RAG)">
+          <button className="header-btn d-none d-md-inline-flex" onClick={handleUploadDocument} title="Upload Document" aria-label="Upload Document">
             <FileUp size={15} />
           </button>
 
@@ -1014,26 +1036,38 @@ Format:
           onTabChange={(tab) => {
             switch (tab) {
               case 'graph':
+                // Reset all overlay windows back to graph canvas
                 setIsSidebarOpen(false);
                 setIsSearchOpen(false);
                 setShowMobileMenu(false);
                 break;
               case 'editor':
-                setIsSidebarOpen(true);
-                setIsSearchOpen(false);
-                setShowMobileMenu(false);
+                // If editor is already open, close it; otherwise open it
+                if (isSidebarOpen) {
+                  setIsSidebarOpen(false);
+                } else {
+                  setIsSidebarOpen(true);
+                  setIsSearchOpen(false);
+                  setShowMobileMenu(false);
+                }
                 break;
               case 'search':
-                setIsSearchOpen(true);
-                setIsSidebarOpen(false);
-                setShowMobileMenu(false);
+                // If search is already open, close it; otherwise open it
+                if (isSearchOpen) {
+                  setIsSearchOpen(false);
+                } else {
+                  setIsSearchOpen(true);
+                  setIsSidebarOpen(false);
+                  setShowMobileMenu(false);
+                }
                 break;
               case 'menu':
-                setShowMobileMenu(!showMobileMenu);
+                // Toggle mobile menu drawer
+                setShowMobileMenu(prev => !prev);
                 break;
             }
           }}
-          onNewPage={() => setShowNewPage(true)}
+          onNewPage={() => setShowNewPage(prev => !prev)}
         />
       )}
 
@@ -1083,6 +1117,11 @@ Format:
         notes={notes}
         categories={categories}
         onSelectNote={handleJumpToNote}
+        onOpenAskAi={() => setShowAskAi(true)}
+        onOpenSettings={() => setShowSettings(true)}
+        onOpenNewNote={() => handleCreateNote(0, 0)}
+        onOpenReview={() => setShowReview(true)}
+        onOpenJournal={handleCreateDailyNote}
       />
 
       {/* Ask AI Modal */}
@@ -1090,6 +1129,7 @@ Format:
         isOpen={showAskAi}
         onClose={() => setShowAskAi(false)}
         activePageId={currentPageId}
+        onJumpToNote={handleJumpToNote}
       />
 
       {/* NewPageModal */}
@@ -1150,8 +1190,8 @@ Format:
         />
       )}
       {docLoading && (
-        <div className="doc-loading-overlay">
-          <div className="doc-loading-card glass-panel">
+        <div className="modal-overlay doc-loading-overlay !flex !items-center !justify-center !p-4" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div className="doc-loading-card premium-loader-card glass-panel" style={{ width: '100%', maxWidth: '400px' }}>
             <div className="doc-loading-animation">
               <svg width="80" height="80" viewBox="0 0 80 80">
                 <defs>

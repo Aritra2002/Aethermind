@@ -37,7 +37,7 @@ export interface HSV {
  * @param hex - 3-character or 6-character Hex string (e.g. '#ffffff')
  * @returns HSV object with h in [0, 360], s in [0, 100], v in [0, 100]
  */
-export function hexToHSV(hex: string): HSV {
+function hexToHSV(hex: string): HSV {
   let clean = (hex || '').replace('#', '').trim();
   if (clean.length === 3) {
     clean = clean[0] + clean[0] + clean[1] + clean[1] + clean[2] + clean[2];
@@ -80,7 +80,7 @@ export function hexToHSV(hex: string): HSV {
  * @param v - Value [0, 100]
  * @returns #RRGGBB formatted string
  */
-export function hsvToHex(h: number, s: number, v: number): string {
+function hsvToHex(h: number, s: number, v: number): string {
   const hNorm = (h % 360) / 360;
   const sNorm = Math.max(0, Math.min(100, s)) / 100;
   const vNorm = Math.max(0, Math.min(100, v)) / 100;
@@ -147,9 +147,11 @@ export const ModernColorPicker: React.FC<ModernColorPickerProps> = ({
     const currentHex = hsvToHex(hsv.h, hsv.s, hsv.v);
     if (color && color.toLowerCase() !== currentHex.toLowerCase()) {
       const nextHsv = hexToHSV(color);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setHsv(nextHsv);
       setHexInput(color);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [color]);
 
   /** Updates internal state and notifies parent of new color */

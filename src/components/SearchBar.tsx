@@ -127,11 +127,37 @@ export const SearchBar: React.FC<SearchBarProps> = ({
       {/* Category Visual Legend */}
       <div className="category-legend">
         {categories.map(cat => (
-          <div key={cat.id} className="legend-item">
+          <div 
+            key={cat.id} 
+            className="legend-item"
+            style={{ cursor: 'pointer' }}
+            onClick={() => setSearchQuery(searchQuery ? `${searchQuery} cat:${cat.id}` : `cat:${cat.id}`)}
+            title={`Click to filter by cat:${cat.id}`}
+          >
             <span className="legend-dot" style={{ backgroundColor: cat.color }}></span>
             <span>{cat.label}</span>
           </div>
         ))}
+      </div>
+
+      {/* Syntax Filter Helper Chips */}
+      <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '6px', fontSize: '0.72rem' }}>
+        <button 
+          type="button" 
+          className="glass-pill" 
+          style={{ padding: '2px 8px', background: 'var(--surface-pill-bg)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)', cursor: 'pointer', borderRadius: '12px' }}
+          onClick={() => setSearchQuery(searchQuery ? `${searchQuery} is:favorite` : 'is:favorite')}
+        >
+          ⭐ is:favorite
+        </button>
+        <button 
+          type="button" 
+          className="glass-pill" 
+          style={{ padding: '2px 8px', background: 'var(--surface-pill-bg)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)', cursor: 'pointer', borderRadius: '12px' }}
+          onClick={() => setSearchQuery(searchQuery ? `${searchQuery} is:archived` : 'is:archived')}
+        >
+          📦 is:archived
+        </button>
       </div>
 
       {/* Tag Cloud Filter Chips */}

@@ -26,8 +26,9 @@ import { db } from '../../db';
 import type { Category } from '../../db';
 import { clusterUnlinkedNotes } from '../../utils/vectorSearch';
 import { exportToHtml } from '../../utils/exportHtml';
-import { seedDatabase } from '../../db/helpers';
-import { Download, Upload, RotateCcw, Plus, Trash2, Globe } from 'lucide-react';
+import { seedDatabase, runDatabaseDiagnostics } from '../../db/helpers';
+import { validateBackupPayload, createSafetySnapshot, type BackupValidationResult } from '../../utils/backupValidation';
+import { Download, Upload, RotateCcw, Plus, Trash2, Globe, Activity } from 'lucide-react';
 import { ConfirmModal } from '../ConfirmModal';
 import { useToast } from '../ToastContext';
 
@@ -89,8 +90,8 @@ export const DataSettingsTab: React.FC<DataSettingsTabProps> = ({
   /** State controlling visibility of the backup import confirmation modal */
   const [showImportConfirm, setShowImportConfirm] = useState(false);
   
-  /** Staged change event holding the uploaded JSON backup file prior to confirmation */
-  const [pendingImportEvent, setPendingImportEvent] = useState<React.ChangeEvent<HTMLInputElement> | null>(null);
+  /** Staged validated backup object prior to confirmation */
+  const [validatedImportData, setValidatedImportData] = useState<BackupValidationResult | null>(null);
   
   /** State controlling visibility of the database reset confirmation modal */
   const [showRestoreConfirm, setShowRestoreConfirm] = useState(false);
@@ -153,76 +154,104 @@ export const DataSettingsTab: React.FC<DataSettingsTabProps> = ({
   };
 
   /**
-   * Stages the selected JSON file and opens the confirmation modal to warn
-   * the user about replacing their existing local database.
-   * 
+   * Reads, parses, and deeply validates the selected JSON backup file.
+   * If valid, stages the payload and opens the confirmation modal with preview statistics.
+   *
    * @param {React.ChangeEvent<HTMLInputElement>} e - File input change event.
    */
   const handleImportData = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setPendingImportEvent(e);
-    setShowImportConfirm(true);
-  };
+    if (!e.target.files || e.target.files.length === 0) return;
+    const file = e.target.files[0];
 
-  /**
-   * Reads and validates the staged backup JSON file, executes a read-write
-   * transaction across all Dexie tables to atomically replace all records,
-   * refreshes application data, and closes the settings modal.
-   */
-  const executeImport = () => {
-    const e = pendingImportEvent;
-    if (!e || !e.target.files || e.target.files.length === 0) {
-      setShowImportConfirm(false);
+    // File size guard (max 50MB)
+    if (file.size > 50 * 1024 * 1024) {
+      showToast('Backup file exceeds maximum allowed size (50MB).', 'error');
+      if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
-    const file = e.target.files[0];
+
     const reader = new FileReader();
-    reader.onload = async (event) => {
+    reader.onload = (event) => {
       try {
-        const json = JSON.parse(event.target?.result as string);
-        if (json.app !== 'AetherMind') {
-          showToast('Invalid backup file format', 'error');
-          setShowImportConfirm(false);
+        const rawJson = JSON.parse(event.target?.result as string);
+        const validation = validateBackupPayload(rawJson);
+
+        if (!validation.valid || !validation.data) {
+          showToast(validation.error || 'Invalid backup file structure.', 'error');
           return;
         }
 
-        // Perform an atomic multi-table transaction to avoid partial data corruption
-        await db.transaction('rw', db.notes, db.links, db.categories, db.pages, db.snapshots, async () => {
-          await db.notes.clear();
-          await db.links.clear();
-          await db.categories.clear();
-          await db.pages.clear();
-          await db.snapshots.clear();
-          
-          if (json.pages && json.pages.length > 0) {
-            await db.pages.bulkAdd(json.pages);
-          } else {
-            await db.pages.add({ title: 'Graph', createdAt: Date.now() });
-          }
-          if (json.snapshots) await db.snapshots.bulkAdd(json.snapshots);
-          if (json.notes) await db.notes.bulkAdd(json.notes);
-          if (json.links) await db.links.bulkAdd(json.links);
-          if (json.categories) {
-            await db.categories.bulkAdd(json.categories);
-          } else {
-            const defaultCategories: Category[] = [
-              { id: 'general', label: 'General', color: '#818cf8' },
-              { id: 'work', label: 'Work', color: '#34d399' },
-              { id: 'personal', label: 'Personal', color: '#f43f5e' },
-              { id: 'ideas', label: 'Ideas', color: '#fbbf24' }
-            ];
-            await db.categories.bulkAdd(defaultCategories);
-          }
-        });
-        onRefreshData();
-        setShowImportConfirm(false);
-        onClose();
+        setValidatedImportData(validation);
+        setShowImportConfirm(true);
       } catch (err: unknown) {
-        showToast('Failed to import data: ' + (err as Error).message, 'error');
-        setShowImportConfirm(false);
+        showToast('Failed to parse backup JSON: ' + (err as Error).message, 'error');
       }
+    };
+    reader.onerror = () => {
+      showToast('Error reading uploaded backup file.', 'error');
     };
     reader.readAsText(file);
     if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  /**
+   * Takes an automatic pre-import safety snapshot, clears old data,
+   * bulk-inserts the validated backup records into IndexedDB, refreshes the UI,
+   * and notifies the user.
+   */
+  const executeImport = async () => {
+    if (!validatedImportData || !validatedImportData.data) {
+      setShowImportConfirm(false);
+      return;
+    }
+
+    const backup = validatedImportData.data;
+
+    try {
+      // Step 1: Create an emergency safety snapshot before altering current state
+      await createSafetySnapshot();
+
+      // Step 2: Atomic multi-table overwrite
+      await db.transaction('rw', db.notes, db.links, db.categories, db.pages, db.snapshots, async () => {
+        await db.notes.clear();
+        await db.links.clear();
+        await db.categories.clear();
+        await db.pages.clear();
+        await db.snapshots.clear();
+
+        if (backup.pages.length > 0) {
+          await db.pages.bulkAdd(backup.pages);
+        } else {
+          await db.pages.add({ title: 'Graph', createdAt: Date.now() });
+        }
+
+        if (backup.snapshots.length > 0) await db.snapshots.bulkAdd(backup.snapshots);
+        if (backup.notes.length > 0) await db.notes.bulkAdd(backup.notes);
+        if (backup.links.length > 0) await db.links.bulkAdd(backup.links);
+
+        if (backup.categories.length > 0) {
+          await db.categories.bulkAdd(backup.categories);
+        } else {
+          const defaultCategories: Category[] = [
+            { id: 'general', label: 'General', color: '#818cf8' },
+            { id: 'work', label: 'Work', color: '#34d399' },
+            { id: 'personal', label: 'Personal', color: '#f43f5e' },
+            { id: 'ideas', label: 'Ideas', color: '#fbbf24' }
+          ];
+          await db.categories.bulkAdd(defaultCategories);
+        }
+      });
+
+      showToast(`Successfully imported ${backup.notes.length} notes and ${backup.links.length} connections.`, 'success');
+      onRefreshData();
+      setShowImportConfirm(false);
+      setValidatedImportData(null);
+      onClose();
+    } catch (err: unknown) {
+      showToast('Failed to import data: ' + (err as Error).message, 'error');
+      setShowImportConfirm(false);
+      setValidatedImportData(null);
+    }
   };
 
   /**
@@ -278,6 +307,19 @@ export const DataSettingsTab: React.FC<DataSettingsTabProps> = ({
           <button className="settings-action-btn" onClick={() => exportToHtml(activePageId, pageTitle)}>
             <Globe size={16} />
             <span>Export to HTML</span>
+          </button>
+
+          <button className="settings-action-btn" onClick={async () => {
+            try {
+              const diag = await runDatabaseDiagnostics();
+              showToast(`Diagnostics: ${diag.totalNotes} notes (${diag.activeNotes} active, ${diag.archivedNotes} archived), ${diag.totalLinks} links, ${diag.totalDocumentChunks} doc chunks.`, 'success');
+              onRefreshData();
+            } catch (err: unknown) {
+              showToast('Diagnostics error: ' + (err instanceof Error ? err.message : String(err)), 'error');
+            }
+          }}>
+            <Activity size={16} />
+            <span>Database Health & Repair</span>
           </button>
 
           <button className="settings-action-btn danger-btn" onClick={handleResetDatabase}>
@@ -502,16 +544,20 @@ export const DataSettingsTab: React.FC<DataSettingsTabProps> = ({
         </div>
       </div>
 
-      {/* Backup Import Overwrite Confirmation Modal */}
+      {/* Backup Import Overwrite Confirmation Modal with Preview Stats */}
       <ConfirmModal
         isOpen={showImportConfirm}
         title="Import Backup"
-        message="Importing will overwrite your current database. Are you sure you want to proceed?"
+        message={
+          validatedImportData?.summary
+            ? `This backup contains ${validatedImportData.summary.noteCount} notes, ${validatedImportData.summary.linkCount} connections, and ${validatedImportData.summary.pageCount} page(s) (Exported on ${validatedImportData.summary.exportDate}). An automatic safety snapshot will be saved before importing. Overwrite existing workspace?`
+            : "Importing will overwrite your current database. An automatic safety snapshot will be saved before importing. Proceed?"
+        }
         confirmText="Import & Overwrite"
         onConfirm={executeImport}
         onCancel={() => {
           setShowImportConfirm(false);
-          setPendingImportEvent(null);
+          setValidatedImportData(null);
         }}
       />
       

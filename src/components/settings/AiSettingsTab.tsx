@@ -242,6 +242,55 @@ export const AiSettingsTab: React.FC = () => {
             />
           )}
         </div>
+
+        {/* Client Spoofing Profile (Kilo Code, Cursor, Continue, VSCode, None, Custom) */}
+        <div className="mb-3">
+          <label className="form-label" style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+            Client Spoofing / Emulation (Optional)
+          </label>
+          <Dropdown
+            value={aiConfig.clientSpoof || 'none'}
+            onChange={(val) => handleAiConfigChange('clientSpoof', val as string)}
+            options={[
+              { value: 'none', label: 'Default (AetherMind Standard)' },
+              { value: 'kilocode', label: 'Kilo Code (Emulate KiloCode client)' },
+              { value: 'cursor', label: 'Cursor (Emulate Cursor IDE)' },
+              { value: 'continue', label: 'Continue.dev (Emulate Continue extension)' },
+              { value: 'vscode', label: 'VS Code Copilot (Emulate VS Code)' },
+              { value: 'custom', label: 'Custom Headers (JSON)' }
+            ]}
+          />
+          <div className="form-text" style={{ fontSize: '0.8rem' }}>
+            Spoofs headers like User-Agent and client identifiers for compatible backend endpoints and routing gateways.
+          </div>
+        </div>
+
+        {aiConfig.clientSpoof === 'custom' && (
+          <div className="mb-3">
+            <label className="form-label" style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+              Custom Headers (JSON Object)
+            </label>
+            <textarea
+              className="form-control"
+              rows={3}
+              style={{ fontFamily: 'monospace', fontSize: '0.8rem' }}
+              value={aiConfig.customClientHeaders ? JSON.stringify(aiConfig.customClientHeaders, null, 2) : ''}
+              onChange={(e) => {
+                try {
+                  const parsed = e.target.value.trim() ? JSON.parse(e.target.value) : undefined;
+                  const newConfig = { ...aiConfig, customClientHeaders: parsed };
+                  setLocalAIConfig(newConfig);
+                  setAIConfig(newConfig);
+                  setSaveStatus('saved');
+                  setTimeout(() => setSaveStatus('idle'), 2000);
+                } catch {
+                  // Keep typing in local state
+                }
+              }}
+              placeholder='{\n  "X-Custom-Client": "MyClient/1.0",\n  "User-Agent": "MyAgent/1.0"\n}'
+            />
+          </div>
+        )}
       </div>
     </div>
   );

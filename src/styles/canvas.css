@@ -43,9 +43,9 @@
   position: absolute;
   top: 16px;
   left: 16px;
-  width: 340px;
+  width: clamp(280px, 28vw, 380px);
   max-width: calc(100vw - 32px);
-  max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px);
   overflow-y: auto;
   overflow-x: hidden;
   padding: 16px;

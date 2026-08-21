@@ -34,7 +34,6 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({
   color, 
   defaultColor, 
   onChange, 
-  onReset: _onReset,
   title = "Node Color",
   align = 'right'
 }) => {

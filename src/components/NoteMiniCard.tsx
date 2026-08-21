@@ -9,8 +9,7 @@
 import React, { useState } from 'react';
 import type { Note, Category } from '../db';
 import { X, FileText } from 'lucide-react';
-import { marked } from 'marked';
-import DOMPurify from 'dompurify';
+import { safeRenderMarkdown } from '../utils/sanitizer';
 
 /**
  * Props for the {@link NoteMiniCard} component.
@@ -79,25 +78,13 @@ export const NoteMiniCard: React.FC<NoteMiniCardProps> = ({ note, category, onOp
 
   /**
    * Converts `[[Wiki Links]]` to custom HTML hash anchors, parses Markdown to HTML,
-   * and sanitizes using DOMPurify to guarantee XSS prevention.
+   * and sanitizes using safeRenderMarkdown.
    *
    * @returns {string} Sanitized HTML string for preview rendering.
    */
   const getRenderedContent = () => {
     if (!note.content) return '';
-    const processedContent = note.content.replace(/\[\[(.*?)\]\]/g, (_, p1) => {
-      const cleanTitle = p1.trim();
-      return `[${cleanTitle}](#wiki-${encodeURIComponent(cleanTitle)})`;
-    });
-    try {
-      const rawHtml = marked.parse(processedContent) as string;
-      return DOMPurify.sanitize(rawHtml, {
-        ADD_ATTR: ['href'],
-        ALLOWED_URI_REGEXP: /^(https?|ftp|mailto|#wiki-)/i,
-      });
-    } catch {
-      return '<p>Error rendering markdown.</p>';
-    }
+    return safeRenderMarkdown(note.content);
   };
 
   /**
