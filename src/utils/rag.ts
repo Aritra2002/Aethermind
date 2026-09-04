@@ -56,6 +56,69 @@ export const chunkText = (text: string, chunkSize: number = 1000, overlap: numbe
 };
 
 /**
+ * Splits a markdown document into semantically cohesive chunks by respecting
+ * header hierarchy (# Header 1, ## Header 2), code blocks, and paragraph boundaries.
+ *
+ * @param text - Raw Markdown content.
+ * @param maxChunkSize - Target maximum chunk length (default: 1000).
+ * @param overlap - Number of overlapping characters (default: 200).
+ * @returns Array of structured chunks with contextual headers.
+ */
+export const chunkMarkdownStructural = (
+  text: string,
+  maxChunkSize: number = 1000,
+  overlap: number = 200
+): Array<{ content: string; headerContext?: string }> => {
+  if (!text || !text.trim()) return [];
+
+  const lines = text.split('\n');
+  const sections: Array<{ header: string; lines: string[] }> = [];
+  let currentHeader = '';
+  let currentLines: string[] = [];
+
+  for (const line of lines) {
+    const headerMatch = line.match(/^(#{1,4})\s+(.+)$/);
+    if (headerMatch) {
+      if (currentLines.length > 0 || currentHeader) {
+        sections.push({ header: currentHeader, lines: currentLines });
+      }
+      currentHeader = headerMatch[2].trim();
+      currentLines = [line];
+    } else {
+      currentLines.push(line);
+    }
+  }
+
+  if (currentLines.length > 0) {
+    sections.push({ header: currentHeader, lines: currentLines });
+  }
+
+  const result: Array<{ content: string; headerContext?: string }> = [];
+
+  for (const sec of sections) {
+    const sectionBody = sec.lines.join('\n').trim();
+    if (!sectionBody) continue;
+
+    if (sectionBody.length <= maxChunkSize) {
+      result.push({
+        content: sectionBody,
+        headerContext: sec.header || undefined
+      });
+    } else {
+      const subChunks = chunkText(sectionBody, maxChunkSize, overlap);
+      for (const sc of subChunks) {
+        result.push({
+          content: sc,
+          headerContext: sec.header || undefined
+        });
+      }
+    }
+  }
+
+  return result.length > 0 ? result : [{ content: text.trim() }];
+};
+
+/**
  * Generates a unique document identifier incorporating a timestamp and random alphanumeric suffix.
  *
  * @returns A unique document identifier string (e.g., `doc_1710000000_abc1234`).

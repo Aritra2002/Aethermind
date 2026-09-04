@@ -1,461 +1,515 @@
-# AETHER MIND — AGENT OPERATING CONTRACT
+# AetherMind — Agent Operating Contract
 
-You are working inside the local `Aethermind` project.
+## Mission
 
-The local project is the source of truth. Never replace, reset, clone over, or discard it.
+AetherMind is a **local-first, AI-native personal knowledge operating system**.
 
----
+Its purpose is not to become another generic notes app, chatbot, or feature collection.
 
-## 0. MANDATORY SKILL PROTOCOL
+The long-term product goal is:
 
-**NO WORK MAY BEGIN WITHOUT THIS STEP.**
+> AetherMind should understand a person's accumulated knowledge, the relationships between concepts, how their thinking evolves, what they do not know, and where their knowledge conflicts.
 
-Before every task, including small changes:
+Every engineering decision should strengthen:
 
-1. Inspect all available agent skills/instructions relevant to this task.
-2. Identify every applicable skill.
-3. Read/use every applicable skill.
-4. Follow their instructions throughout the task.
-5. If a skill conflicts with this file, follow the higher-priority system/developer instruction.
-6. If no skill applies, explicitly continue using the engineering rules in this file.
-
-Do not skip the skill check because a task appears simple.
-
-Before modifying code, establish:
-
-**Task → Applicable Skills → Relevant Files → Plan → Implementation → Verification**
+* knowledge understanding
+* knowledge retrieval
+* knowledge relationships
+* knowledge evolution
+* privacy and user ownership
+* AI reliability
+* security
+* performance
+* maintainability
 
 ---
 
-# 1. PRODUCT
+# 1. NON-NEGOTIABLE RULES
 
-AetherMind is a local-first AI knowledge management system.
+## Never hallucinate repository facts
 
-Core pillars:
+Never assume that:
 
-**Capture → Organize → Connect → Retrieve → Understand → Review → Discover**
+* a file exists
+* a function exists
+* a package is installed
+* an API behaves a certain way
+* a feature is implemented
+* a test passes
+* a security property exists
+* a command works
 
-Existing major capabilities include:
+Inspect and verify.
 
-* Markdown notes/editor
-* wiki links/backlinks
-* pages
-* knowledge graph/D3
-* semantic search
-* embeddings/vector search
-* RAG
-* multiple AI providers/local AI
-* AI actions
-* document ingestion
-* URL research
-* discovery
-* spaced repetition
-* snapshots/history
-* import/export
-* PWA/offline
-* browser clipper
-* themes
+If something cannot be verified, say:
 
-Do not blindly add features.
+> UNVERIFIED: ...
 
-Make the existing product coherent, reliable, fast, secure and polished.
+Never turn an assumption into a fact.
 
 ---
 
-# 2. SOURCE OF TRUTH
+## Never hallucinate external facts
 
-Inspect actual source code.
+For current APIs, libraries, frameworks, browser behavior, security practices, model capabilities, provider APIs, or anything time-sensitive:
 
-Do not assume README/documentation is accurate.
+1. Research it.
+2. Prefer authoritative sources.
+3. Check the installed version where applicable.
+4. Verify against the actual implementation.
+5. Record important conclusions.
 
-Before changing a subsystem, understand:
-
-**UI → state → domain logic → persistence → indexing/RAG → AI → external services**
-
-Do not perform blind rewrites.
-
-Prefer incremental, justified refactoring.
+Never rely on model memory when verification is practical.
 
 ---
 
-# 3. DATA SAFETY — HIGHEST PRIORITY
+## Research before implementation
 
-Never silently destroy user data.
+When uncertain:
 
-Protect:
+```text
+STOP
+ ↓
+INSPECT
+ ↓
+RESEARCH
+ ↓
+VERIFY
+ ↓
+PLAN
+ ↓
+IMPLEMENT
+ ↓
+TEST
+```
+
+Do not guess.
+
+---
+
+## Ask when necessary
+
+Stop and ask the user when:
+
+* requirements conflict
+* requirements are materially ambiguous
+* a destructive operation is required
+* data could be lost
+* credentials are needed
+* an external service must be selected
+* security boundaries are unclear
+* multiple implementations have materially different consequences
+
+Do not invent requirements simply to avoid asking.
+
+---
+
+# 2. FIRST ACTION ON EVERY TASK
+
+Before modifying code:
+
+1. Read `AGENTS.md`.
+2. Inspect git status.
+3. Inspect repository structure.
+4. Read relevant documentation.
+5. Search for existing implementations.
+6. Inspect package/runtime versions.
+7. Identify relevant tests.
+8. Identify available skills/tools.
+9. Determine security implications.
+10. Research uncertain areas.
+11. Create a concise implementation plan.
+12. Then modify code.
+
+Do not blindly start editing.
+
+---
+
+# 3. SOURCE-OF-TRUTH ORDER
+
+When sources conflict, prefer:
+
+1. Current user requirement
+2. Applicable system/developer/agent instructions
+3. Current working implementation
+4. Tests
+5. Agent architecture/security/product documents
+6. Official dependency/API documentation
+7. README
+8. Historical comments/code
+9. Third-party articles
+10. Agent memory
+
+Current verified evidence beats memory.
+
+---
+
+# 4. REQUIRED DOCUMENTATION
+
+Consult the appropriate document before relevant work:
+
+* `docs/AGENT_ARCHITECTURE.md`
+* `docs/AGENT_PRODUCT.md`
+* `docs/AGENT_SECURITY.md`
+* `docs/AGENT_AI.md`
+* `docs/AGENT_QUALITY.md`
+* `docs/AGENT_RESEARCH.md`
+* `docs/AGENT_ROADMAP.md`
+
+Do not load every document unnecessarily.
+
+Read the documents relevant to the task.
+
+---
+
+# 5. PRODUCT PRIORITIES
+
+Priority order:
+
+### P0
+
+* security
+* data integrity
+* privacy
+* correctness
+* AI action safety
+* database reliability
+* migrations
+* import/export integrity
+* critical performance
+* testing infrastructure
+
+### P1
+
+* knowledge extraction
+* semantic retrieval
+* relationship detection
+* graph intelligence
+* temporal reasoning
+* contradiction detection
+* knowledge-gap detection
+* source provenance
+* intelligent discovery
+* AI-assisted knowledge maintenance
+
+### P2
+
+* onboarding
+* mobile UX
+* accessibility
+* browser ingestion
+* performance refinement
+
+### P3
+
+* cosmetic customization
+* excessive animation
+* novelty features
+* low-value convenience features
+
+Do not sacrifice P0/P1 quality to add P3 features.
+
+---
+
+# 6. LOCAL-FIRST
+
+AetherMind must preserve user ownership.
+
+Distinguish between:
+
+* local data
+* local inference
+* cloud inference
+* remote content retrieval
+* third-party processing
+
+Cloud AI is optional.
+
+Core knowledge must remain useful when AI providers or network access are unavailable.
+
+Any feature that sends user information outside the local environment must have an explicit data-flow.
+
+---
+
+# 7. AI SAFETY
+
+LLMs are untrusted components.
+
+They can:
+
+* hallucinate
+* misunderstand
+* produce invalid structured data
+* follow prompt injection
+* select unsafe actions
+* invent citations
+* misinterpret retrieved information
+
+The application must enforce:
+
+* schemas
+* validation
+* permissions
+* capabilities
+* rate/size limits
+* action restrictions
+* data integrity
+
+The model proposes.
+
+The application decides.
+
+---
+
+# 8. UNTRUSTED CONTENT
+
+Treat all of these as untrusted:
 
 * notes
-* pages
-* links
-* tags
-* documents
-* embeddings
-* snapshots
-* metadata
-
-Database changes require migrations.
-
-Imports require validation, preview/conflict handling and rollback where practical.
-
-Destructive operations should be recoverable where practical.
-
-Never reset the user's Git working tree or discard unrelated changes.
-
----
-
-# 4. SECURITY
-
-Treat all external content as untrusted:
-
 * Markdown
-* HTML
+* PDFs
+* DOCX
+* PPTX
+* CSV
+* websites
+* browser-clipped content
 * imported files
-* PDFs/DOCX/PPTX
-* webpages
-* URLs
-* browser-clipper data
-* AI output
+* RAG context
+* AI-generated content
 
-Audit for:
+Never allow retrieved content to become authoritative instructions.
 
-* XSS
-* prompt injection
-* SSRF
-* unsafe URL fetching
-* malicious imports
-* oversized/decompression attacks
-* secret/API-key exposure
-* unsafe AI mutations
+Maintain strict separation between:
 
-Never trust AI output as executable authority.
-
-Security must be enforced programmatically.
+```text
+Application instructions
+User instructions
+Retrieved data
+Model output
+Application state
+```
 
 ---
 
-# 5. AI SAFETY
+# 9. DATA SAFETY
 
-AI actions must follow:
+Never casually introduce:
 
-**LLM output → schema validation → semantic validation → target validation → risk classification → preview/confirmation → transaction → execution → undo/history**
+* destructive migrations
+* silent deletion
+* lossy imports
+* lossy exports
+* irreversible AI edits
+* unversioned schema changes
 
-Use strict runtime schemas and discriminated action types.
+Prefer:
 
-Classify actions:
+```text
+Inspect
+→ Preview
+→ Validate
+→ Backup
+→ Apply
+→ Verify
+```
 
-* READ
-* LOW-RISK WRITE
-* HIGH-RISK WRITE
-* DESTRUCTIVE
-
-High-risk/destructive actions require user confirmation.
-
-AI-generated edits should provide diffs.
-
-AI should receive only necessary context.
-
-Users should understand what information is sent to remote AI providers.
-
----
-
-# 6. KNOWN ARCHITECTURAL TARGETS
-
-Important existing areas include:
-
-* `src/App.tsx`
-* `src/components/`
-* `src/db/`
-* `src/hooks/`
-* `src/utils/aiClient.ts`
-* `src/utils/aiActions.ts`
-* `src/utils/rag.ts`
-* `src/utils/vectorSearch.ts`
-* `src/utils/snapshotManager.ts`
-* `src/utils/urlFetcher.ts`
-* `src/styles/`
-* `web-clipper/`
-
-Known improvement directions:
-
-### AI client
-
-Break the large provider implementation into clean provider adapters and normalized interfaces.
-
-### AI actions
-
-Replace loose action parsing with strict runtime validation, permissions, risk classification, previews and undo.
-
-### RAG
-
-Use:
-
-**ingestion → normalization → chunking → metadata → embedding → indexing → retrieval → ranking → context → generation → citations**
-
-### Vector search
-
-Move away from expensive whole-database scans toward incremental indexing, batching, caching, filtering and scalable retrieval.
-
-### Database
-
-Improve migrations, transactions, indexes, relationship integrity, recovery and persistence abstractions.
-
-### UI
-
-The project currently mixes Tailwind, Bootstrap and custom CSS. Do not add another styling system. Move toward one coherent design system incrementally.
+for destructive or high-risk operations.
 
 ---
 
-# 7. CORE UX
+# 10. PERFORMANCE
 
-AetherMind should feel:
+Do not make scalability claims without measurements.
 
-**calm, intelligent, fast, premium, focused, trustworthy.**
+Consider realistic datasets:
 
-Prioritize:
+* 100 notes
+* 1,000 notes
+* 10,000 notes
+* 50,000 notes
+* 100,000+ chunks
 
-* clarity
-* progressive disclosure
-* keyboard-first workflows
-* contextual actions
-* fast capture
-* excellent search
-* meaningful loading/error/empty states
-* undo
-* responsive behavior
-* accessibility
+Measure where relevant:
+
+* startup
+* database operations
+* indexing
+* embeddings
+* retrieval
+* graph rendering
+* memory
+* snapshots
+* import/export
+* mobile performance
+
+---
+
+# 11. TESTING
+
+Meaningful behavior requires meaningful validation.
+
+Use the smallest relevant validation first:
+
+```text
+Unit test
+→ Integration test
+→ Typecheck
+→ Lint
+→ Build
+→ E2E
+```
+
+Do not claim a test passed unless it was actually executed.
+
+If a check cannot be performed, state:
+
+> NOT RUN: <reason>
+
+Never fabricate test output.
+
+---
+
+# 12. CODE QUALITY
+
+Prefer:
+
+* small modules
+* explicit types
+* clear boundaries
+* deterministic behavior
+* reusable abstractions
+* explicit error handling
+* existing project conventions
 
 Avoid:
 
-* feature clutter
-* unnecessary modals
-* excessive gradients/glows
-* decorative animation
-* unexplained icons
-* hidden destructive actions
-* uncontrolled AI behavior
+* duplicate utilities
+* giant components
+* unnecessary abstractions
+* speculative architecture
+* unrelated rewrites
+* silent failures
+
+Search before creating a new abstraction.
 
 ---
 
-# 8. EDITOR
+# 13. SECURITY
 
-Protect typing performance and autosave.
+Always consider:
 
-Improve:
+* XSS
+* Markdown/HTML injection
+* URL attacks
+* SSRF
+* malicious files
+* ZIP/path traversal
+* API-key exposure
+* prompt injection
+* browser-extension permissions
+* dependency vulnerabilities
+* denial-of-service
+* unsafe AI actions
 
-* Markdown
-* wiki-link autocomplete
-* backlinks
-* slash commands
-* keyboard shortcuts
-* selection
-* paste
-* formatting
-* code
-* tables
-* tasks
-* attachments
-* contextual AI
-
-Clearly communicate:
-
-**Saving / Saved / Unsaved / Offline / Error**
-
-Never silently lose edits.
+When uncertain about security, research authoritative sources before implementing.
 
 ---
 
-# 9. SEARCH / RAG
+# 14. EXTERNAL RESEARCH
 
-Build toward:
+Use appropriate skills/tools whenever available.
 
-* keyword search
-* full-text search
-* semantic search
-* fuzzy search
-* metadata filters
-* hybrid retrieval
-* ranking/reranking
-* source provenance
-* citations
-* stale-index detection
-* background indexing
+Prefer:
 
-Optimize retrieval quality, not merely AI generation.
+1. official documentation
+2. official source repositories
+3. standards/specifications
+4. security advisories
+5. primary research
+6. reputable technical sources
+7. community discussions
 
----
+Never use a random tutorial to override current official documentation.
 
-# 10. GRAPH
-
-Keep D3 unless evidence justifies replacement.
-
-Improve:
-
-* performance
-* zoom/pan
-* filtering
-* focus mode
-* search
-* neighborhood exploration
-* paths
-* clusters
-* semantic relationships
-* timeline
-* graph statistics
-* large-graph behavior
-
-Clearly distinguish explicit user links from AI/semantic relationships.
+See `docs/AGENT_RESEARCH.md`.
 
 ---
 
-# 11. DOCUMENTS / WEB / CLIPPER
+# 15. DEFINITION OF DONE
 
-Ingestion must support clear:
+A task is complete only when applicable:
 
-**upload → extract → parse → chunk → embed → index → complete**
+* requirements are understood
+* relevant code was inspected
+* implementation is complete
+* existing behavior is preserved
+* tests pass
+* types pass
+* lint passes
+* build passes
+* security implications were reviewed
+* documentation is updated
+* final diff was inspected
+* limitations are documented
 
-Provide progress, cancellation, retry and useful errors.
-
-URL fetching must defend against SSRF, dangerous redirects, private networks, huge responses and malicious content.
-
-Browser clipper should remain minimal-permission and reliable.
-
----
-
-# 12. IMPORT / EXPORT / HISTORY
-
-Portability is essential.
-
-Exports should be complete, versioned, deterministic and secret-free.
-
-Imports require validation and safe conflict handling.
-
-Snapshots/history should support viewing, comparison and recovery.
+If something cannot be completed, report it.
 
 ---
 
-# 13. MOBILE / ACCESSIBILITY
+# 16. FINAL REPORT
 
-Mobile is not a shrunken desktop.
+Use:
 
-Prioritize:
+```text
+Summary
+- ...
 
-**Capture → Search → Notes → AI**
+Changed
+- ...
 
-Support:
+Research
+- ...
 
-* touch
-* keyboard
-* visible focus
-* screen readers
-* contrast
-* reduced motion
-* safe areas
-* keyboard-aware layouts
+Validation
+- ...
 
-Every icon-only action needs an accessible name.
+Security
+- ...
 
----
+Known limitations
+- ...
 
-# 14. PERFORMANCE
+Next recommended step
+- ...
+```
 
-Design for large vaults.
+Use explicit labels:
 
-Pay special attention to:
-
-* graph rendering
-* React re-renders
-* IndexedDB
-* embeddings
-* RAG
-* document parsing
-* search
-* AI streaming
-* large notes
-
-Use workers, batching, virtualization, caching and lazy loading when justified by measurement.
+* VERIFIED
+* UNVERIFIED
+* ASSUMPTION
+* BLOCKED
+* RISK
+* RECOMMENDATION
 
 ---
 
-# 15. TESTING
+# 17. MOST IMPORTANT RULE
 
-Meaningful changes require appropriate tests.
+Do not optimize for:
 
-Prioritize:
+> Making the user believe the task is finished.
 
-* database/migrations
-* note lifecycle
-* wiki links
-* search
-* RAG
-* embeddings
-* AI actions/security
-* import/export
-* snapshots
-* destructive operations
-* accessibility
-* critical user journeys
+Optimize for:
 
-Before completion, run appropriate:
+> Making the repository objectively better, with evidence.
 
-**typecheck → lint → tests → build**
+If uncertain: investigate.
 
-Fix failures rather than hiding them.
+If evidence contradicts your plan: change the plan.
 
----
+If unsafe: say so.
 
-# 16. WORK PHASES
+If ambiguous: ask.
 
-Work in this order unless dependency/safety requires otherwise:
-
-1. Security + data integrity
-2. Database + architecture
-3. Notes + editor
-4. Search + RAG
-5. AI platform + AI actions
-6. Graph
-7. Documents + research + clipper
-8. Import/export + history
-9. UI/design system
-10. Mobile + accessibility
-11. Performance
-12. Testing + QA
-13. Final polish
-
-Do not attempt an uncontrolled full rewrite.
-
----
-
-# 17. DISCOVERY DURING WORK
-
-Do not artificially limit findings.
-
-If you discover a real problem:
-
-* fix it immediately if it is critical to the current task;
-* otherwise record it for the correct future phase.
-
-Do not derail focused work with unrelated rewrites.
-
-Every change must be justified by evidence from the codebase.
-
----
-
-# 18. DEFINITION OF DONE
-
-A task is not complete merely because the code compiles.
-
-Before declaring completion:
-
-1. Skill protocol completed.
-2. Relevant code inspected.
-3. Implementation completed.
-4. Tests/typecheck/lint/build run as appropriate.
-5. Regression risks reviewed.
-6. UX/accessibility/security considered.
-7. User data safety verified.
-8. Changes documented when meaningful.
-
-**Quality > feature count.
-Correctness > speed.
-Data safety > convenience.
-User control > AI autonomy.**
+If unverified: do not claim it.

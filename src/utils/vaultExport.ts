@@ -7,7 +7,7 @@
 
 import { db, type Note, type Link, type Category, type Page, type GraphSnapshot } from '../db';
 import type { ValidatedBackup } from './backupValidation';
-import { exportToHtml } from './exportHtml';
+
 
 /**
  * Generates a complete, deterministic, secret-free JSON backup payload of the vault.
@@ -171,5 +171,6 @@ updated: ${new Date(note.updatedAt).toISOString()}
  * @param pageTitle - Page title label.
  */
 export async function exportVaultHtml(pageId: number = 1, pageTitle: string = 'AetherMind Vault'): Promise<void> {
+  const { exportToHtml } = await import('./exportHtml');
   await exportToHtml(pageId, pageTitle);
 }

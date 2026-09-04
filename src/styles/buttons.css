@@ -65,16 +65,16 @@
 /* Primary */
 .btn-primary {
   background: linear-gradient(135deg, var(--accent-primary), #6366f1);
-  border: 1px solid rgba(255, 255, 255, 0.25);
+  border: 1px solid var(--inset-highlight);
   color: #ffffff;
   font-weight: 600;
-  box-shadow: 0 4px 16px var(--glow-primary), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  box-shadow: 0 4px 16px var(--glow-primary), inset 0 1px 0 var(--inset-highlight);
 }
 
 .btn-primary:hover:not(:disabled) {
   background: linear-gradient(135deg, #9d74f8, #4f46e5);
-  box-shadow: 0 6px 24px var(--glow-primary), inset 0 1px 0 rgba(255, 255, 255, 0.35);
-  border-color: rgba(255, 255, 255, 0.35);
+  box-shadow: 0 6px 24px var(--glow-primary), inset 0 1px 0 var(--inset-highlight-strong);
+  border-color: var(--inset-highlight-strong);
 }
 
 .btn-primary:active:not(:disabled) {
@@ -99,7 +99,7 @@
 /* Accent */
 .btn-accent {
   background: linear-gradient(135deg, var(--accent-secondary), #0284c7);
-  border: 1px solid rgba(255, 255, 255, 0.20);
+  border: 1px solid var(--inset-highlight);
   color: #ffffff;
   font-weight: 600;
   box-shadow: 0 4px 16px var(--glow-secondary);

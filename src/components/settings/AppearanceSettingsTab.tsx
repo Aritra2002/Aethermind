@@ -16,7 +16,7 @@
  */
 
 import React, { useState } from 'react';
-import { Sparkles, Sun, Eye, Moon, Compass, Paintbrush, RotateCcw } from 'lucide-react';
+import { Sparkles, Sun, Eye, Moon, Compass, Paintbrush, RotateCcw, Check } from 'lucide-react';
 import { Dropdown } from '../ui/Dropdown';
 import { updateSingleThemePropertyLive, applyCustomThemeLive } from '../../utils/themeUtils';
 import { ModernColorPicker } from '../ui/ModernColorPicker';
@@ -72,37 +72,74 @@ export const AppearanceSettingsTab: React.FC<AppearanceSettingsTabProps> = ({
       <p className="section-desc">Change the aesthetic skin of AetherMind or design your own unique interface.</p>
       
       {/* Preset Themes Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '10px', marginTop: '16px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '12px', marginTop: '16px' }}>
         {[
-          { id: 'dark', label: 'Dark Space', icon: <Moon size={16} /> },
-          { id: 'light', label: 'Light Clean', icon: <Sun size={16} /> },
-          { id: 'sepia', label: 'Sepia Warm', icon: <Eye size={16} /> },
-          { id: 'midnight', label: 'Midnight', icon: <Sparkles size={16} /> },
-          { id: 'ocean', label: 'Ocean Tide', icon: <Compass size={16} /> },
-          { id: 'custom', label: 'Custom', icon: <Paintbrush size={16} /> }
-        ].map((theme) => (
-          <button
-            key={theme.id}
-            onClick={() => onThemeSelect(theme.id)}
-            className={`settings-action-btn ${activeTheme === theme.id ? 'active' : ''}`}
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '14px 8px',
-              gap: '8px',
-              border: activeTheme === theme.id ? '1px solid var(--accent-primary)' : '1px solid var(--border-color)',
-              background: activeTheme === theme.id ? 'var(--glow-primary, rgba(124, 58, 237, 0.15))' : 'var(--card-nested-bg)',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              color: 'var(--text-primary)'
-            }}
-          >
-            {theme.icon}
-            <span style={{ fontSize: '0.8rem', fontWeight: 500 }}>{theme.label}</span>
-          </button>
-        ))}
+          { id: 'dark', label: 'Dark Space', icon: <Moon size={16} />, colors: ['#07080a', '#00f2fe', '#8b5cf6'] },
+          { id: 'light', label: 'Light Clean', icon: <Sun size={16} />, colors: ['#f8fafc', '#0070f3', '#0284c7'] },
+          { id: 'sepia', label: 'Sepia Warm', icon: <Eye size={16} />, colors: ['#f5efe6', '#964f27', '#b45309'] },
+          { id: 'midnight', label: 'Midnight', icon: <Sparkles size={16} />, colors: ['#020205', '#f43f5e', '#8b5cf6'] },
+          { id: 'ocean', label: 'Ocean Tide', icon: <Compass size={16} />, colors: ['#04121e', '#0284c7', '#38bdf8'] },
+          { id: 'custom', label: 'Custom Studio', icon: <Paintbrush size={16} />, colors: [customThemeColors.bgPrimary || '#06071a', customThemeColors.accentPrimary || '#7c3aed', customThemeColors.accentSecondary || '#06b6d4'] }
+        ].map((theme) => {
+          const isActive = activeTheme === theme.id;
+          return (
+            <button
+              key={theme.id}
+              onClick={() => onThemeSelect(theme.id)}
+              className={`settings-action-btn position-relative ${isActive ? 'active' : ''}`}
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '16px 10px',
+                gap: '8px',
+                border: isActive ? '1px solid var(--accent-primary)' : '1px solid var(--border-color)',
+                background: isActive ? 'var(--glow-primary, rgba(0, 242, 254, 0.12))' : 'var(--card-nested-bg)',
+                borderRadius: 'var(--radius-md)',
+                boxShadow: isActive ? '0 0 16px var(--glow-primary)' : 'var(--shadow-sm)',
+                cursor: 'pointer',
+                color: 'var(--text-primary)',
+                transition: 'all 180ms var(--ease-spring)'
+              }}
+            >
+              {isActive && (
+                <span
+                  className="position-absolute top-0 end-0 m-1 d-flex align-items-center justify-content-center"
+                  style={{
+                    width: '18px',
+                    height: '18px',
+                    borderRadius: '50%',
+                    background: 'var(--accent-primary)',
+                    color: 'var(--bg-primary)'
+                  }}
+                >
+                  <Check size={11} strokeWidth={3} />
+                </span>
+              )}
+              <div style={{ color: isActive ? 'var(--accent-primary)' : 'var(--text-secondary)' }}>
+                {theme.icon}
+              </div>
+              <span style={{ fontSize: '0.82rem', fontWeight: isActive ? 600 : 500 }}>{theme.label}</span>
+
+              {/* Theme Palette Swatch Dots */}
+              <div className="d-flex align-items-center gap-1 mt-1">
+                {theme.colors.map((c, i) => (
+                  <span
+                    key={i}
+                    style={{
+                      width: '8px',
+                      height: '8px',
+                      borderRadius: '50%',
+                      background: c,
+                      border: '1px solid var(--border-color)'
+                    }}
+                  />
+                ))}
+              </div>
+            </button>
+          );
+        })}
       </div>
 
       {/* High-End Two-Column Custom Theme Studio */}

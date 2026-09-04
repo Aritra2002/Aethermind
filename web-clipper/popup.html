@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <style>
     body {
-      width: 320px;
+      width: 340px;
       margin: 0;
       padding: 16px;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -70,6 +70,48 @@
     button.primary:hover {
       background: #4f46e5;
     }
+    .settings {
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .settings label {
+      font-size: 0.75rem;
+      color: #94a3b8;
+    }
+    .url-row {
+      display: flex;
+      gap: 6px;
+    }
+    .url-row input {
+      flex: 1;
+      min-width: 0;
+      padding: 7px 10px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 6px;
+      color: #f8fafc;
+      font-size: 0.78rem;
+      outline: none;
+    }
+    .url-row input:focus {
+      border-color: #6366f1;
+    }
+    .url-row button {
+      width: auto;
+      padding: 7px 12px;
+      white-space: nowrap;
+      font-size: 0.75rem;
+    }
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
     .status {
       margin-top: 14px;
       padding: 8px 10px;
@@ -104,7 +146,19 @@
     </button>
   </div>
 
+  <div class="settings">
+    <div class="url-row">
+      <input id="appUrlInput" type="text" placeholder="https://you.github.io/Aethermind/">
+      <button id="saveSettingsBtn">Save</button>
+    </div>
+    <label for="appUrlInput" style="font-size:0.7rem;color:#64748b;">AetherMind app URL (default: local dev server). The extension reuses an open AetherMind tab when possible, otherwise opens the app with your clip.</label>
+    <div class="toggle-row">
+      <label for="asDocumentToggle">Save clips as searchable documents (RAG)</label>
+      <input id="asDocumentToggle" type="checkbox">
+    </div>
+  </div>
+
   <div id="status" class="status"></div>
   <script src="popup.js"></script>
 </body>
-</html>
+</html>

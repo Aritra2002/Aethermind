@@ -25,7 +25,6 @@ import React, { useRef, useState } from 'react';
 import { db } from '../../db';
 import type { Category } from '../../db';
 import { clusterUnlinkedNotes } from '../../utils/vectorSearch';
-import { exportToHtml } from '../../utils/exportHtml';
 import { seedDatabase, runDatabaseDiagnostics } from '../../db/helpers';
 import { validateBackupPayload, createSafetySnapshot, type BackupValidationResult } from '../../utils/backupValidation';
 import { Download, Upload, RotateCcw, Plus, Trash2, Globe, Activity } from 'lucide-react';
@@ -287,14 +286,20 @@ export const DataSettingsTab: React.FC<DataSettingsTabProps> = ({
         <p className="section-desc">AetherMind is fully local. Your data stays in this browser. Use these options to backup your thoughts.</p>
         
         <div className="action-buttons-grid">
-          <button className="settings-action-btn" onClick={handleExportData}>
-            <Download size={16} />
-            <span>Export Full Backup (JSON)</span>
+          <button className="settings-action-btn" onClick={handleExportData} title="Download a complete JSON snapshot of all notes, pages, and connections">
+            <Download size={16} style={{ color: 'var(--accent-primary)' }} />
+            <div className="d-flex flex-column align-items-start">
+              <span style={{ fontWeight: 600 }}>Export Backup (JSON)</span>
+              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Complete database snapshot</span>
+            </div>
           </button>
           
-          <button className="settings-action-btn" onClick={() => fileInputRef.current?.click()}>
-            <Upload size={16} />
-            <span>Import Full Backup (JSON)</span>
+          <button className="settings-action-btn" onClick={() => fileInputRef.current?.click()} title="Restore an existing JSON backup archive">
+            <Upload size={16} style={{ color: 'var(--node-amber, #f59e0b)' }} />
+            <div className="d-flex flex-column align-items-start">
+              <span style={{ fontWeight: 600 }}>Import Backup (JSON)</span>
+              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Load previous vault snapshot</span>
+            </div>
           </button>
           <input
             type="file"
@@ -304,9 +309,19 @@ export const DataSettingsTab: React.FC<DataSettingsTabProps> = ({
             onChange={handleImportData}
           />
 
-          <button className="settings-action-btn" onClick={() => exportToHtml(activePageId, pageTitle)}>
-            <Globe size={16} />
-            <span>Export to HTML</span>
+          <button className="settings-action-btn" onClick={async () => {
+            try {
+              const { exportToHtml } = await import('../../utils/exportHtml');
+              await exportToHtml(activePageId, pageTitle);
+            } catch (err) {
+              console.error('Failed to export HTML:', err);
+            }
+          }} title="Generate an offline-readable interactive HTML web archive">
+            <Globe size={16} style={{ color: 'var(--node-cyan, #06b6d4)' }} />
+            <div className="d-flex flex-column align-items-start">
+              <span style={{ fontWeight: 600 }}>Export to Web HTML</span>
+              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Self-contained web archive</span>
+            </div>
           </button>
 
           <button className="settings-action-btn" onClick={async () => {
@@ -317,14 +332,20 @@ export const DataSettingsTab: React.FC<DataSettingsTabProps> = ({
             } catch (err: unknown) {
               showToast('Diagnostics error: ' + (err instanceof Error ? err.message : String(err)), 'error');
             }
-          }}>
-            <Activity size={16} />
-            <span>Database Health & Repair</span>
+          }} title="Scan IndexedDB tables, verify link referential integrity, and repair anomalies">
+            <Activity size={16} style={{ color: 'var(--node-emerald, #10b981)' }} />
+            <div className="d-flex flex-column align-items-start">
+              <span style={{ fontWeight: 600 }}>Database Health & Repair</span>
+              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Integrity scan & index re-sync</span>
+            </div>
           </button>
 
-          <button className="settings-action-btn danger-btn" onClick={handleResetDatabase}>
-            <RotateCcw size={16} />
-            <span>Reset Database</span>
+          <button className="settings-action-btn danger-btn" onClick={handleResetDatabase} title="Wipe local database and restore factory defaults">
+            <RotateCcw size={16} style={{ color: 'var(--accent-danger, #f43f5e)' }} />
+            <div className="d-flex flex-column align-items-start">
+              <span style={{ fontWeight: 600 }}>Reset Database</span>
+              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Restore default sample guide</span>
+            </div>
           </button>
         </div>
       </div>
@@ -505,15 +526,40 @@ export const DataSettingsTab: React.FC<DataSettingsTabProps> = ({
 
       {/* Section 5: D3 Force Simulation Physics Tuning */}
       <div className="settings-section">
-        <h3>Graph Physics</h3>
+        <div className="d-flex align-items-center justify-content-between">
+          <h3 className="mb-0">Graph Physics</h3>
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm d-inline-flex align-items-center gap-1"
+            onClick={() => onPhysicsChange({ linkDistance: 80, chargeStrength: -200 })}
+            style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}
+            title="Reset simulation parameters to default values"
+          >
+            <RotateCcw size={12} />
+            <span>Reset Physics</span>
+          </button>
+        </div>
         <p className="section-desc">Tune the visual mechanics of the force-directed graph.</p>
         
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '12px' }}>
           {/* Spring Link Distance Slider */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Link Distance</label>
-              <span style={{ fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: 600 }}>{physicsConfig.linkDistance}</span>
+              <span 
+                style={{ 
+                  fontSize: '0.78rem', 
+                  fontFamily: 'var(--font-mono)', 
+                  background: 'var(--surface-badge-bg)', 
+                  padding: '2px 8px', 
+                  borderRadius: 'var(--radius-sm)',
+                  border: '1px solid var(--border-subtle)',
+                  color: 'var(--text-primary)', 
+                  fontWeight: 600 
+                }}
+              >
+                {physicsConfig.linkDistance}px
+              </span>
             </div>
             <input
               type="range"
@@ -527,9 +573,22 @@ export const DataSettingsTab: React.FC<DataSettingsTabProps> = ({
 
           {/* Electrostatic Charge Repulsion Slider */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Repulsion Strength</label>
-              <span style={{ fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: 600 }}>{Math.abs(physicsConfig.chargeStrength)}</span>
+              <span 
+                style={{ 
+                  fontSize: '0.78rem', 
+                  fontFamily: 'var(--font-mono)', 
+                  background: 'var(--surface-badge-bg)', 
+                  padding: '2px 8px', 
+                  borderRadius: 'var(--radius-sm)',
+                  border: '1px solid var(--border-subtle)',
+                  color: 'var(--text-primary)', 
+                  fontWeight: 600 
+                }}
+              >
+                {Math.abs(physicsConfig.chargeStrength)}
+              </span>
             </div>
             <input
               type="range"

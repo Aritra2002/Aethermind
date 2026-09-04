@@ -10,6 +10,7 @@
 
 import { db } from '../db';
 import { safeRenderMarkdown } from './sanitizer';
+import { buildEmbeddedFontFaceCss } from './fontFaces';
 
 /**
  * Validates and normalizes 3-digit or 6-digit hexadecimal color codes into standard 6-digit hex string.
@@ -102,10 +103,9 @@ export const exportToHtml = async (pageId: number, pageTitle: string = 'Graph') 
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AetherMind Export - ${safeTitle}</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
+  /* Self-hosted fonts embedded as base64 data URIs - the export is fully offline */
+  ${buildEmbeddedFontFaceCss()}
   /* Preset theme configurations */
   :root, html[data-theme="dark"] {
     --bg-color: #06071a;

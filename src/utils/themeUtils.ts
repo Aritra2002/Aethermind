@@ -15,10 +15,10 @@
  *    `updateSingleThemePropertyLive()` mutates ONLY the active CSS variables
  *    (e.g., modifying Accent Color updates only 3 related CSS variables instead
  *    of touching all 25 theme properties).
- * 3. Zero-React-Re-render Pass:
- *    Modifies `document.documentElement.style` directly without triggering
  *    React component tree re-renders during active mouse/touch drags.
  */
+
+import { db } from '../db';
 
 /** Default baseline color tokens for the custom theme builder */
 export const DEFAULT_CUSTOM_COLORS: Record<string, string> = {
@@ -101,7 +101,6 @@ export const syncThemeCategoryColors = async (
 ): Promise<void> => {
   const palette = getThemeCategoryColors(theme, customThemeColors);
   try {
-    const { db } = await import('../db');
     for (const [id, color] of Object.entries(palette)) {
       const existing = await db.categories.get(id);
       if (existing) {
@@ -235,6 +234,10 @@ export const applyCustomThemeLive = (colors: Record<string, string>) => {
   root.style.setProperty('--input-focus-bg', isLight ? '#ffffff' : 'rgba(15, 20, 46, 0.95)');
   root.style.setProperty('--code-bg', isLight ? 'rgba(0, 0, 0, 0.06)' : 'rgba(255, 255, 255, 0.08)');
   root.style.setProperty('--pre-bg', isLight ? 'rgba(0, 0, 0, 0.04)' : 'rgba(4, 6, 14, 0.65)');
+  root.style.setProperty('--surface-hud', isLight ? 'rgba(255, 255, 255, 0.88)' : (colors.sidebarBg ? colors.sidebarBg + 'dd' : 'rgba(13, 15, 23, 0.85)'));
+  root.style.setProperty('--glass-refraction', isLight ? 'inset 0 1px 0 rgba(255, 255, 255, 0.95)' : 'inset 0 1px 0 rgba(255, 255, 255, 0.08)');
+  root.style.setProperty('--shadow-glass', isLight ? '0 8px 30px rgba(15, 23, 42, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.95)' : '0 12px 36px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.08)');
+  root.style.setProperty('--btn-close-filter', isLight ? 'none' : 'invert(1)');
 
   const keys = ['bgPrimary', 'sidebarBg', 'textPrimary', 'accentPrimary', 'accentSecondary', 'linkColor', 'fontFamily'];
   keys.forEach((key) => {
@@ -274,13 +277,18 @@ export const applyCustomThemeLive = (colors: Record<string, string>) => {
  * Restores the application to preset stylesheet-driven theming (`data-theme`).
  */
 export const clearCustomThemeStyles = () => {
+  if (themeRaf !== null) {
+    cancelAnimationFrame(themeRaf);
+    themeRaf = null;
+  }
+  pendingThemeUpdates = {};
   const root = document.documentElement;
   const allKeys = [
     'bgPrimary', 'sidebarBg', 'textPrimary', 'accentPrimary', 'accentSecondary', 'linkColor', 'fontFamily',
     'bg-gradient-1', 'bg-gradient-2', 'bg-gradient-3', 'text-secondary', 'link-highlight', 'border-glow', 'link-color',
     'surface-glass', 'surface-glass-heavy', 'surface-glass-light', 'surface-card', 'glass-panel-bg-1', 'glass-panel-bg-2',
     'dot-grid-color', 'surface-pill-bg', 'surface-badge-bg', 'card-nested-bg', 'sidebar-tab-bg', 'border-color',
-    'border-subtle', 'input-bg', 'input-focus-bg', 'code-bg', 'pre-bg'
+    'border-subtle', 'input-bg', 'input-focus-bg', 'code-bg', 'pre-bg', 'surface-hud', 'glass-refraction', 'shadow-glass', 'btn-close-filter'
   ];
   allKeys.forEach((key) => {
     const cssVar = key.includes('-') ? '--' + key : '--' + key.replace(/([A-Z])/g, '-$1').toLowerCase();
@@ -288,4 +296,6 @@ export const clearCustomThemeStyles = () => {
   });
   root.style.removeProperty('--font-sans');
   root.style.removeProperty('color-scheme');
+  // Wipes all inline style overrides so preset stylesheet rules take 100% precedence
+  root.removeAttribute('style');
 };

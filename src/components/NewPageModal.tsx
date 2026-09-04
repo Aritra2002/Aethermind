@@ -103,12 +103,12 @@ export const NewPageModal: React.FC<NewPageModalProps> = ({ isOpen, onClose, onC
 
           {/* Modal Body */}
           <div className="modal-body">
-            <div className="search-bar-container" style={{ padding: '8px 12px' }}>
+            <div className="search-bar-container">
               <input
                 ref={inputRef}
                 type="text"
                 className="search-input"
-                placeholder="Page Name..."
+                placeholder="Page Name…"
                 value={title}
                 onChange={e => setTitle(e.target.value)}
                 onKeyDown={handleKeyDown}

@@ -19,7 +19,7 @@
  */
 
 import React, { useState } from 'react';
-import { Database, Brain, Info, Calendar as CalendarIcon, Palette } from 'lucide-react';
+import { Database, Brain, Info, Calendar as CalendarIcon, Palette, Keyboard, HardDrive } from 'lucide-react';
 import packageJson from '../../../package.json';
 import { DataSettingsTab } from './DataSettingsTab';
 import { AiSettingsTab } from './AiSettingsTab';
@@ -85,15 +85,37 @@ export const SettingsModal: React.FC<SettingsModalProps> = (props) => {
   /** Dynamic screen width detection for mobile-friendly tab navigation */
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
-  // Synchronize responsive layout state with window viewport resize events
+  /** Storage quota usage info */
+  const [storageInfo, setStorageInfo] = useState<{ usage: string; quota: string } | null>(null);
+
+  // Synchronize responsive layout state and estimate IndexedDB storage
   React.useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener('resize', handleResize);
+
+    if (navigator.storage && navigator.storage.estimate) {
+      navigator.storage.estimate().then(estimate => {
+        const usageMb = ((estimate.usage || 0) / (1024 * 1024)).toFixed(1);
+        const quotaGb = ((estimate.quota || 0) / (1024 * 1024 * 1024)).toFixed(1);
+        setStorageInfo({ usage: `${usageMb} MB`, quota: `${quotaGb} GB` });
+      }).catch(() => {});
+    }
+
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   return (
-    <div className="modal d-block" tabIndex={-1} style={{ zIndex: 1060 }} onClick={props.onClose}>
+    <div 
+      className="modal d-block" 
+      tabIndex={-1} 
+      style={{ 
+        zIndex: 1060, 
+        background: 'var(--modal-backdrop-bg, rgba(0, 0, 0, 0.78))', 
+        backdropFilter: 'blur(12px)', 
+        WebkitBackdropFilter: 'blur(12px)' 
+      }} 
+      onClick={props.onClose}
+    >
       <div className="modal-dialog modal-xl modal-dialog-centered" style={{ width: 'min(95vw, 1000px)', maxWidth: '96vw', height: 'min(88dvh, 780px)', maxHeight: '90dvh', margin: 'auto' }} onClick={e => e.stopPropagation()}>
         <div 
           className="modal-content glass-panel settings-modal border-0 h-100 position-relative" 
@@ -199,24 +221,81 @@ export const SettingsModal: React.FC<SettingsModalProps> = (props) => {
 
               {/* Tab 5: About, Licensing & Technical Overview */}
               {activeTab === 'about' && (
-                <div className="settings-section about-section" style={{ marginTop: '40px' }}>
+                <div className="settings-section about-section" style={{ marginTop: '20px' }}>
                   <div className="about-header">
                     <Info size={16} className="about-icon" />
                     <h3>About AetherMind</h3>
                   </div>
                   <p>
-                    <strong>AetherMind v{packageJson.version} - Local-first personal knowledge graph</strong><br/>
-                    is a dynamic visual space for your notes. By combining a 
-                    D3 force-directed simulation and Markdown parsing, it transforms flat text notes into 
-                    an organic, navigable web.
+                    <strong>AetherMind v{packageJson.version} - Local-First Personal Knowledge Graph</strong><br/>
+                    A dynamic spatial cognitive environment for thought synthesis. By combining D3 force-directed physics, 
+                    local vector similarity embeddings, and client-side Markdown rendering, flat notes transform into an organic neural graph.
                   </p>
+
+                  {/* Storage Quota Usage Meter */}
+                  {storageInfo && (
+                    <div className="d-flex align-items-center justify-content-between p-3 my-3" style={{ background: 'var(--card-nested-bg)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
+                      <div className="d-flex align-items-center gap-2">
+                        <HardDrive size={16} style={{ color: 'var(--accent-primary)' }} />
+                        <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Local IndexedDB Storage</span>
+                      </div>
+                      <span style={{ fontSize: '0.8rem', fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>
+                        {storageInfo.usage} used of {storageInfo.quota}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* OriginUI / DaisyUI Keyboard Shortcut Cheatsheet */}
+                  <div className="my-3">
+                    <div className="d-flex align-items-center gap-2 mb-2">
+                      <Keyboard size={15} style={{ color: 'var(--accent-primary)' }} />
+                      <h4 style={{ fontSize: '0.9rem', margin: 0, fontWeight: 600 }}>Keyboard Shortcuts</h4>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '8px' }}>
+                      {[
+                        { label: 'Spotlight Search', shortcut: navigator.platform.includes('Mac') ? '⌘ K' : 'Ctrl+K' },
+                        { label: 'New Note', shortcut: navigator.platform.includes('Mac') ? '⌘ N' : 'Ctrl+N' },
+                        { label: 'Open Settings', shortcut: navigator.platform.includes('Mac') ? '⌥ S' : 'Alt+S' },
+                        { label: 'Preview Markdown', shortcut: navigator.platform.includes('Mac') ? '⌘ E' : 'Ctrl+E' },
+                        { label: 'Close Active Panel', shortcut: 'Esc' },
+                        { label: 'Recenter Graph', shortcut: 'R' }
+                      ].map((item, idx) => (
+                        <div
+                          key={idx}
+                          className="d-flex align-items-center justify-content-between px-3 py-2"
+                          style={{
+                            background: 'var(--card-nested-bg)',
+                            borderRadius: 'var(--radius-sm)',
+                            border: '1px solid var(--border-subtle)'
+                          }}
+                        >
+                          <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{item.label}</span>
+                          <kbd
+                            style={{
+                              fontFamily: 'var(--font-mono)',
+                              fontSize: '0.72rem',
+                              padding: '2px 6px',
+                              background: 'var(--surface-badge-bg)',
+                              border: '1px solid var(--border-color)',
+                              borderRadius: '4px',
+                              color: 'var(--text-primary)',
+                              boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
+                            }}
+                          >
+                            {item.shortcut}
+                          </kbd>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
                   <div style={{ marginTop: '16px', padding: '12px', background: 'var(--card-nested-bg)', borderRadius: '8px', fontSize: '0.8rem', color: 'var(--text-secondary)', borderLeft: '3px solid var(--accent-danger, #ef4444)' }}>
                     <strong>License: AGPL-3.0</strong><br />
                     This application is distributed under the GNU Affero General Public License v3.0. 
                     Any modifications or network use of this software must remain fully open-source.
                   </div>
                   <div className="credits">
-                    Version {packageJson.version} (Local-First)
+                    Version {packageJson.version} (Local-First Architecture)
                   </div>
                 </div>
               )}

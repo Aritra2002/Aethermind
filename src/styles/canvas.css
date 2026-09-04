@@ -41,11 +41,11 @@
 /* Search / Filter Panel */
 .search-filter-panel {
   position: absolute;
-  top: 16px;
-  left: 16px;
+  top: 72px;
+  left: 18px;
   width: clamp(280px, 28vw, 380px);
   max-width: calc(100vw - 32px);
-  max-height: calc(100dvh - 32px);
+  max-height: calc(100dvh - 96px);
   overflow-y: auto;
   overflow-x: hidden;
   padding: 16px;
@@ -73,8 +73,8 @@
 
 .search-toggle-btn {
   position: absolute;
-  top: 16px;
-  left: 16px;
+  top: 72px;
+  left: 18px;
   z-index: 4;
   display: flex;
   align-items: center;
@@ -94,8 +94,8 @@
 }
 
 .search-toggle-btn:hover {
-  background: rgba(255, 255, 255, 0.12);
-  border-color: rgba(255, 255, 255, 0.25);
+  background: var(--hover-bg-strong);
+  border-color: var(--border-color);
   transform: translateY(-1px);
 }
 
@@ -247,24 +247,44 @@
   text-decoration: underline;
 }
 
-/* Timeline Slider Panel */
+/* Timeline Slider Panel — Full Length Horizontal Scrubber */
 .timeline-slider-panel {
   animation: slideInBottom 0.3s var(--ease-out) forwards;
   position: absolute;
   bottom: 16px;
   left: 16px;
   right: 16px;
+  width: auto;
+  max-width: calc(100vw - 32px);
   padding: 10px 18px;
-  z-index: 5;
+  z-index: 25;
   display: flex;
   border-radius: var(--radius-xl);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  background: var(--surface-hud);
+  border: 1px solid var(--border-color);
+  backdrop-filter: var(--glass-blur, blur(20px));
+  -webkit-backdrop-filter: var(--glass-blur, blur(20px));
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  max-width: calc(100vw - 32px);
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--shadow-glass), var(--glass-refraction);
+  transition: right 240ms var(--ease-out), max-width 240ms ease;
+  user-select: none;
+}
+
+/* When sidebar is open on desktop, stop right edge before sidebar so it is never blocked */
+.sidebar-open .timeline-slider-panel {
+  right: calc(var(--sidebar-width, 620px) + 24px);
+  max-width: calc(100vw - var(--sidebar-width, 620px) - 48px);
+}
+
+@media (max-width: 768px) {
+  .timeline-slider-panel {
+    bottom: 64px;
+    left: 12px;
+    right: 12px;
+    max-width: calc(100vw - 24px);
+  }
 }
 
 .timeline-info {
@@ -300,7 +320,7 @@
   width: 100%;
   height: 5px;
   border-radius: var(--radius-pill);
-  background: linear-gradient(to right, var(--accent-primary) 0%, var(--accent-primary) var(--val, 100%), rgba(255, 255, 255, 0.12) var(--val, 100%), rgba(255, 255, 255, 0.12) 100%);
+  background: linear-gradient(to right, var(--accent-primary) 0%, var(--accent-primary) var(--val, 100%), var(--range-track-bg) var(--val, 100%), var(--range-track-bg) 100%);
   outline: none;
 }
 
@@ -335,7 +355,7 @@
 .reset-timeline-btn {
   color: #ffffff;
   background: linear-gradient(135deg, var(--accent-primary), #6366f1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid var(--inset-highlight);
   box-shadow: 0 2px 8px var(--glow-primary);
 }
 
@@ -351,7 +371,7 @@
 .restore-timeline-btn {
   color: #ffffff;
   background: linear-gradient(135deg, #10b981, #059669);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid var(--inset-highlight);
   box-shadow: 0 2px 8px rgba(16, 185, 129, 0.35);
 }
 
@@ -379,12 +399,18 @@
 .canvas-controls {
   animation: slideInRight 0.35s var(--ease-out) forwards;
   position: absolute;
-  top: 16px;
-  right: 16px;
+  top: 72px;
+  right: 18px;
   display: flex;
   flex-direction: column;
   gap: 6px;
   z-index: var(--z-controls, 20);
+  transition: right 240ms var(--ease-out), opacity 200ms ease;
+}
+
+/* Shift controls left when sidebar is open on desktop */
+.sidebar-open .canvas-controls {
+  right: calc(var(--sidebar-width, 620px) + 36px);
 }
 
 .canvas-btn {
@@ -423,8 +449,8 @@
 .canvas-help-box {
   animation: fadeScaleIn 0.25s var(--ease-out) forwards;
   position: absolute;
-  top: 60px;
-  right: 16px;
+  top: 72px;
+  right: 18px;
   width: min(280px, calc(100vw - 32px));
   padding: 14px !important;
   z-index: 25;
@@ -435,6 +461,11 @@
   overflow-y: auto;
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-lg);
+  transition: right 240ms var(--ease-out);
+}
+
+.sidebar-open .canvas-help-box {
+  right: calc(var(--sidebar-width, 620px) + 36px);
 }
 
 .canvas-help-box h3 {
@@ -469,5 +500,68 @@
 .help-close-btn:hover {
   background: var(--border-color);
   color: var(--text-primary);
+}
+
+/* ============================================================
+   Floating Viewport HUD Capsule (Image-To-Code Blueprint)
+   ============================================================ */
+.viewport-hud {
+  position: absolute;
+  bottom: 76px;
+  left: 18px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: var(--surface-hud);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-pill);
+  backdrop-filter: var(--glass-blur, blur(20px));
+  -webkit-backdrop-filter: var(--glass-blur, blur(20px));
+  box-shadow: var(--shadow-glass), var(--glass-refraction);
+  z-index: var(--z-controls);
+  user-select: none;
+  transition: bottom 200ms ease;
+}
+
+@media (max-width: 768px) {
+  .viewport-hud {
+    bottom: 120px;
+    left: 12px;
+  }
+}
+
+.viewport-hud-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease, transform 120ms ease;
+}
+
+.viewport-hud-btn:hover {
+  background: var(--border-color);
+  color: var(--text-primary);
+  transform: scale(1.08);
+}
+
+.viewport-hud-btn:active {
+  transform: scale(0.95);
+}
+
+.viewport-hud-chip {
+  padding: 2px 8px;
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+  background: var(--surface-pill-bg);
+  border-radius: var(--radius-pill);
 }
 

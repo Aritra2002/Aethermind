@@ -86,7 +86,7 @@ export function PromptModal({
               <p style={{ color: 'var(--text-secondary)', marginBottom: '14px', fontSize: '0.875rem', lineHeight: 1.5 }}>
                 {message}
               </p>
-              <div className="search-bar-container" style={{ padding: '8px 12px' }}>
+              <div className="search-bar-container">
                 <input
                   ref={inputRef}
                   type="text"

@@ -14,7 +14,7 @@ import { db } from '../db';
 import type { Note, Link, Category } from '../db';
 import { updateNote, deleteNote, toggleFavoriteNote, archiveNote, restoreNote } from '../db/helpers';
 import { useDebounce } from '../hooks/useDebounce';
-import { X, Trash2, Edit3, Tag, Folder, Bold, Italic, Heading, Code, Link as LinkIcon, Wand2, PlusCircle, FileText, SplitSquareHorizontal, PenTool, Sparkles, Star, Archive, ArchiveRestore, Square, GripHorizontal } from 'lucide-react';
+import { X, Trash2, Edit3, Tag, Folder, Bold, Italic, Heading, Code, Link as LinkIcon, Wand2, PlusCircle, FileText, SplitSquareHorizontal, PenTool, Sparkles, Star, Archive, ArchiveRestore, Square, GripHorizontal, Minimize2, Maximize2 } from 'lucide-react';
 import Prism from 'prismjs';
 import 'prismjs/themes/prism-tomorrow.css';
 import { ColorPicker } from './ColorPicker';
@@ -24,6 +24,8 @@ import { useToast } from './ToastContext';
 import { cosineSimilarity } from '../utils/vectorSearch';
 import { ConnectionDiscovery } from './ConnectionDiscovery';
 import { Dropdown } from './ui/Dropdown';
+import { Tooltip } from './ui/Tooltip';
+import { aiResponseCache, generateAiCacheKey } from '../utils/cacheEngine';
 import { formatShortcut, isModifierKeyCombo } from '../utils/keyboardUtils';
 
 /**
@@ -36,7 +38,9 @@ import { formatShortcut, isModifierKeyCombo } from '../utils/keyboardUtils';
  * @property {() => void} onClose - Callback invoked to dismiss the editor panel or deselect note.
  * @property {() => void} onNoteDeleted - Callback invoked after a note is permanently deleted.
  * @property {(title: string) => void} onJumpToNote - Callback invoked to navigate to or create a note by title (e.g. from wiki-links).
- * @property {(title: string) => void} [onSplitRight] - Optional callback to open a note side-by-side in desktop split-view mode.
+ * @property {(title: string) => void} [onSplitRight] - Optional callback to open a note side-by-side.
+ * @property {boolean} [isMaximized] - Whether the note editor is maximized to full workspace focus.
+ * @property {() => void} [onToggleMaximize] - Optional callback to toggle maximized focus mode.
  */
 interface EditorPanelProps {
   note: Note | null;
@@ -46,6 +50,8 @@ interface EditorPanelProps {
   onNoteDeleted: () => void;
   onJumpToNote: (title: string) => void;
   onSplitRight?: (title: string) => void;
+  isMaximized?: boolean;
+  onToggleMaximize?: () => void;
 }
 
 /**
@@ -65,7 +71,9 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
   onClose,
   onNoteDeleted,
   onJumpToNote,
-  onSplitRight
+  onSplitRight,
+  isMaximized = false,
+  onToggleMaximize
 }) => {
   const { showToast } = useToast();
   /** Reference to in-flight AI call AbortController. */
@@ -516,6 +524,14 @@ Current Note Content: ${content}`;
    */
   const handleAiSummarize = async () => {
     if (!note || !content.trim()) return;
+    const cacheKey = generateAiCacheKey(note.id, title, content, 'summary');
+    const cached = aiResponseCache.get(cacheKey);
+    if (typeof cached === 'string' && cached) {
+      setAiSummary(cached);
+      showToast('Loaded summary from cache', 'info');
+      return;
+    }
+
     try {
       setIsAiLoading(true);
       const systemPrompt = `You are an AI assistant for a personal knowledge graph.
@@ -527,7 +543,9 @@ Return exactly and ONLY the summary text, with no markdown code blocks or conver
       abortRef.current = new AbortController();
       const response = await callAI(systemPrompt, userPrompt, undefined, abortRef.current.signal);
       
-      setAiSummary(response.trim());
+      const trimmed = response.trim();
+      aiResponseCache.set(cacheKey, trimmed);
+      setAiSummary(trimmed);
     } catch (e: unknown) {
       showToast(e instanceof Error ? e.message : 'Error', 'error');
     } finally {
@@ -827,63 +845,89 @@ Requirements:
       <div className="editor-header">
         <div className="category-indicator" style={{ backgroundColor: categoryColor }}></div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-          <span className={`note-status-badge ${!isOnline ? 'offline' : saveStatus}`}>
-            {!isOnline ? 'Offline (Saved)' : saveStatus === 'saving' ? 'Saving...' : saveStatus === 'error' ? 'Save Error' : 'Note Saved'}
+          <span className={`note-status-badge ${!isOnline ? 'offline' : saveStatus}`} aria-live="polite">
+            {!isOnline ? 'Offline (Saved)' : saveStatus === 'saving' ? 'Saving…' : saveStatus === 'error' ? 'Save Error' : 'Note Saved'}
           </span>
-          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>
             {wordCount} words · {readingTime}m read
           </span>
         </div>
         <div className="header-actions">
           {/* Favorite Toggle */}
-          <button 
-            className="icon-btn" 
-            onClick={async () => {
-              if (note?.id) {
-                const isFav = await toggleFavoriteNote(note.id);
-                showToast(isFav ? 'Pinned to Favorites' : 'Removed from Favorites', 'info');
-              }
-            }}
-            aria-label="Toggle Favorite"
-            title={Number(note?.isFavorite) === 1 ? 'Favorited' : 'Add to Favorites'}
-            style={{ color: Number(note?.isFavorite) === 1 ? 'var(--accent-gold, #f59e0b)' : 'inherit' }}
-          >
-            <Star size={17} fill={Number(note?.isFavorite) === 1 ? 'var(--accent-gold, #f59e0b)' : 'none'} />
-          </button>
+          <Tooltip content={Number(note?.isFavorite) === 1 ? 'Remove from Favorites' : 'Pin to Favorites'} side="bottom">
+            <button 
+              className="icon-btn" 
+              onClick={async () => {
+                if (note?.id) {
+                  const isFav = await toggleFavoriteNote(note.id);
+                  showToast(isFav ? 'Pinned to Favorites' : 'Removed from Favorites', 'info');
+                }
+              }}
+              aria-label="Toggle Favorite"
+              style={{ color: Number(note?.isFavorite) === 1 ? 'var(--accent-gold, #f59e0b)' : 'inherit' }}
+            >
+              <Star size={17} fill={Number(note?.isFavorite) === 1 ? 'var(--accent-gold, #f59e0b)' : 'none'} />
+            </button>
+          </Tooltip>
 
           {/* Archive Toggle */}
-          <button 
-            className="icon-btn" 
-            onClick={async () => {
-              if (note?.id) {
-                if (Number(note.isArchived) === 1) {
-                  await restoreNote(note.id);
-                  showToast('Note restored from Archive', 'info');
-                } else {
-                  await archiveNote(note.id);
-                  showToast('Note moved to Archive', 'info');
+          <Tooltip content={Number(note?.isArchived) === 1 ? 'Restore Note from Archive' : 'Move Note to Archive'} side="bottom">
+            <button 
+              className="icon-btn" 
+              onClick={async () => {
+                if (note?.id) {
+                  if (Number(note.isArchived) === 1) {
+                    await restoreNote(note.id);
+                    showToast('Note restored from Archive', 'info');
+                  } else {
+                    await archiveNote(note.id);
+                    showToast('Note moved to Archive', 'info');
+                  }
                 }
-              }
-            }}
-            aria-label="Toggle Archive"
-            title={Number(note?.isArchived) === 1 ? 'Restore from Archive' : 'Archive Note'}
-            style={{ color: Number(note?.isArchived) === 1 ? 'var(--accent-primary)' : 'inherit' }}
-          >
-            {Number(note?.isArchived) === 1 ? <ArchiveRestore size={17} /> : <Archive size={17} />}
-          </button>
+              }}
+              aria-label="Toggle Archive"
+              style={{ color: Number(note?.isArchived) === 1 ? 'var(--accent-primary)' : 'inherit' }}
+            >
+              {Number(note?.isArchived) === 1 ? <ArchiveRestore size={17} /> : <Archive size={17} />}
+            </button>
+          </Tooltip>
 
-          <button className="icon-btn ai-btn" onClick={handleAiSummarize} disabled={isAiLoading || !content.trim()} aria-label="Summarize with AI" title="Auto-Summarize Note (AI)">
-            <FileText size={17} className={isAiLoading ? 'spin-pulse' : ''} style={{ color: 'var(--node-amber)' }} />
-          </button>
-          <button className="icon-btn ai-btn" onClick={handleAiAutoTag} disabled={isAiLoading} aria-label="Auto-Tag with AI" title="Auto-Tag & Suggest Links (AI)">
-            <Wand2 size={17} className={isAiLoading ? 'spin-pulse' : ''} style={{ color: 'var(--node-amber)' }} />
-          </button>
-          <button className="icon-btn delete-btn" onClick={handleDelete} aria-label="Delete note" title="Delete note">
-            <Trash2 size={17} />
-          </button>
-          <button className="icon-btn close-btn" onClick={onClose} aria-label="Close panel" title="Close panel">
-            <X size={17} />
-          </button>
+          <Tooltip content="Auto-Summarize Note (AI)" side="bottom">
+            <button className="icon-btn ai-btn" onClick={handleAiSummarize} disabled={isAiLoading || !content.trim()} aria-label="Summarize with AI">
+              <FileText size={17} className={isAiLoading ? 'spin-pulse' : ''} style={{ color: 'var(--node-amber)' }} />
+            </button>
+          </Tooltip>
+
+          <Tooltip content="Auto-Tag & Suggest Links (AI)" side="bottom">
+            <button className="icon-btn ai-btn" onClick={handleAiAutoTag} disabled={isAiLoading} aria-label="Auto-Tag with AI">
+              <Wand2 size={17} className={isAiLoading ? 'spin-pulse' : ''} style={{ color: 'var(--node-amber)' }} />
+            </button>
+          </Tooltip>
+
+          <Tooltip content="Delete Note" side="bottom">
+            <button className="icon-btn delete-btn" onClick={handleDelete} aria-label="Delete note">
+              <Trash2 size={17} />
+            </button>
+          </Tooltip>
+
+          {onToggleMaximize && (
+            <Tooltip content={isMaximized ? "Restore Window Size" : "Maximize Focus"} side="bottom">
+              <button
+                type="button"
+                className="icon-btn d-none d-md-inline-flex"
+                onClick={onToggleMaximize}
+                aria-label={isMaximized ? "Restore window size" : "Maximize window"}
+              >
+                {isMaximized ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+              </button>
+            </Tooltip>
+          )}
+
+          <Tooltip content="Close Editor" shortcut="Esc" side="bottom">
+            <button className="icon-btn close-btn" onClick={onClose} aria-label="Close note window">
+              <X size={17} />
+            </button>
+          </Tooltip>
         </div>
       </div>
 
@@ -992,7 +1036,7 @@ Requirements:
                     else if (val === 'flashcard') handleInlineAiTransform('Generate 2-3 high-yield spaced repetition Q&A flashcards based on this content.');
                   }}
                   options={[
-                    { value: "", label: "✨ AI Assistant..." },
+                    { value: "", label: "✨ AI Assistant…" },
                     { value: "fix", label: "✨ Polish & Fix Grammar" },
                     { value: "simplify", label: "✨ Simplify Language" },
                     { value: "pro", label: "✨ Executive Tone" },

@@ -395,11 +395,11 @@ export const JournalCalendar: React.FC<JournalCalendarProps> = ({ onSelectNote }
                     position: 'relative'
                   }}
                 >
-                  <span style={{ fontSize: '1rem', fontWeight: 600, color: isSelected || count > 0 ? 'white' : 'rgba(255,255,255,0.4)' }}>
+                  <span style={{ fontSize: '1rem', fontWeight: 600, color: count > 0 ? '#ffffff' : (isSelected ? 'var(--text-primary)' : 'var(--text-secondary)') }}>
                     {format(day, 'd')}
                   </span>
                   {count > 0 && (
-                    <div style={{ width: '4px', height: '4px', borderRadius: '50%', background: 'white', position: 'absolute', bottom: '6px', opacity: 0.8 }} />
+                    <div style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#ffffff', position: 'absolute', bottom: '6px', opacity: 0.9 }} />
                   )}
                 </motion.div>
               );
@@ -459,14 +459,14 @@ export const JournalCalendar: React.FC<JournalCalendarProps> = ({ onSelectNote }
                             alignItems: 'center', 
                             gap: '12px', 
                             padding: '12px', 
-                            background: isHovered ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.03)', 
+                            background: isHovered ? 'var(--surface-pill-bg)' : 'var(--card-nested-bg)', 
                             borderRadius: '8px', 
-                            border: isHovered ? '1px solid rgba(124, 58, 237, 0.4)' : '1px solid rgba(255, 255, 255, 0.05)', 
+                            border: isHovered ? '1px solid var(--accent-primary)' : '1px solid var(--border-color)', 
                             width: '100%',
                             cursor: onSelectNote ? 'pointer' : 'default',
                             transform: isHovered ? 'translateY(-1px)' : 'none',
                             transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
-                            boxShadow: isHovered ? '0 4px 12px rgba(0, 0, 0, 0.3)' : 'none'
+                            boxShadow: isHovered ? 'var(--shadow-md)' : 'none'
                           }}
                         >
                           <FileText size={16} style={{ color: note.color || 'var(--accent-primary)', flexShrink: 0 }} />
@@ -476,12 +476,12 @@ export const JournalCalendar: React.FC<JournalCalendarProps> = ({ onSelectNote }
                             </span>
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
                               {page && (
-                                <span style={{ backgroundColor: 'rgba(124, 58, 237, 0.15)', border: '1px solid rgba(124, 58, 237, 0.25)', padding: '2px 6px', borderRadius: '4px', fontSize: '0.7rem', color: '#a78bfa', fontWeight: 500 }}>
+                                <span style={{ backgroundColor: 'var(--glow-primary)', border: '1px solid var(--border-glow)', padding: '2px 6px', borderRadius: '4px', fontSize: '0.7rem', color: 'var(--accent-primary)', fontWeight: 500 }}>
                                   Page: {page.title}
                                 </span>
                               )}
                               {related.length > 0 && (
-                                <span style={{ backgroundColor: 'rgba(6, 182, 212, 0.15)', border: '1px solid rgba(6, 182, 212, 0.25)', padding: '2px 6px', borderRadius: '4px', fontSize: '0.7rem', color: '#22d3ee', fontWeight: 500 }}>
+                                <span style={{ backgroundColor: 'var(--glow-secondary)', border: '1px solid var(--glow-secondary)', padding: '2px 6px', borderRadius: '4px', fontSize: '0.7rem', color: 'var(--accent-secondary)', fontWeight: 500 }}>
                                   Connected to: {related.map(r => r.title).join(', ')}
                                 </span>
                               )}

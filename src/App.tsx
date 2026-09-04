@@ -29,12 +29,19 @@ import { MobileNav } from './components/MobileNav';
 import { NoteMiniCard } from './components/NoteMiniCard';
 import { DiscoveryDigestModal } from './components/DiscoveryDigestModal';
 import { Dropdown } from './components/ui/Dropdown';
+import { Tooltip } from './components/ui/Tooltip';
+import { Skeleton } from './components/ui/Skeleton';
+import { useWorkspaceState } from './hooks/useWorkspaceState';
 import { ingestDocument } from './utils/rag';
 import { saveSnapshot, loadSnapshot, getSnapshots, restoreSnapshot } from './utils/snapshotManager';
 import { applyCustomThemeLive, clearCustomThemeStyles, DEFAULT_CUSTOM_COLORS, syncThemeCategoryColors } from './utils/themeUtils';
-import { formatShortcutBadge, formatShortcut, isModifierKeyCombo } from './utils/keyboardUtils';
+import { formatShortcutBadge, formatShortcut, isModifierKeyCombo, isMobileDevice } from './utils/keyboardUtils';
+import { validateFileSize, guardUntrustedContent } from './utils/security';
+import { parseAiResponse, executeAiAction } from './utils/aiActions';
+import { callAI, getAIConfig } from './utils/aiClient';
+import { parseHashClip, ingestClip, handleClipMessage } from './utils/clipperHandoff';
 
-import { Brain, Plus, Settings, Calendar, Sparkles, Edit2, Trash2, Loader2, Compass, FileArchive, FileUp, Search } from 'lucide-react';
+import { Brain, Plus, Settings, Calendar, Sparkles, Edit2, Trash2, Compass, FileArchive, FileUp, Search } from 'lucide-react';
 
 /**
  * Custom hook to monitor window width and compute responsive breakpoint tier.
@@ -78,66 +85,50 @@ export default function App() {
   
   /** Configuration for customized input prompt modal. */
   const [promptConfig, setPromptConfig] = useState<{title: string, message: string, onConfirm: (v: string)=>void} | null>(null);
-  
-  /** Primary active note ID open in the main editor pane. */
-  const [activeNoteId, setActiveNoteId] = useState<number | null>(null);
-  
-  /** Secondary note ID open in the side-by-side split editor pane. */
-  const [secondaryNoteId, setSecondaryNoteId] = useState<number | null>(null);
-  
-  /** Full-text search query string. */
-  const [searchQuery, setSearchQuery] = useState('');
-  
-  /** Selected tags for graph filtering. */
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  
-  /** Date timestamp range [min, max] for chronological graph filtering. */
-  const [dateRange, setDateRange] = useState<[number, number] | null>(null);
-  
-  /** Modal visibility states */
-  const [showSettings, setShowSettings] = useState(false);
-  const [showCommandPalette, setShowCommandPalette] = useState(false);
-  const [showAskAi, setShowAskAi] = useState(false);
-  const [showNewPage, setShowNewPage] = useState(false);
-  const [showRenamePage, setShowRenamePage] = useState(false);
-  const [showDeletePageConfirm, setShowDeletePageConfirm] = useState(false);
-  const [showReview, setShowReview] = useState(false);
-  const [showDiscoveryDigest, setShowDiscoveryDigest] = useState(false);
-  
+
+  /** Encapsulated workspace, page, filter, and modal dialog state */
+  const {
+    activeNoteId, setActiveNoteId,
+    searchQuery, setSearchQuery,
+    selectedTags, setSelectedTags,
+    dateRange, setDateRange,
+    isSearchOpen, setIsSearchOpen,
+    currentPageId, setCurrentPageId,
+    showSettings, setShowSettings,
+    showCommandPalette, setShowCommandPalette,
+    showAskAi, setShowAskAi,
+    showNewPage, setShowNewPage,
+    showRenamePage, setShowRenamePage,
+    showDeletePageConfirm, setShowDeletePageConfirm,
+    showReview, setShowReview,
+    showDiscoveryDigest, setShowDiscoveryDigest,
+    docLoading, setDocLoading,
+    docStatus, setDocStatus,
+    historicalSnapshot, setHistoricalSnapshot
+  } = useWorkspaceState();
+
   /** Sidebar visibility toggle state. */
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => window.innerWidth >= 768);
   const viewport = useViewport();
   const isDesktop = viewport === 'lg';
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [isEditorMaximized, setIsEditorMaximized] = useState(false);
   const handlePromptCancel = useCallback(() => setPromptConfig(null), []);
-  
-  /** Document ingestion and RAG chunking loading state. */
-  const [docLoading, setDocLoading] = useState(false);
-  const [docStatus, setDocStatus] = useState('');
 
-  /** Search & tag filter overlay state on canvas. */
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
-  
-  /** Active workspace page ID (defaults to 1). */
-  const [currentPageId, setCurrentPageId] = useState<number>(1);
-  
   /** Persistent custom sidebar width in pixels. */
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     const saved = localStorage.getItem('aethermind-sidebar-width');
     return saved ? parseInt(saved, 10) : 420;
   });
-  
+
   /** Configurable D3 physics simulation parameters. */
   const [physicsConfig, setPhysicsConfig] = useState(() => {
     const saved = localStorage.getItem('aethermind-physics');
     return saved ? JSON.parse(saved) : { linkDistance: 120, chargeStrength: -150 };
   });
-  
+
   /** NLP semantic clustering toggle state. */
   const [nlpClustering, setNlpClustering] = useState(() => localStorage.getItem('aethermind-nlp-clustering') === 'true');
-
-  /** Historical snapshot data active during time-travel scrubbing. */
-  const [historicalSnapshot, setHistoricalSnapshot] = useState<{ notes: Note[]; links: Link[]; timestamp: number } | null>(null);
 
   /** Active visual theme name ('dark', 'nord', 'dracula', 'cyberpunk', 'custom', etc.). */
   const [activeTheme, setActiveTheme] = useState<string>(() => {
@@ -159,6 +150,39 @@ export default function App() {
       ...parsed
     };
   });
+
+  /** Web clipper handoff: ingest clips delivered via postMessage or `#clip=` hash. */
+  useEffect(() => {
+    if (currentPageId == null) return;
+
+    const report = (result: { ok: boolean; message: string }) => {
+      showToast(result.message, result.ok ? 'success' : 'error');
+    };
+
+    const ingestFromHash = (hash: string) => {
+      const payload = parseHashClip(hash);
+      if (!payload) return;
+      void ingestClip(payload, currentPageId)
+        .then(result => report({ ok: result.success, message: result.message }))
+        .catch(err => {
+          report({ ok: false, message: err instanceof Error ? err.message : 'Failed to import clip' });
+        });
+      // Strip the clip hash so a reload does not re-ingest the same clip
+      history.replaceState(null, '', window.location.pathname + window.location.search);
+    };
+
+    const onMessage = (event: MessageEvent) => handleClipMessage(event, currentPageId, report);
+    const onHashChange = () => ingestFromHash(window.location.hash);
+
+    window.addEventListener('message', onMessage);
+    window.addEventListener('hashchange', onHashChange);
+    if (window.location.hash) ingestFromHash(window.location.hash);
+
+    return () => {
+      window.removeEventListener('message', onMessage);
+      window.removeEventListener('hashchange', onHashChange);
+    };
+  }, [currentPageId, showToast]);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', activeTheme);
@@ -316,7 +340,7 @@ export default function App() {
     };
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-  }, []);
+  }, [setShowCommandPalette]);
 
   // Bind Dexie LiveQueries for real-time reactive graph
   const pages = useLiveQuery(() => db.pages.toArray()) || [];
@@ -334,7 +358,6 @@ export default function App() {
 
   // Find active note records
   const activeNote = notes.find((n) => n.id === activeNoteId) || null;
-  const secondaryNote = notes.find((n) => n.id === secondaryNoteId) || null;
 
   /**
    * Selects or deselects a note from the graph canvas or list view and updates visit statistics.
@@ -357,7 +380,6 @@ export default function App() {
       }
     } else {
       setActiveNoteId(null);
-      setSecondaryNoteId(null);
     }
   };
 
@@ -592,7 +614,6 @@ export default function App() {
       const file = target.files[0];
 
       // File size validation (max 25MB)
-      const { validateFileSize, guardUntrustedContent } = await import('./utils/security');
       if (!validateFileSize(file, 25 * 1024 * 1024)) {
         showToast('File size exceeds the 25MB safety limit.', 'error');
         return;
@@ -627,9 +648,6 @@ export default function App() {
         });
 
         // Step 2: AI decomposition into linked notes
-        const { parseAiResponse, executeAiAction } = await import('./utils/aiActions');
-        const { callAI, getAIConfig } = await import('./utils/aiClient');
-
         // Check if AI is configured
         const aiConfig = getAIConfig();
         if (!aiConfig.apiKey && aiConfig.provider !== 'custom') {
@@ -787,104 +805,187 @@ Format:
 
   return (
     <div className="app-container">
-      {/* Header Bar — Floating Glass Island Navigation */}
-      <header className="app-header glass-panel d-flex align-items-center justify-content-between px-3 mx-2 mx-md-3 mt-2 mt-md-3">
-        {/* Left Brand & Page Section */}
-        <div className="d-flex align-items-center gap-2">
-          <div className="app-logo d-flex align-items-center gap-2 flex-shrink-0" onClick={() => handleSelectNote(null)}>
-            <Brain size={22} className="logo-icon" />
-            <h1 className="d-none d-md-block" style={{ margin: 0 }}>AetherMind</h1>
-          </div>
+      {/* Accessible Skip Link (Vercel Guidelines) */}
+      <a href="#main-canvas-workspace" className="sr-only focus:not-sr-only">Skip to knowledge canvas</a>
 
-          {/* Page Selector — md+ full dropdown */}
-          <div className="d-none d-md-flex align-items-center gap-1 ms-2 ps-2" style={{ borderLeft: '1px solid var(--border-color)' }}>
-            <Dropdown
-              value={currentPageId}
-              onChange={(val) => setCurrentPageId(Number(val))}
-              options={pages.map(p => ({ value: p.id!, label: p.title }))}
-              style={{ minWidth: '140px' }}
-            />
-            <button className="page-action-btn" onClick={() => setShowRenamePage(true)} aria-label="Rename Page" title="Rename Page">
+      {/* Floating Dynamic Island HUD Dock (Linear + macOS Capsule) */}
+      <header className="floating-dynamic-island" role="banner">
+        {/* Brand & Page Selector Pill */}
+        <div className="d-flex align-items-center gap-1">
+          <Tooltip content="Deselect Note / Home Canvas" side="bottom">
+            <button
+              type="button"
+              className="hud-icon-btn"
+              onClick={() => handleSelectNote(null)}
+              aria-label="AetherMind home canvas"
+            >
+              <Brain size={18} style={{ color: 'var(--accent-primary)' }} />
+            </button>
+          </Tooltip>
+          
+          <Dropdown
+            value={currentPageId}
+            onChange={(val) => setCurrentPageId(Number(val))}
+            options={pages.map(p => ({ value: p.id!, label: p.title }))}
+            style={{ minWidth: viewport === 'sm' ? '95px' : '130px', maxWidth: '160px' }}
+          />
+          
+          <Tooltip content="Rename Current Page" side="bottom">
+            <button
+              type="button"
+              className="hud-icon-btn"
+              onClick={() => setShowRenamePage(true)}
+              aria-label="Rename active workspace page"
+            >
               <Edit2 size={13} />
             </button>
-            <button className="page-action-btn" onClick={handleDeletePage} aria-label="Delete Page" title="Delete Page" disabled={pages.length <= 1}>
-              <Trash2 size={13} style={{ color: pages.length <= 1 ? 'inherit' : 'var(--accent-danger, #f43f5e)' }} />
-            </button>
-          </div>
-
-          {/* Mobile Page Selector (sm only) */}
-          <div className="d-flex d-md-none align-items-center gap-1">
-            <Dropdown
-              value={currentPageId}
-              onChange={(val) => setCurrentPageId(Number(val))}
-              options={pages.map(p => ({ value: p.id!, label: p.title }))}
-              style={{ maxWidth: '110px' }}
-            />
-            <button className="page-action-btn" onClick={() => setShowRenamePage(true)} aria-label="Rename Page">
-              <Edit2 size={12} />
-            </button>
-          </div>
+          </Tooltip>
+          {pages.length > 1 && (
+            <Tooltip content="Delete Current Page" side="bottom">
+              <button
+                type="button"
+                className="hud-icon-btn"
+                onClick={handleDeletePage}
+                aria-label="Delete active workspace page"
+                style={{ color: 'var(--accent-danger)' }}
+              >
+                <Trash2 size={13} />
+              </button>
+            </Tooltip>
+          )}
         </div>
 
-        {/* Center Spotlight Search Pill (md+ only) */}
-        <div 
-          className="header-search-pill d-none d-md-flex" 
+        <div className="hud-divider d-none d-sm-block" />
+
+        {/* Center Spotlight Search Pill */}
+        <button
+          type="button"
+          className="hud-pill-btn"
           onClick={() => setShowCommandPalette(true)}
+          aria-label={`Search notes and commands (${formatShortcut('K')})`}
           title={`Search notes and commands (${formatShortcut('K')})`}
         >
           <Search size={14} style={{ color: 'var(--text-muted)' }} />
-          <span>Search notes...</span>
-          <span className="kbd-badge">{formatShortcutBadge('K')}</span>
-        </div>
+          <span>Search notes…</span>
+          {!isMobileDevice() && <span className="kbd-badge">{formatShortcutBadge('K')}</span>}
+        </button>
 
-        {/* Right Header Action Dock */}
-        <div className="header-controls d-flex align-items-center gap-1 gap-md-2 flex-shrink-0" style={{ overflow: 'visible' }}>
-          {/* Review & Discovery */}
-          <button className="header-btn d-none d-lg-inline-flex" onClick={() => setShowReview(true)} title="Spaced Repetition Review">
-            <Brain size={15} /> Review
-          </button>
-          <button className="header-btn d-none d-lg-inline-flex" onClick={() => setShowDiscoveryDigest(true)} title="Discovery Digest">
-            <Compass size={15} /> Discovery
-          </button>
-          <button className="header-btn d-lg-none" onClick={() => setShowReview(true)} title="Review">
-            <Brain size={15} />
-          </button>
+        <div className="hud-divider d-none d-md-block" />
 
-          {/* Ask AI with golden sparkle beacon */}
-          <button className="header-btn" onClick={() => setShowAskAi(true)} style={{ color: 'var(--node-amber)' }} title="Ask AI Copilot">
-            <Sparkles size={15} />
-          </button>
+        {/* Right Actions Dock */}
+        <div className="d-flex align-items-center gap-1">
+          {/* Spaced Repetition Review */}
+          <Tooltip content="Spaced Repetition Review" side="bottom">
+            <button
+              type="button"
+              className="hud-pill-btn d-none d-md-inline-flex"
+              onClick={() => setShowReview(true)}
+              aria-label="Spaced Repetition Review"
+            >
+              <Brain size={14} style={{ color: 'var(--node-amber)' }} />
+              <span>Review</span>
+            </button>
+          </Tooltip>
+
+          {/* Discovery Digest */}
+          <Tooltip content="Discovery Digest" side="bottom">
+            <button
+              type="button"
+              className="hud-icon-btn d-none d-lg-inline-flex"
+              onClick={() => setShowDiscoveryDigest(true)}
+              aria-label="Discovery Digest"
+            >
+              <Compass size={15} />
+            </button>
+          </Tooltip>
+
+          {/* Ask AI Copilot */}
+          <Tooltip content="Ask AI Copilot" shortcut="Alt+A" side="bottom">
+            <button
+              type="button"
+              className="hud-icon-btn"
+              onClick={() => setShowAskAi(true)}
+              aria-label="Ask AI copilot"
+              title="Ask AI copilot"
+            >
+              <Sparkles size={15} style={{ color: 'var(--accent-primary)' }} />
+            </button>
+          </Tooltip>
 
           {/* Daily Note */}
-          <button className="header-btn" onClick={handleCreateDailyNote} title="Today's Daily Note">
-            <Calendar size={15} />
-          </button>
+          <Tooltip content="Today's Daily Note" side="bottom">
+            <button
+              type="button"
+              className="hud-icon-btn d-none d-lg-inline-flex"
+              onClick={handleCreateDailyNote}
+              aria-label="Today's Daily Note"
+              title="Today's Daily Note"
+            >
+              <Calendar size={15} />
+            </button>
+          </Tooltip>
 
-          {/* Import / Document — md+ */}
-          <button className="header-btn d-none d-md-inline-flex" onClick={handleImportZip} title="Import Markdown ZIP">
-            <FileArchive size={15} />
-          </button>
-          <button className="header-btn d-none d-md-inline-flex" onClick={handleUploadDocument} title="Upload Document" aria-label="Upload Document">
-            <FileUp size={15} />
-          </button>
+          {/* Import Markdown ZIP */}
+          <Tooltip content="Import Markdown ZIP" side="bottom">
+            <button
+              type="button"
+              className="hud-icon-btn d-none d-md-inline-flex"
+              onClick={handleImportZip}
+              aria-label="Import Markdown ZIP"
+              title="Import Markdown ZIP"
+            >
+              <FileArchive size={15} />
+            </button>
+          </Tooltip>
 
-          {/* New Page (+) */}
-          <button className="header-btn primary-btn" onClick={() => setShowNewPage(true)} title="Create New Page">
-            <Plus size={15} />
-          </button>
+          {/* Upload Document */}
+          <Tooltip content="Upload Document (PDF, DOCX, TXT)" side="bottom">
+            <button
+              type="button"
+              className="hud-icon-btn d-none d-md-inline-flex"
+              onClick={handleUploadDocument}
+              aria-label="Upload Document"
+              title="Upload Document"
+            >
+              <FileUp size={15} />
+            </button>
+          </Tooltip>
+
+          {/* Quick Create Note (+) with Electric Cyan Glow */}
+          <Tooltip content="Create New Note" shortcut="N" side="bottom">
+            <button
+              type="button"
+              className="hud-primary-btn"
+              onClick={() => handleCreateNote()}
+              aria-label="Create new note"
+              title="Create new note"
+            >
+              <Plus size={17} />
+            </button>
+          </Tooltip>
 
           {/* Settings */}
-          <button className="header-btn" onClick={() => setShowSettings(true)} title="Settings & Appearance">
-            <Settings size={15} />
-          </button>
+          <Tooltip content="Settings & Appearance" side="bottom">
+            <button
+              type="button"
+              className="hud-icon-btn"
+              onClick={() => setShowSettings(true)}
+              aria-label="Settings and Appearance"
+              title="Settings"
+            >
+              <Settings size={15} />
+            </button>
+          </Tooltip>
         </div>
       </header>
 
-      {/* Main Workspace Dashboard */}
-      <main className="app-workspace overflow-hidden">
-        {/* Left Side: Graph Canvas & Overlay Filters */}
-        <div className="left-viewport">
-
+      {/* Main Workspace — Full-Bleed Infinite Spatial Canvas Desktop */}
+      <main 
+        id="main-canvas-workspace" 
+        className={`app-workspace overflow-hidden position-relative w-100 h-100 p-0 m-0 ${isSidebarOpen && activeNote ? 'sidebar-open' : ''}`}
+        style={{ '--sidebar-width': `${sidebarWidth}px` } as React.CSSProperties}
+      >
+        <div className={`left-viewport w-100 h-100 border-0 rounded-0 ${isSidebarOpen && activeNote ? 'sidebar-open' : ''}`} style={{ position: 'relative' }}>
           {/* Floating Search Filter overlay */}
           <SearchBar
             searchQuery={searchQuery}
@@ -898,7 +999,7 @@ Format:
           />
 
           {/* D3 Graph Canvas */}
-          <Suspense fallback={<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}><Loader2 className="spinning" size={32} /></div>}>
+          <Suspense fallback={<Skeleton.GraphCanvas />}>
             <GraphCanvas
               notes={historicalSnapshot ? historicalSnapshot.notes : notes}
               links={historicalSnapshot ? historicalSnapshot.links : links}
@@ -910,16 +1011,17 @@ Format:
               selectedTags={selectedTags}
               dateRange={historicalSnapshot ? null : dateRange}
               physicsConfig={physicsConfig}
-              isSidebarOpen={isSidebarOpen}
+              isSidebarOpen={isSidebarOpen && !!activeNote}
               onOpenSidebar={() => setIsSidebarOpen(true)}
               onOpenSearch={() => setIsSearchOpen(!isSearchOpen)}
               onCloseSearch={() => setIsSearchOpen(false)}
               nlpClustering={nlpClustering && !historicalSnapshot}
               pageTitle={pages.find(p => p.id === currentPageId)?.title}
+              activeTheme={activeTheme}
             />
           </Suspense>
 
-          {/* Floating Timeline Slider scrubber — hidden on mobile when a note is open */}
+          {/* Floating Timeline Slider scrubber */}
           {(viewport !== 'sm' || !activeNote) && (
             <TimelineSlider
               notes={historicalSnapshot ? historicalSnapshot.notes : notes}
@@ -932,59 +1034,52 @@ Format:
           )}
         </div>
 
-        {/* Right Side: Markdown Editor Sidebar panel */}
+        {/* Floating Spatial Note Window / Mobile Bottom Sheet */}
         <AnimatePresence>
-          {isSidebarOpen && (
-            <motion.div 
-              initial={viewport === 'sm' ? { y: '100%', opacity: 0 } : { width: 0, opacity: 0 }}
-              animate={viewport === 'sm' ? { y: 0, opacity: 1 } : { width: sidebarWidth, opacity: 1 }}
-              exit={viewport === 'sm' ? { y: '100%', opacity: 0 } : { width: 0, opacity: 0 }}
-              transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className={`right-sidebar open`}
-              style={{ 
-                display: 'flex',
-                flexDirection: 'row',
-                overflow: 'hidden'
-              } as React.CSSProperties}
+          {isSidebarOpen && activeNote && (
+            <motion.div
+              initial={viewport === 'sm' ? { y: '100%', opacity: 0 } : { opacity: 0, scale: 0.96, y: 16 }}
+              animate={viewport === 'sm' ? { y: 0, opacity: 1 } : { opacity: 1, scale: 1, y: 0 }}
+              exit={viewport === 'sm' ? { y: '100%', opacity: 0 } : { opacity: 0, scale: 0.96, y: 16 }}
+              transition={{ type: "spring", stiffness: 260, damping: 26 }}
+              className={`spatial-card-window ${isEditorMaximized ? 'maximized' : ''}`}
+              style={{ width: isDesktop && !isEditorMaximized ? `${sidebarWidth}px` : undefined }}
             >
-              <div className="sidebar-resizer" onMouseDown={startResizing} onKeyDown={handleResizerKeyDown} role="separator" aria-orientation="vertical" aria-valuenow={sidebarWidth} aria-valuemin={300} aria-valuemax={1200} tabIndex={0} aria-label="Resize sidebar" style={{ left: 0, touchAction: 'none' }} />
+              {isDesktop && !isEditorMaximized && (
+                <div
+                  className="sidebar-resizer"
+                  onMouseDown={startResizing}
+                  onKeyDown={handleResizerKeyDown}
+                  role="separator"
+                  aria-orientation="vertical"
+                  aria-valuenow={sidebarWidth}
+                  aria-valuemin={300}
+                  aria-valuemax={1200}
+                  tabIndex={0}
+                  aria-label="Resize note window"
+                  style={{ left: 0, touchAction: 'none' }}
+                />
+              )}
 
-          <div style={{ flex: 1, minWidth: 0, minHeight: 0, height: '100%' }}>
-            <EditorPanel
-              note={activeNote}
-              links={links}
-              categories={categories}
-              onClose={() => {
-                handleSelectNote(null);
-                setIsSidebarOpen(false);
-              }}
-              onNoteDeleted={handleNoteDeleted}
-              onJumpToNote={handleJumpToNote}
-              onSplitRight={isDesktop ? (title) => {
-                const target = notes.find(n => n.title.toLowerCase() === title.toLowerCase());
-                if (target) setSecondaryNoteId(target.id!);
-              } : undefined}
-            />
-          </div>
-
-          {isDesktop && secondaryNote && (
-            <div style={{ flex: 1, minWidth: 0, minHeight: 0, height: '100%', borderLeft: '1px solid var(--border-color)' }}>
-              <EditorPanel
-                note={secondaryNote}
-                links={links}
-                categories={categories}
-                onClose={() => setSecondaryNoteId(null)}
-                onNoteDeleted={() => setSecondaryNoteId(null)}
-                onJumpToNote={handleJumpToNote}
-                onSplitRight={isDesktop ? (title) => {
-                  const target = notes.find(n => n.title.toLowerCase() === title.toLowerCase());
-                  if (target) setSecondaryNoteId(target.id!);
-                } : undefined}
-              />
-            </div>
+              {/* Spatial Window Body */}
+              <div style={{ flex: 1, minWidth: 0, minHeight: 0, height: '100%', overflow: 'hidden' }}>
+                <EditorPanel
+                  note={activeNote}
+                  links={links}
+                  categories={categories}
+                  isMaximized={isEditorMaximized}
+                  onToggleMaximize={() => setIsEditorMaximized(!isEditorMaximized)}
+                  onClose={() => {
+                    handleSelectNote(null);
+                    setIsSidebarOpen(false);
+                    setIsEditorMaximized(false);
+                  }}
+                  onNoteDeleted={handleNoteDeleted}
+                  onJumpToNote={handleJumpToNote}
+                />
+              </div>
+            </motion.div>
           )}
-        </motion.div>
-        )}
         </AnimatePresence>
       </main>
 
@@ -1119,7 +1214,7 @@ Format:
         onSelectNote={handleJumpToNote}
         onOpenAskAi={() => setShowAskAi(true)}
         onOpenSettings={() => setShowSettings(true)}
-        onOpenNewNote={() => handleCreateNote(0, 0)}
+        onOpenNewNote={() => handleCreateNote()}
         onOpenReview={() => setShowReview(true)}
         onOpenJournal={handleCreateDailyNote}
       />

@@ -98,7 +98,7 @@ export const RenamePageModal: React.FC<RenamePageModalProps> = ({
               >
                 Page Title
               </label>
-              <div className="search-bar-container" style={{ padding: '8px 12px' }}>
+              <div className="search-bar-container">
                 <input
                   id="pageTitle"
                   type="text"

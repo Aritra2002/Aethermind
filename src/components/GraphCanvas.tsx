@@ -11,10 +11,12 @@ import React, { useRef, useEffect, useState, useMemo } from 'react';
 import * as d3 from 'd3';
 import { db, type Note, type Link, type Category } from '../db';
 import { updateNote } from '../db/helpers';
-import { HelpCircle, PanelLeft, Download, Search, Route, Activity } from 'lucide-react';
+import { HelpCircle, Download, Search, Route, Activity, Minus, Plus, Maximize2, RotateCcw } from 'lucide-react';
 import { cosineSimilarity } from '../utils/vectorSearch';
 import { callAI } from '../utils/aiClient';
 import { calculateGraphStats, findShortestPath } from '../utils/graph/algorithms';
+import { Tooltip } from './ui/Tooltip';
+import { spatialLayoutCache } from '../utils/cacheEngine';
 
 /**
  * Props for the {@link GraphCanvas} component.
@@ -54,6 +56,7 @@ interface GraphCanvasProps {
   onCloseSearch?: () => void;
   nlpClustering?: boolean;
   pageTitle?: string;
+  activeTheme?: string;
 }
 
 /**
@@ -118,11 +121,11 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
   dateRange,
   physicsConfig,
   isSidebarOpen,
-  onOpenSidebar,
   onOpenSearch,
   onCloseSearch,
   nlpClustering,
-  pageTitle
+  pageTitle,
+  activeTheme
 }) => {
   /** Tracks mobile breakpoint for touch-specific UI adaptations. */
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
@@ -138,11 +141,28 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
   /** Primary HTML5 Canvas DOM ref. */
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
+  /** D3 ZoomBehavior ref for programmatic zoom & pan transitions. */
+  const zoomRef = useRef<d3.ZoomBehavior<HTMLCanvasElement, unknown> | null>(null);
+
   /** Responsive pixel dimensions for the canvas element. */
-  const [dimensions, setDimensions] = useState({ width: 600, height: 600 });
+  const [dimensions, setDimensions] = useState(() => ({
+    width: typeof window !== 'undefined' ? (isSidebarOpen ? Math.max(window.innerWidth - 540, 600) : window.innerWidth) : 800,
+    height: typeof window !== 'undefined' ? window.innerHeight : 600
+  }));
 
   /** Current D3 Zoom & Pan transform state. */
   const [transform, setTransform] = useState(d3.zoomIdentity);
+
+  /** Tracks whether initial zoom-to-fit auto-centering has completed for the active page. */
+  const hasAutoCenteredRef = useRef(false);
+  const prevPageTitleRef = useRef(pageTitle);
+
+  useEffect(() => {
+    if (prevPageTitleRef.current !== pageTitle) {
+      prevPageTitleRef.current = pageTitle;
+      hasAutoCenteredRef.current = false;
+    }
+  }, [pageTitle]);
 
   /** Ref flag to coordinate between D3 Zoom behavior and custom node dragging. */
   const isNodeDraggingRef = useRef(false);
@@ -150,14 +170,16 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
   /**
    * Cached Theme Colors ref to prevent style recalculation layout thrashing during the 60fps render loop.
    */
+  const isInitialLight = activeTheme === 'light' || activeTheme === 'sepia';
   const themeColorsRef = useRef({
-    bgPrimary: '#06071a',
-    textPrimary: '#ffffff',
-    textSecondary: '#d1d5db',
-    linkColor: 'rgba(255, 255, 255, 0.25)',
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    activeRing: 'rgba(255, 255, 255, 0.4)',
-    pinnedRing: '#ffffff'
+    bgPrimary: isInitialLight ? (activeTheme === 'sepia' ? '#f5efe6' : '#f8fafc') : '#07080a',
+    textPrimary: isInitialLight ? (activeTheme === 'sepia' ? '#3d2e24' : '#0f172a') : '#f8fafc',
+    textSecondary: isInitialLight ? (activeTheme === 'sepia' ? '#705847' : '#475569') : '#94a3b8',
+    linkColor: isInitialLight ? (activeTheme === 'sepia' ? 'rgba(61, 46, 36, 0.25)' : 'rgba(15, 23, 42, 0.20)') : 'rgba(255, 255, 255, 0.16)',
+    borderColor: isInitialLight ? (activeTheme === 'sepia' ? 'rgba(61, 46, 36, 0.12)' : 'rgba(15, 23, 42, 0.10)') : 'rgba(255, 255, 255, 0.08)',
+    activeRing: isInitialLight ? 'rgba(0, 0, 0, 0.35)' : 'rgba(255, 255, 255, 0.4)',
+    pinnedRing: isInitialLight ? '#000000' : '#ffffff',
+    isLightBg: isInitialLight
   });
 
   /**
@@ -166,12 +188,11 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
   useEffect(() => {
     const updateThemeColors = () => {
       const styles = getComputedStyle(document.documentElement);
+      const currentDataTheme = document.documentElement.getAttribute('data-theme');
+      const isExplicitLight = activeTheme === 'light' || activeTheme === 'sepia' || currentDataTheme === 'light' || currentDataTheme === 'sepia';
       
-      const bgPrimary = styles.getPropertyValue('--bg-primary').trim() || '#06071a';
-      const textPrimary = styles.getPropertyValue('--text-primary').trim() || '#ffffff';
-      const textSecondary = styles.getPropertyValue('--text-secondary').trim() || '#d1d5db';
-      const linkColor = styles.getPropertyValue('--link-color').trim() || 'rgba(255, 255, 255, 0.25)';
-      const borderColor = styles.getPropertyValue('--border-color').trim() || 'rgba(255, 255, 255, 0.08)';
+      const rawBgPrimary = styles.getPropertyValue('--bg-primary').trim();
+      const rawTextPrimary = styles.getPropertyValue('--text-primary').trim();
       
       /** Computes luminance from hex string to adapt active rings for light vs dark palettes. */
       const getLuminance = (hex: string) => {
@@ -191,8 +212,14 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
         return 0;
       };
 
-      const isLightBg = getLuminance(bgPrimary) > 0.5 || textPrimary === '#0f172a' || textPrimary === '#5c4033' || styles.getPropertyValue('color-scheme').trim() === 'light';
-      const activeRing = isLightBg ? 'rgba(0, 0, 0, 0.3)' : 'rgba(255, 255, 255, 0.4)';
+      const isLightBg = isExplicitLight || getLuminance(rawBgPrimary) > 0.5 || rawTextPrimary === '#0f172a' || rawTextPrimary === '#3d2e24' || styles.getPropertyValue('color-scheme').trim() === 'light';
+
+      const bgPrimary = rawBgPrimary || (isLightBg ? (activeTheme === 'sepia' ? '#f5efe6' : '#f8fafc') : '#07080a');
+      const textPrimary = rawTextPrimary || (isLightBg ? (activeTheme === 'sepia' ? '#3d2e24' : '#0f172a') : '#f8fafc');
+      const textSecondary = styles.getPropertyValue('--text-secondary').trim() || (isLightBg ? (activeTheme === 'sepia' ? '#705847' : '#475569') : '#94a3b8');
+      const linkColor = styles.getPropertyValue('--link-color').trim() || (isLightBg ? (activeTheme === 'sepia' ? 'rgba(61, 46, 36, 0.25)' : 'rgba(15, 23, 42, 0.20)') : 'rgba(255, 255, 255, 0.16)');
+      const borderColor = styles.getPropertyValue('--border-color').trim() || (isLightBg ? (activeTheme === 'sepia' ? 'rgba(61, 46, 36, 0.12)' : 'rgba(15, 23, 42, 0.10)') : 'rgba(255, 255, 255, 0.08)');
+      const activeRing = isLightBg ? 'rgba(0, 0, 0, 0.35)' : 'rgba(255, 255, 255, 0.4)';
       const pinnedRing = isLightBg ? '#000000' : '#ffffff';
 
       themeColorsRef.current = {
@@ -202,7 +229,8 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
         linkColor,
         borderColor,
         activeRing,
-        pinnedRing
+        pinnedRing,
+        isLightBg
       };
     };
 
@@ -229,7 +257,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
       if (rafId !== null) cancelAnimationFrame(rafId);
       observer.disconnect();
     };
-  }, []);
+  }, [activeTheme]);
 
   /** Visibility state for keyboard shortcuts / canvas syntax modal. */
   const [showHelp, setShowHelp] = useState(false);
@@ -394,10 +422,15 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
     if (!containerRef.current) return;
     const resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
-        setDimensions({
-          width: entry.contentRect.width,
-          height: entry.contentRect.height
-        });
+        const { width, height } = entry.contentRect;
+        if (width > 0 && height > 0) {
+          setDimensions(prev => {
+            if (Math.abs(prev.width - width) < 2 && Math.abs(prev.height - height) < 2) {
+              return prev;
+            }
+            return { width: Math.round(width), height: Math.round(height) };
+          });
+        }
       }
     });
     resizeObserver.observe(containerRef.current);
@@ -424,10 +457,66 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
       if (linkForce) linkForce.distance(physicsConfig.linkDistance);
       const chargeForce = sim.force('charge') as d3.ForceManyBody<SimNode>;
       if (chargeForce) chargeForce.strength(physicsConfig.chargeStrength);
+      sim.force('center', d3.forceCenter(dimensions.width / 2, dimensions.height / 2));
+      if (sim.alpha() < 0.1) sim.alpha(0.2).restart();
+    }
+  }, [dimensions, physicsConfig.linkDistance, physicsConfig.chargeStrength]);
+
+  /**
+   * Smoothly computes bounding box of all nodes and centers the graph in the viewport.
+   * Auto-calculates optimal zoom level with comfortable padding.
+   */
+  const zoomToFit = (animate = true) => {
+    const canvas = canvasRef.current;
+    const zoom = zoomRef.current;
+    if (!canvas || !zoom) return;
+
+    const currentNodes = nodesRef.current;
+    if (currentNodes.length === 0) {
+      const defaultTransform = d3.zoomIdentity;
+      if (animate) d3.select(canvas).transition().duration(400).call(zoom.transform, defaultTransform);
+      else d3.select(canvas).call(zoom.transform, defaultTransform);
+      return;
     }
 
-    simulationRef.current.force('center', d3.forceCenter(dimensions.width / 2, dimensions.height / 2));
-  }, [dimensions, physicsConfig.linkDistance, physicsConfig.chargeStrength]);
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    let validCount = 0;
+    for (const n of currentNodes) {
+      if (n.x === undefined || n.y === undefined || isNaN(n.x) || isNaN(n.y)) continue;
+      validCount++;
+      if (n.x < minX) minX = n.x;
+      if (n.x > maxX) maxX = n.x;
+      if (n.y < minY) minY = n.y;
+      if (n.y > maxY) maxY = n.y;
+    }
+
+    if (validCount === 0) return;
+
+    const graphWidth = maxX - minX || 120;
+    const graphHeight = maxY - minY || 120;
+    const graphCenterX = (minX + maxX) / 2;
+    const graphCenterY = (minY + maxY) / 2;
+
+    const padding = Math.min(dimensions.width * 0.12, 90);
+    const availableWidth = Math.max(dimensions.width - padding * 2, 180);
+    const availableHeight = Math.max(dimensions.height - padding * 2, 180);
+
+    const scale = Math.min(
+      Math.max(Math.min(availableWidth / graphWidth, availableHeight / graphHeight), 0.35),
+      1.15
+    );
+
+    const targetX = dimensions.width / 2 - graphCenterX * scale;
+    const targetY = dimensions.height / 2 - graphCenterY * scale;
+
+    const targetTransform = d3.zoomIdentity.translate(targetX, targetY).scale(scale);
+
+    if (animate) {
+      d3.select(canvas).transition().duration(500).ease(d3.easeCubicOut).call(zoom.transform, targetTransform);
+    } else {
+      d3.select(canvas).call(zoom.transform, targetTransform);
+    }
+  };
 
   /**
    * Synchronizes database notes and links into SimNodes, applies search/tag/date filters,
@@ -477,6 +566,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
 
       const degree = linkCounts[note.id!] || 0;
       const radius = 10 + Math.min(20, degree * 1.5);
+      const cachedPos = spatialLayoutCache.getPosition(note.id!);
 
       return {
         id: note.id!,
@@ -488,17 +578,52 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
         isDimmed,
         radius,
         visits: note.visits || 0,
-        x: existing?.x ?? note.fx ?? (dimensions.width / 2 + (Math.random() - 0.5) * 50),
-        y: existing?.y ?? note.fy ?? (dimensions.height / 2 + (Math.random() - 0.5) * 50),
-        vx: existing?.vx ?? 0,
-        vy: existing?.vy ?? 0,
-        fx: existing?.fx !== undefined ? existing.fx : (note.fx ?? null),
-        fy: existing?.fy !== undefined ? existing.fy : (note.fy ?? null)
+        x: existing?.x ?? cachedPos?.x ?? note.fx ?? (dimensions.width / 2 + (Math.random() - 0.5) * 60),
+        y: existing?.y ?? cachedPos?.y ?? note.fy ?? (dimensions.height / 2 + (Math.random() - 0.5) * 60),
+        vx: existing?.vx ?? cachedPos?.vx ?? 0,
+        vy: existing?.vy ?? cachedPos?.vy ?? 0,
+        fx: existing?.fx !== undefined ? existing.fx : (cachedPos?.fx !== undefined ? cachedPos.fx : (note.fx ?? null)),
+        fy: existing?.fy !== undefined ? existing.fy : (cachedPos?.fy !== undefined ? cachedPos.fy : (note.fy ?? null))
       };
     });
 
     nodesRef.current = processedNodes;
     sim.nodes(processedNodes);
+
+    // Synchronize simulation tick updates to spatial layout memory cache
+    sim.on('tick', () => {
+      processedNodes.forEach(node => {
+        if (node.x !== undefined && node.y !== undefined) {
+          spatialLayoutCache.setPosition(node.id, {
+            x: node.x,
+            y: node.y,
+            vx: node.vx,
+            vy: node.vy,
+            fx: node.fx,
+            fy: node.fy
+          });
+        }
+      });
+    });
+
+    // Run a brief simulation warmup so newly created nodes naturally expand from center before initial zoom-to-fit
+    const hasUnpositioned = processedNodes.some(n => !spatialLayoutCache.getPosition(n.id) && n.fx === null);
+    if (hasUnpositioned || !hasAutoCenteredRef.current) {
+      for (let i = 0; i < 20; i++) {
+        sim.tick();
+      }
+    }
+
+    // Automatically perform initial zoom-to-fit auto-centering once nodes are initialized
+    if (!hasAutoCenteredRef.current && processedNodes.length > 0 && dimensions.width > 200) {
+      hasAutoCenteredRef.current = true;
+      requestAnimationFrame(() => {
+        zoomToFit(false);
+      });
+      setTimeout(() => {
+        zoomToFit(false);
+      }, 100);
+    }
 
     const validLinks = links
       .map(l => {
@@ -679,7 +804,9 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
           
           ctx.shadowBlur = isActive || isPathNode ? 24 + pulsingBloom + heatmapIntensity : 12 + (pulsingBloom/2) + heatmapIntensity;
           ctx.shadowColor = color;
-          ctx.globalCompositeOperation = 'lighter';
+          if (!themeColorsRef.current.isLightBg) {
+            ctx.globalCompositeOperation = 'lighter';
+          }
         }
 
         // Draw Circle
@@ -736,7 +863,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
     return () => {
       cancelAnimationFrame(animationFrameId);
     };
-  }, [dimensions, transform, activeNote, searchQuery, selectedTags, dateRange, categories, pathFinder]);
+  }, [dimensions, transform, activeNote, searchQuery, selectedTags, dateRange, categories, pathFinder, activeTheme]);
 
   /** State ref ensuring event listeners access latest state without re-attaching listeners */
   const stateRef = useRef({ transform, notes, links, activeNote, onCreateNote, onSelectNote, pathFinder, setPathFinder });
@@ -753,8 +880,9 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
 
     // Zoom and pan setup
     const zoomBehavior = d3.zoom<HTMLCanvasElement, unknown>()
-      .scaleExtent([0.1, 4])
-      .filter((event) => {
+      .scaleExtent([0.1, 4]);
+    zoomRef.current = zoomBehavior;
+    zoomBehavior.filter((event) => {
         if (event.ctrlKey || event.button) return false;
         
         // If node is currently being dragged, ignore zoom
@@ -1200,6 +1328,14 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
     canvas.addEventListener('pointerdown', handleTouchDragStart, { passive: false });
     d3.select(canvas).call(zoomBehavior);
 
+    // Initial centering on canvas mount once zoom behavior is attached if nodes are present
+    if (!hasAutoCenteredRef.current && nodesRef.current.length > 0) {
+      hasAutoCenteredRef.current = true;
+      requestAnimationFrame(() => {
+        zoomToFit(false);
+      });
+    }
+
     canvas.addEventListener('pointermove', handleTouchDragMove, { passive: false });
     canvas.addEventListener('pointerup', handleTouchDragEnd);
     canvas.addEventListener('pointercancel', handleTouchDragEnd);
@@ -1219,6 +1355,27 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
     };
   }, []);
 
+  const handleZoomIn = () => {
+    if (!canvasRef.current || !zoomRef.current) return;
+    d3.select(canvasRef.current).transition().duration(250).call(zoomRef.current.scaleBy, 1.3);
+  };
+
+  const handleZoomOut = () => {
+    if (!canvasRef.current || !zoomRef.current) return;
+    d3.select(canvasRef.current).transition().duration(250).call(zoomRef.current.scaleBy, 0.77);
+  };
+
+  const handleResetZoom = () => zoomToFit(true);
+
+  const handleResetForces = () => {
+    if (!simulationRef.current) return;
+    nodesRef.current.forEach(n => {
+      n.fx = null;
+      n.fy = null;
+    });
+    simulationRef.current.alpha(0.6).restart();
+  };
+
   return (
     <div className="graph-container" ref={containerRef} id="graph-container-root">
       {/* Primary Canvas Element */}
@@ -1231,91 +1388,139 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
         style={{ touchAction: 'none', WebkitTouchCallout: 'none' }}
       />
 
+      {/* Floating Viewport HUD Capsule (Image-To-Code Blueprint) */}
+      <div className="viewport-hud" role="toolbar" aria-label="Canvas viewport controls">
+        <Tooltip content="Zoom Out" shortcut="-" side="top">
+          <button
+            type="button"
+            className="viewport-hud-btn"
+            onClick={handleZoomOut}
+            aria-label="Zoom out"
+          >
+            <Minus size={14} />
+          </button>
+        </Tooltip>
+
+        <span className="viewport-hud-chip" aria-label={`Current zoom ${Math.round(transform.k * 100)}%`}>
+          {Math.round(transform.k * 100)}%
+        </span>
+
+        <Tooltip content="Zoom In" shortcut="+" side="top">
+          <button
+            type="button"
+            className="viewport-hud-btn"
+            onClick={handleZoomIn}
+            aria-label="Zoom in"
+          >
+            <Plus size={14} />
+          </button>
+        </Tooltip>
+
+        <div style={{ width: '1px', height: '14px', background: 'var(--border-color)', margin: '0 2px' }} />
+
+        <Tooltip content="Center & Fit Graph" side="top">
+          <button
+            type="button"
+            className="viewport-hud-btn"
+            onClick={handleResetZoom}
+            aria-label="Reset zoom and center view"
+          >
+            <Maximize2 size={13} />
+          </button>
+        </Tooltip>
+
+        <Tooltip content="Re-balance Graph Physics" side="top">
+          <button
+            type="button"
+            className="viewport-hud-btn"
+            onClick={handleResetForces}
+            aria-label="Reset force simulation and unpin nodes"
+          >
+            <RotateCcw size={13} />
+          </button>
+        </Tooltip>
+      </div>
+
       {/* Floating Canvas Controls Island */}
       <div className="canvas-controls">
         <div className="glass-pill" style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 6px', boxShadow: 'var(--shadow-md)' }}>
-          {!isSidebarOpen && !isMobile && (
-            <button
-              className="canvas-btn"
-              onClick={onOpenSidebar}
-              title="Open Note Editor"
-              aria-label="Open Sidebar"
-              style={{ borderRadius: 'var(--radius-pill)', border: 'none', background: 'transparent' }}
-            >
-              <PanelLeft size={15} /> <span>Editor</span>
-            </button>
-          )}
           {onOpenSearch && (
-            <button
-              className="canvas-btn"
-              onClick={() => {
-                if (onOpenSearch) onOpenSearch();
-                setShowHelp(false);
-              }}
-              title="Filter and search notes"
-              aria-label="Search"
-              style={{ borderRadius: 'var(--radius-pill)', border: 'none', background: 'transparent' }}
-            >
-              <Search size={15} /> <span>{isMobile ? '' : 'Filter'}</span>
-            </button>
+            <Tooltip content="Filter & Search Notes" shortcut="F" side="bottom">
+              <button
+                className="canvas-btn"
+                onClick={() => {
+                  if (onOpenSearch) onOpenSearch();
+                  setShowHelp(false);
+                }}
+                aria-label="Search"
+                style={{ borderRadius: 'var(--radius-pill)', border: 'none', background: 'transparent' }}
+              >
+                <Search size={15} /> <span>{isMobile ? '' : 'Filter'}</span>
+              </button>
+            </Tooltip>
           )}
 
           {/* Graph Metrics HUD Toggle */}
-          <button
-            className="canvas-btn"
-            onClick={() => setShowStatsHUD(!showStatsHUD)}
-            title="Toggle Graph Statistics HUD"
-            aria-label="Graph Statistics"
-            style={{ borderRadius: 'var(--radius-pill)', border: 'none', background: showStatsHUD ? 'var(--accent-primary)' : 'transparent', color: showStatsHUD ? '#fff' : 'inherit' }}
-          >
-            <Activity size={15} /> <span>{isMobile ? '' : 'Stats'}</span>
-          </button>
+          <Tooltip content="Toggle Knowledge Graph Metrics" side="bottom">
+            <button
+              className="canvas-btn"
+              onClick={() => setShowStatsHUD(!showStatsHUD)}
+              aria-label="Graph Statistics"
+              style={{ borderRadius: 'var(--radius-pill)', border: 'none', background: showStatsHUD ? 'var(--accent-primary)' : 'transparent', color: showStatsHUD ? '#fff' : 'inherit' }}
+            >
+              <Activity size={15} /> <span>{isMobile ? '' : 'Stats'}</span>
+            </button>
+          </Tooltip>
 
           {/* Path Finder Mode */}
-          <button
-            className="canvas-btn"
-            onClick={() => {
-              if (pathFinder.active) {
-                setPathFinder({ active: false, startNodeId: null, endNodeId: null, pathSet: new Set() });
-              } else {
-                if (activeNote?.id) {
-                  setPathFinder({ active: true, startNodeId: activeNote.id, endNodeId: null, pathSet: new Set([activeNote.id]) });
+          <Tooltip content="Shortest Path Finder" side="bottom">
+            <button
+              className="canvas-btn"
+              onClick={() => {
+                if (pathFinder.active) {
+                  setPathFinder({ active: false, startNodeId: null, endNodeId: null, pathSet: new Set() });
                 } else {
-                  setPathFinder({ active: true, startNodeId: null, endNodeId: null, pathSet: new Set() });
+                  if (activeNote?.id) {
+                    setPathFinder({ active: true, startNodeId: activeNote.id, endNodeId: null, pathSet: new Set([activeNote.id]) });
+                  } else {
+                    setPathFinder({ active: true, startNodeId: null, endNodeId: null, pathSet: new Set() });
+                  }
                 }
-              }
-            }}
-            title="Shortest Path Finder"
-            aria-label="Path Finder"
-            style={{ borderRadius: 'var(--radius-pill)', border: 'none', background: pathFinder.active ? 'var(--accent-gold, #f59e0b)' : 'transparent', color: pathFinder.active ? '#000' : 'inherit' }}
-          >
-            <Route size={15} /> <span>{isMobile ? '' : 'Path'}</span>
-          </button>
+              }}
+              aria-label="Path Finder"
+              style={{ borderRadius: 'var(--radius-pill)', border: 'none', background: pathFinder.active ? 'var(--accent-gold, #f59e0b)' : 'transparent', color: pathFinder.active ? '#000' : 'inherit' }}
+            >
+              <Route size={15} /> <span>{isMobile ? '' : 'Path'}</span>
+            </button>
+          </Tooltip>
 
-          <button
-            className="canvas-btn"
-            onClick={() => {
-              handleExport('zip');
-              setShowHelp(false);
-              if (onCloseSearch) onCloseSearch();
-            }}
-            title="Export graph as ZIP"
-            style={{ borderRadius: 'var(--radius-pill)', border: 'none', background: 'transparent' }}
-          >
-            <Download size={15} /> <span>{isMobile ? '' : 'Export'}</span>
-          </button>
-          <button
-            className="canvas-btn"
-            onClick={() => {
-              setShowHelp(!showHelp);
-              if (onCloseSearch) onCloseSearch();
-            }}
-            title="Canvas shortcuts & syntax guide"
-            aria-label="Controls help"
-            style={{ borderRadius: 'var(--radius-pill)', border: 'none', background: 'transparent', padding: '6px' }}
-          >
-            <HelpCircle size={15} />
-          </button>
+          <Tooltip content="Export Graph as ZIP Archive" side="bottom">
+            <button
+              className="canvas-btn"
+              onClick={() => {
+                handleExport('zip');
+                setShowHelp(false);
+                if (onCloseSearch) onCloseSearch();
+              }}
+              style={{ borderRadius: 'var(--radius-pill)', border: 'none', background: 'transparent' }}
+            >
+              <Download size={15} /> <span>{isMobile ? '' : 'Export'}</span>
+            </button>
+          </Tooltip>
+
+          <Tooltip content="Canvas Shortcuts & Syntax Guide" shortcut="?" side="bottom">
+            <button
+              className="canvas-btn"
+              onClick={() => {
+                setShowHelp(!showHelp);
+                if (onCloseSearch) onCloseSearch();
+              }}
+              aria-label="Controls help"
+              style={{ borderRadius: 'var(--radius-pill)', border: 'none', background: 'transparent', padding: '6px' }}
+            >
+              <HelpCircle size={15} />
+            </button>
+          </Tooltip>
         </div>
       </div>
 
@@ -1372,8 +1577,9 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
       {pathFinder.active && (
         <div className="glass-pill" style={{
           position: 'absolute',
-          top: '70px',
-          right: '16px',
+          top: '72px',
+          left: '50%',
+          transform: 'translateX(-50%)',
           padding: '6px 14px',
           borderRadius: 'var(--radius-pill)',
           zIndex: 1000,
