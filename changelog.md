@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+[2.1.0]: https://github.com/Aritra2002/Aethermind/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/Aritra2002/Aethermind/compare/v1.31.0...v2.0.0
 [1.31.0]: https://github.com/Aritra2002/Aethermind/compare/v1.30.0...v1.31.0
 [1.30.0]: https://github.com/Aritra2002/Aethermind/compare/v1.29.2...v1.30.0
@@ -56,6 +57,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [1.5.0]: https://github.com/Aritra2002/Aethermind/compare/v1.0.0...v1.5.0
 [1.0.0]: https://github.com/Aritra2002/Aethermind/releases/tag/v1.0.0
 
+
+## [2.1.0] - 2026-09-04
+
+### Added
+
+- **AI Loading Skeletons**: Shimmer placeholders (`Skeleton.AiSummary`) now appear while the Ask AI copilot is thinking and while the Daily Discovery Digest is being synthesized, matching the existing constellation and editor skeleton language.
+- **Optimistic Favorite & Archive Toggles**: Pinning and archiving a note now updates the icon instantly with revert-on-error, instead of waiting on the database round-trip.
+- **TTL-Backed RAG Query Cache**: Repeated questions against notes and documents skip the embedding + BM25 retrieval pass via a new in-memory cache with a 5-minute absolute expiry (`getWithTtl`).
+- **Vector Similarity Caching**: The previously unused `vectorSimilarityCache` now accelerates NLP clustering on the canvas and Related Notes ranking.
+- **Tooltips on Remaining Icon Buttons**: Note-preview close and search-panel close now show the portalled micro-tooltip.
+- **Fresh-Canvas Empty State**: A subtle glass hint ("Double-click anywhere to create your first note") guides brand-new workspaces.
+
+### Notes
+
+- Behavior-only release: no vault data format, export, or schema changes. The in-memory LRU cache engine gained TTL support with regression tests documenting absolute-expiry semantics.
 
 ## [2.0.0] - 2026-09-04
 
