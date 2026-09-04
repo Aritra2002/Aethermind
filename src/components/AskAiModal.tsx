@@ -31,6 +31,8 @@ import { parseAiResponse, executeAiAction, validateActionPreflight, generateActi
 import { fetchUrlContent } from '../utils/urlFetcher';
 import { useToast } from './ToastContext';
 import { db } from '../db';
+import { ragSearchCache } from '../utils/cacheEngine';
+import { Skeleton } from './ui/Skeleton';
 
 /**
  * Props for the AskAiModal component.
@@ -235,9 +237,20 @@ export const AskAiModal: React.FC<AskAiModalProps> = ({ isOpen, onClose, activeP
       // Step 3: Run semantic RAG vector search across notes and documents if requested
       if (asksAboutOwnData) {
         const typeFilter = scope === 'documents' ? 'documents' : scope === 'vault' ? 'notes' : 'all';
-        retrievedCitations = await searchHybridRag(query, 5, typeFilter);
-        setCitations(retrievedCitations);
-        ragContext = buildRagContextWithCitations(retrievedCitations);
+        // Cache repeated questions: skip the embedding + BM25 pass (5-min TTL keeps
+        // results fresh as notes evolve).
+        const ragKey = `rag:${scope}:${typeFilter}:${query.trim().toLowerCase()}`;
+        const cached = ragSearchCache.getWithTtl(ragKey, 5 * 60 * 1000);
+        if (cached) {
+          ragContext = cached.context;
+          retrievedCitations = cached.citations as RagCitation[];
+          setCitations(retrievedCitations);
+        } else {
+          retrievedCitations = await searchHybridRag(query, 5, typeFilter);
+          setCitations(retrievedCitations);
+          ragContext = buildRagContextWithCitations(retrievedCitations);
+          ragSearchCache.set(ragKey, { context: ragContext, citations: retrievedCitations });
+        }
       }
 
       // Step 4: Assemble system prompt with formatting rules and action schemas
@@ -583,6 +596,14 @@ Only perform actions the user explicitly requested.`;
                 <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', lineHeight: 1.4, margin: 0 }}>
                   Ask questions, research topics, synthesize web articles, or command AI to create and interconnect knowledge nodes.
                 </p>
+
+                {/* Skeleton shimmer while the AI is thinking (no response yet) */}
+                {isAiLoading && (
+                  <div className="d-flex flex-column gap-2" role="status" aria-label="AI is thinking">
+                    <Skeleton.AiSummary />
+                    <Skeleton.AiSummary />
+                  </div>
+                )}
                 
                 <div className="d-flex gap-2 align-items-center">
                   <div className="search-bar-container flex-grow-1" style={{ padding: '8px 12px' }}>

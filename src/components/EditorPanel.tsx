@@ -25,7 +25,7 @@ import { cosineSimilarity } from '../utils/vectorSearch';
 import { ConnectionDiscovery } from './ConnectionDiscovery';
 import { Dropdown } from './ui/Dropdown';
 import { Tooltip } from './ui/Tooltip';
-import { aiResponseCache, generateAiCacheKey } from '../utils/cacheEngine';
+import { aiResponseCache, generateAiCacheKey, vectorSimilarityCache } from '../utils/cacheEngine';
 import { formatShortcut, isModifierKeyCombo } from '../utils/keyboardUtils';
 
 /**
@@ -103,6 +103,32 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
 
   /** Indicates whether an AI operation (summarize, auto-tag) is currently fetching. */
   const [isAiLoading, setIsAiLoading] = useState(false);
+
+  /**
+   * Optimistic UI overrides for favorite/archive toggles.
+   * Keyed by note id so an override from a previously viewed note is never
+   * applied to the current one. The icon flips instantly; once the Dexie
+   * live-query prop catches up, the override no longer differs and is ignored
+   * at render time — no flicker and no effect-based state writes.
+   */
+  const [optimisticOverrides, setOptimisticOverrides] = useState<{ noteId: number | null; fav?: boolean; archived?: boolean }>({ noteId: null });
+
+  const overrideIsCurrent = optimisticOverrides.noteId === (note?.id ?? null);
+  const isFavOptimistic = overrideIsCurrent && optimisticOverrides.fav !== undefined && optimisticOverrides.fav !== (Number(note?.isFavorite) === 1)
+    ? optimisticOverrides.fav
+    : (Number(note?.isFavorite) === 1);
+  const isArchivedOptimistic = overrideIsCurrent && optimisticOverrides.archived !== undefined && optimisticOverrides.archived !== (Number(note?.isArchived) === 1)
+    ? optimisticOverrides.archived
+    : (Number(note?.isArchived) === 1);
+
+  /** Cached pairwise cosine similarity keyed by note-id pair (avoids recomputation on re-renders). */
+  const cachedSimilarity = (idA: number, idB: number, embA: number[], embB: number[]): number => {
+    const cached = vectorSimilarityCache.get(idA, idB);
+    if (cached !== undefined) return cached;
+    const score = cosineSimilarity(embA, embB);
+    vectorSimilarityCache.set(idA, idB, score);
+    return score;
+  };
 
   /** Checks if AI copilot credentials or custom endpoints are available. */
   const aiAvailable = !!(localStorage.getItem('aiApiKey') || localStorage.getItem('aiProvider') === 'custom');
@@ -853,42 +879,56 @@ Requirements:
           </span>
         </div>
         <div className="header-actions">
-          {/* Favorite Toggle */}
-          <Tooltip content={Number(note?.isFavorite) === 1 ? 'Remove from Favorites' : 'Pin to Favorites'} side="bottom">
+          {/* Favorite Toggle (optimistic: icon flips instantly, reverts on failure) */}
+          <Tooltip content={isFavOptimistic ? 'Remove from Favorites' : 'Pin to Favorites'} side="bottom">
             <button 
               className="icon-btn" 
               onClick={async () => {
                 if (note?.id) {
-                  const isFav = await toggleFavoriteNote(note.id);
-                  showToast(isFav ? 'Pinned to Favorites' : 'Removed from Favorites', 'info');
+                  const next = !isFavOptimistic;
+                  setOptimisticOverrides({ noteId: note.id, fav: next });
+                  try {
+                    const isFav = await toggleFavoriteNote(note.id);
+                    showToast(isFav ? 'Pinned to Favorites' : 'Removed from Favorites', 'info');
+                  } catch {
+                    setOptimisticOverrides(prev => ({ ...prev, fav: isFavOptimistic }));
+                    showToast('Failed to update favorite', 'error');
+                  }
                 }
               }}
               aria-label="Toggle Favorite"
-              style={{ color: Number(note?.isFavorite) === 1 ? 'var(--accent-gold, #f59e0b)' : 'inherit' }}
+              style={{ color: isFavOptimistic ? 'var(--accent-gold, #f59e0b)' : 'inherit' }}
             >
-              <Star size={17} fill={Number(note?.isFavorite) === 1 ? 'var(--accent-gold, #f59e0b)' : 'none'} />
+              <Star size={17} fill={isFavOptimistic ? 'var(--accent-gold, #f59e0b)' : 'none'} />
             </button>
           </Tooltip>
 
-          {/* Archive Toggle */}
-          <Tooltip content={Number(note?.isArchived) === 1 ? 'Restore Note from Archive' : 'Move Note to Archive'} side="bottom">
+          {/* Archive Toggle (optimistic: icon flips instantly, reverts on failure) */}
+          <Tooltip content={isArchivedOptimistic ? 'Restore Note from Archive' : 'Move Note to Archive'} side="bottom">
             <button 
               className="icon-btn" 
               onClick={async () => {
                 if (note?.id) {
-                  if (Number(note.isArchived) === 1) {
-                    await restoreNote(note.id);
-                    showToast('Note restored from Archive', 'info');
-                  } else {
-                    await archiveNote(note.id);
-                    showToast('Note moved to Archive', 'info');
+                  const next = !isArchivedOptimistic;
+                  setOptimisticOverrides({ noteId: note.id, archived: next });
+                  try {
+                    if (next) {
+                      await archiveNote(note.id);
+                      showToast('Note moved to Archive', 'info');
+                    } else {
+                      await restoreNote(note.id);
+                      showToast('Note restored from Archive', 'info');
+                    }
+                  } catch {
+                    setOptimisticOverrides(prev => ({ ...prev, archived: isArchivedOptimistic }));
+                    showToast('Failed to update archive status', 'error');
                   }
                 }
               }}
               aria-label="Toggle Archive"
-              style={{ color: Number(note?.isArchived) === 1 ? 'var(--accent-primary)' : 'inherit' }}
+              style={{ color: isArchivedOptimistic ? 'var(--accent-primary)' : 'inherit' }}
             >
-              {Number(note?.isArchived) === 1 ? <ArchiveRestore size={17} /> : <Archive size={17} />}
+              {isArchivedOptimistic ? <ArchiveRestore size={17} /> : <Archive size={17} />}
             </button>
           </Tooltip>
 
@@ -1178,7 +1218,7 @@ Requirements:
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
               {allNotes
                 .filter(n => n.pageId === note.pageId && n.id !== note.id && n.embedding)
-                .map(n => ({ note: n, score: cosineSimilarity(note.embedding!, n.embedding!) }))
+                .map(n => ({ note: n, score: cachedSimilarity(note.id!, n.id!, note.embedding!, n.embedding!) }))
                 .filter(({ score }) => score > 0.4)
                 .sort((a, b) => b.score - a.score)
                 .slice(0, 5)
@@ -1203,7 +1243,7 @@ Requirements:
                   </div>
                 ))}
               {allNotes.filter(n => n.pageId === note.pageId && n.id !== note.id && n.embedding).length > 0 &&
-                allNotes.filter(n => n.pageId === note.pageId && n.id !== note.id && n.embedding).map(n => ({ note: n, score: cosineSimilarity(note.embedding!, n.embedding!) })).filter(({ score }) => score > 0.4).length === 0 && (
+                allNotes.filter(n => n.pageId === note.pageId && n.id !== note.id && n.embedding).map(n => ({ note: n, score: cachedSimilarity(note.id!, n.id!, note.embedding!, n.embedding!) })).filter(({ score }) => score > 0.4).length === 0 && (
                 <span style={{ fontSize: '0.825rem', color: 'var(--text-secondary)' }}>No strong semantic matches.</span>
               )}
             </div>

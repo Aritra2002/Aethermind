@@ -8,6 +8,7 @@
 import React from 'react';
 import { Search, X } from 'lucide-react';
 import type { Note, Category } from '../db';
+import { Tooltip } from './ui/Tooltip';
 
 /**
  * Props for the {@link SearchBar} component.
@@ -95,14 +96,16 @@ export const SearchBar: React.FC<SearchBarProps> = ({
       <div className="search-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
         <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.9rem' }}>Search & Filter</span>
         {onClose && (
-          <button 
-            className="icon-only-btn" 
-            onClick={onClose} 
-            aria-label="Close search panel" 
-            style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '4px' }}
-          >
-            <X size={16} />
-          </button>
+          <Tooltip content="Close search & filter panel" side="bottom">
+            <button 
+              className="icon-only-btn" 
+              onClick={onClose} 
+              aria-label="Close search and filter panel" 
+              style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '4px' }}
+            >
+              <X size={16} />
+            </button>
+          </Tooltip>
         )}
       </div>
 

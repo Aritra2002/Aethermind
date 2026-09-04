@@ -16,7 +16,7 @@ import { cosineSimilarity } from '../utils/vectorSearch';
 import { callAI } from '../utils/aiClient';
 import { calculateGraphStats, findShortestPath } from '../utils/graph/algorithms';
 import { Tooltip } from './ui/Tooltip';
-import { spatialLayoutCache } from '../utils/cacheEngine';
+import { spatialLayoutCache, vectorSimilarityCache } from '../utils/cacheEngine';
 
 /**
  * Props for the {@link GraphCanvas} component.
@@ -645,7 +645,13 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
           const a = notesWithEmbeddings[i];
           const b = notesWithEmbeddings[j];
           if (!a.embedding || !b.embedding) continue;
-          const score = cosineSimilarity(a.embedding, b.embedding);
+          // Cache pairwise similarity per note-id pair — this O(n²) loop runs on
+          // every layout/simulation pass, so repeat comparisons become O(1) lookups.
+          let score = vectorSimilarityCache.get(a.id!, b.id!);
+          if (score === undefined) {
+            score = cosineSimilarity(a.embedding, b.embedding);
+            vectorSimilarityCache.set(a.id!, b.id!, score);
+          }
           if (score > 0.65) {
             const sourceNode = processedNodes.find(n => n.id === a.id);
             const targetNode = processedNodes.find(n => n.id === b.id);
@@ -1387,6 +1393,31 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
         onContextMenu={(e) => e.preventDefault()}
         style={{ touchAction: 'none', WebkitTouchCallout: 'none' }}
       />
+
+      {/* Empty-state guidance for a fresh canvas (non-interactive overlay) */}
+      {notes.length === 0 && !showHelp && (
+        <div
+          className="canvas-empty-hint"
+          style={{
+            position: 'absolute',
+            inset: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            pointerEvents: 'none',
+            zIndex: 5
+          }}
+        >
+          <div className="glass-panel" style={{ padding: '18px 28px', borderRadius: 'var(--radius-lg)', textAlign: 'center', maxWidth: '360px' }}>
+            <div style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '6px' }}>
+              Your knowledge canvas is ready
+            </div>
+            <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+              Double-click anywhere on the canvas to create your first note.
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Floating Viewport HUD Capsule (Image-To-Code Blueprint) */}
       <div className="viewport-hud" role="toolbar" aria-label="Canvas viewport controls">

@@ -22,6 +22,7 @@ import type { Note } from '../db';
 import { callAI } from '../utils/aiClient';
 import { safeRenderMarkdown } from '../utils/sanitizer';
 import { Sparkles, Square } from 'lucide-react';
+import { Skeleton } from './ui/Skeleton';
 
 /**
  * Props for the DiscoveryDigestModal component.
@@ -156,21 +157,25 @@ export const DiscoveryDigestModal: React.FC<DiscoveryDigestModalProps> = ({ isOp
           <div className="modal-body">
             {error && <div style={{ color: '#ef4444' }}>{error}</div>}
             {isLoading && !digest && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: 'var(--card-nested-bg)', borderRadius: '6px' }}>
-                <div className="spin-pulse" style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
-                  Finding a surprising connection...
+              <div className="d-flex flex-column gap-2">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: 'var(--card-nested-bg)', borderRadius: '6px' }}>
+                  <div className="spin-pulse" style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+                    Finding a surprising connection...
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-danger"
+                    onClick={() => {
+                      abortRef.current?.abort();
+                      setIsLoading(false);
+                    }}
+                    style={{ padding: '3px 10px', fontSize: '0.78rem' }}
+                  >
+                    <Square size={11} fill="currentColor" /> Stop
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  className="btn btn-sm btn-danger"
-                  onClick={() => {
-                    abortRef.current?.abort();
-                    setIsLoading(false);
-                  }}
-                  style={{ padding: '3px 10px', fontSize: '0.78rem' }}
-                >
-                  <Square size={11} fill="currentColor" /> Stop
-                </button>
+                <Skeleton.AiSummary />
+                <Skeleton.AiSummary />
               </div>
             )}
             {digest && (

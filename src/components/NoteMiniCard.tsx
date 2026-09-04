@@ -10,6 +10,7 @@ import React, { useState } from 'react';
 import type { Note, Category } from '../db';
 import { X, FileText } from 'lucide-react';
 import { safeRenderMarkdown } from '../utils/sanitizer';
+import { Tooltip } from './ui/Tooltip';
 
 /**
  * Props for the {@link NoteMiniCard} component.
@@ -132,9 +133,11 @@ export const NoteMiniCard: React.FC<NoteMiniCardProps> = ({ note, category, onOp
             <span style={{ color: category?.color || '#818cf8', marginRight: '8px' }}>●</span>
             {note.title}
           </h3>
-          <button className="btn btn-icon btn-ghost" onClick={onClose} aria-label="Close">
-            <X size={16} />
-          </button>
+          <Tooltip content="Close preview" side="bottom">
+            <button className="btn btn-icon btn-ghost" onClick={onClose} aria-label="Close preview">
+              <X size={16} />
+            </button>
+          </Tooltip>
         </div>
       </div>
 

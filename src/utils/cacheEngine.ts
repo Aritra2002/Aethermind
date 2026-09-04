@@ -69,7 +69,27 @@ class LRUCache<T> {
   get(key: string): T | undefined {
     const item = this.map.get(key);
     if (!item) return undefined;
-    // Refresh position in Map for LRU
+    // Refresh recency for LRU eviction order. Note: `this.map` is a raw Map, so
+    // this re-stores the *entry object* itself (not via LRUCache#set), which
+    // preserves the entry's original insert timestamp for absolute-TTL reads.
+    this.map.delete(key);
+    this.map.set(key, item);
+    return item.value;
+  }
+
+  /**
+   * Retrieves a value only if it is fresh enough (younger than `ttlMs`).
+   * TTL is absolute — measured from the original insert — and expired entries
+   * are evicted eagerly so they never linger in memory.
+   */
+  getWithTtl(key: string, ttlMs: number): T | undefined {
+    const item = this.map.get(key);
+    if (!item) return undefined;
+    if (Date.now() - item.timestamp > ttlMs) {
+      this.map.delete(key);
+      return undefined;
+    }
+    // Refresh recency for LRU eviction order (timestamp is preserved).
     this.map.delete(key);
     this.map.set(key, item);
     return item.value;
@@ -98,6 +118,31 @@ class LRUCache<T> {
 }
 
 export const aiResponseCache = new LRUCache<string | string[]>(50);
+
+/**
+ * RAG Retrieval Cache — stores synthesized retrieval results (context string +
+ * citations) keyed by normalized query + scope. Repeated questions skip the
+ * expensive embedding + BM25 pass entirely; a 5-minute TTL keeps entries fresh
+ * as notes evolve. Structural mirror of {@link RagCitation} from rag.ts so this
+ * low-level module stays dependency-free.
+ */
+export interface RagCacheEntry {
+  /** Pre-synthesized retrieval context fed directly into the AI prompt. */
+  context: string;
+  /** Citations rendered in the UI citation panel. */
+  citations: Array<{
+    index: number;
+    sourceId: string;
+    sourceName: string;
+    chunkIndex: number;
+    content: string;
+    score: number;
+    isNote: boolean;
+    noteId?: number;
+  }>;
+}
+
+export const ragSearchCache = new LRUCache<RagCacheEntry>(25);
 
 /**
  * Generates a stable DJB2 hash key for note content and prompt type.
