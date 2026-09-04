@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+[2.0.0]: https://github.com/Aritra2002/Aethermind/compare/v1.31.0...v2.0.0
 [1.31.0]: https://github.com/Aritra2002/Aethermind/compare/v1.30.0...v1.31.0
 [1.30.0]: https://github.com/Aritra2002/Aethermind/compare/v1.29.2...v1.30.0
 [1.29.2]: https://github.com/Aritra2002/Aethermind/compare/v1.29.1...v1.29.2
@@ -55,6 +56,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [1.5.0]: https://github.com/Aritra2002/Aethermind/compare/v1.0.0...v1.5.0
 [1.0.0]: https://github.com/Aritra2002/Aethermind/releases/tag/v1.0.0
 
+
+## [2.0.0] - 2026-09-04
+
+### Added
+
+- **Self-Hosted Offline Fonts**: All nine font families (Plus Jakarta Sans, Inter, Outfit, Playfair Display, Lora, Merriweather, Cinzel, JetBrains Mono, Fira Code) are now bundled locally as latin woff2 and declared via `@font-face`. The app and the standalone HTML export render identical typography with zero runtime Google Fonts requests.
+- **Web Clipper Smart Tab Handoff**: The browser extension delivers clips straight into AetherMind — reusing an open app tab via an injected postMessage handoff (with ack), otherwise opening the app with the clip in a `#clip=` deep link. Clipboard copy remains the automatic fallback. Added an app-URL setting and a "save as RAG document" toggle.
+- **Knowledge Intelligence Modules**: Concept/entity extraction with suggested wiki-links, contradiction detection (direct conflicts vs. temporal evolution), and knowledge-gap detection (missing concept pages, unresolved questions, isolated islands).
+- **Multi-Model Embeddings & RAG Cache**: Swappable embedding adapters (local MiniLM, TF-IDF fallback, OpenAI, Gemini) with an in-memory LRU cache and background re-indexing.
+- **Agent Operating Docs & CI Quality Gate**: Added the agent operating contract, design doc, and a CI workflow enforcing lint, typecheck, and the full test suite.
+- **Expanded Test Suite**: Six new suites (AI settings, knowledge intelligence, multi-model embeddings, scale benchmarking, clipper handoff) plus global test setup — 31 suites / 191 tests total.
+
+### Fixed
+
+- Removed two unused declarations in `GraphCanvas` that previously blocked lint and build.
+
+### Notes
+
+- **2.0.0 marks the product milestone of the continuous UI/UX overhaul** — fluid responsive layouts, bidirectional note resizing, unified segmented controls, multi-theme system, and the custom color studio — which shipped across the 1.2x–1.31 releases, together with the local-first hardening and intelligence features in this release. The vault data format remains unchanged and backward compatible.
 
 ## [1.31.0] - 2026-08-21
 

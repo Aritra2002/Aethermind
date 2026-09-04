@@ -4,7 +4,7 @@
   <p><strong>A Next-Generation, Local-First Personal Knowledge Graph</strong></p>
 
   <p>
-    <img src="https://img.shields.io/badge/version-1.30.0-blue.svg?style=flat-square" alt="Version" />
+    <img src="https://img.shields.io/badge/version-2.0.0-blue.svg?style=flat-square" alt="Version" />
     <img src="https://img.shields.io/badge/license-AGPLv3-red.svg?style=flat-square" alt="AGPLv3 License" />
     <img src="https://img.shields.io/badge/React-19-61DAFB.svg?style=flat-square&logo=react" alt="React" />
     <img src="https://img.shields.io/badge/TypeScript-3178C6.svg?style=flat-square&logo=typescript" alt="TypeScript" />
@@ -589,6 +589,6 @@ From deep bug resolution in legacy binary decoders to crafting fluid UI animatio
 <div align="center">
   <p>
     <strong>AetherMind</strong> — Built with React, D3.js, and love for knowledge.<br/>
-    <sub>Version 1.29.2 | Local-First | Privacy by Design</sub>
+    <sub>Version 2.0.0 | Local-First | Privacy by Design</sub>
   </p>
 </div>
