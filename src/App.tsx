@@ -41,7 +41,7 @@ import { parseAiResponse, executeAiAction } from './utils/aiActions';
 import { callAI, getAIConfig } from './utils/aiClient';
 import { parseHashClip, ingestClip, handleClipMessage } from './utils/clipperHandoff';
 
-import { Brain, Plus, Settings, Calendar, Sparkles, Edit2, Trash2, Compass, FileArchive, FileUp, Search } from 'lucide-react';
+import { Brain, Plus, Settings, Calendar, Sparkles, Edit2, Trash2, Compass, FileArchive, FileUp, Search, Network, FileText, X } from 'lucide-react';
 
 /**
  * Custom hook to monitor window width and compute responsive breakpoint tier.
@@ -112,6 +112,7 @@ export default function App() {
   const viewport = useViewport();
   const isDesktop = viewport === 'lg';
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [showMobileEmptyEditor, setShowMobileEmptyEditor] = useState(false);
   const [isEditorMaximized, setIsEditorMaximized] = useState(false);
   const handlePromptCancel = useCallback(() => setPromptConfig(null), []);
 
@@ -1100,6 +1101,13 @@ Format:
       {showMobileMenu && viewport === 'sm' && (
         <div className="mobile-menu-drawer">
           <div className="mobile-menu-items">
+            {/* Quick actions relocated from the desktop hud island (hidden on phones) */}
+            <button className="header-btn mobile-menu-btn" onClick={() => { handleCreateNote(); setShowMobileMenu(false); }}>
+              <Plus size={18} /> New Note
+            </button>
+            <button className="header-btn mobile-menu-btn" onClick={() => { setShowCommandPalette(true); setShowMobileMenu(false); }}>
+              <Search size={18} /> Search & Open
+            </button>
             <button className="header-btn mobile-menu-btn" onClick={() => { setShowReview(true); setShowMobileMenu(false); }}>
               <Brain size={18} /> Review
             </button>
@@ -1121,13 +1129,100 @@ Format:
             <button className="header-btn mobile-menu-btn" onClick={() => { setShowSettings(true); setShowMobileMenu(false); }}>
               <Settings size={18} /> Settings
             </button>
+            {/* Workspace page switching (was the island's page dropdown) */}
+            <div className="menu-section-label">Pages</div>
+            {pages.map(p => (
+              <button
+                key={p.id}
+                className="header-btn mobile-menu-btn"
+                style={p.id === currentPageId ? { color: 'var(--accent-primary)' } : undefined}
+                onClick={() => {
+                  setCurrentPageId(p.id!);
+                  setActiveNoteId(null);
+                  setIsSidebarOpen(false);
+                  setShowMobileMenu(false);
+                }}
+              >
+                <Network size={18} /> {p.title}
+              </button>
+            ))}
+            <button className="header-btn mobile-menu-btn" onClick={() => { setShowRenamePage(true); setShowMobileMenu(false); }}>
+              <Edit2 size={18} /> Rename Page
+            </button>
+            {pages.length > 1 && (
+              <button
+                className="header-btn mobile-menu-btn"
+                style={{ color: 'var(--accent-danger)' }}
+                onClick={() => { setShowDeletePageConfirm(true); setShowMobileMenu(false); }}
+              >
+                <Trash2 size={18} /> Delete Page…
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Empty-state note picker shown when the Editor tab is tapped without an open note */}
+      {showMobileEmptyEditor && viewport === 'sm' && (
+        <div className="mobile-menu-drawer">
+          <div className="mobile-panel-header">
+            <div>
+              <div className="mobile-panel-title">No note open</div>
+              <div className="mobile-panel-sub">Tap a note on the graph, pick one below, or create a new note to start editing.</div>
+            </div>
+            <button
+              className="header-btn icon-only-btn"
+              aria-label="Close note picker"
+              onClick={() => setShowMobileEmptyEditor(false)}
+            >
+              <X size={18} />
+            </button>
+          </div>
+          <div className="mobile-menu-items">
+            <button
+              className="header-btn mobile-menu-btn mobile-menu-btn-primary"
+              onClick={() => { setShowMobileEmptyEditor(false); handleCreateNote(); }}
+            >
+              <Plus size={18} /> New Note
+            </button>
+            <button
+              className="header-btn mobile-menu-btn"
+              onClick={() => { setShowMobileEmptyEditor(false); setShowCommandPalette(true); }}
+            >
+              <Search size={18} /> Search & Open
+            </button>
+            <div className="menu-section-label">Notes on this page</div>
+            {notes.length === 0 && (
+              <div className="mobile-panel-sub" style={{ padding: '4px 6px 2px' }}>
+                This page has no notes yet — create one to get started.
+              </div>
+            )}
+            {notes.slice(0, 8).map(n => (
+              <button
+                key={n.id}
+                className="header-btn mobile-menu-btn mobile-menu-note-row"
+                onClick={() => { setShowMobileEmptyEditor(false); handleJumpToNote(n.title); }}
+              >
+                <FileText size={16} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+                <span
+                  style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, textAlign: 'left' }}
+                >
+                  {n.title}
+                </span>
+              </button>
+            ))}
+            {notes.length > 8 && (
+              <div className="mobile-panel-sub" style={{ padding: '4px 6px 2px' }}>
+                +{notes.length - 8} more — use Search & Open to find them.
+              </div>
+            )}
           </div>
         </div>
       )}
 
       {viewport === 'sm' && (
         <MobileNav 
-          activeTab={isSidebarOpen ? 'editor' : (isSearchOpen ? 'search' : (showMobileMenu ? 'menu' : 'graph'))}
+          activeTab={isSidebarOpen ? 'editor' : (isSearchOpen ? 'search' : (showMobileMenu ? 'menu' : (showMobileEmptyEditor ? 'editor' : 'graph')))}
           onTabChange={(tab) => {
             switch (tab) {
               case 'graph':
@@ -1135,8 +1230,21 @@ Format:
                 setIsSidebarOpen(false);
                 setIsSearchOpen(false);
                 setShowMobileMenu(false);
+                setShowMobileEmptyEditor(false);
                 break;
               case 'editor':
+                // No note open: there is nothing to edit, so show an empty state with a
+                // quick note picker instead of silently doing nothing.
+                if (!activeNote) {
+                  if (showMobileEmptyEditor) {
+                    setShowMobileEmptyEditor(false);
+                  } else {
+                    setShowMobileEmptyEditor(true);
+                    setIsSearchOpen(false);
+                    setShowMobileMenu(false);
+                  }
+                  break;
+                }
                 // If editor is already open, close it; otherwise open it
                 if (isSidebarOpen) {
                   setIsSidebarOpen(false);
@@ -1145,6 +1253,7 @@ Format:
                   setIsSearchOpen(false);
                   setShowMobileMenu(false);
                 }
+                setShowMobileEmptyEditor(false);
                 break;
               case 'search':
                 // If search is already open, close it; otherwise open it
@@ -1155,10 +1264,12 @@ Format:
                   setIsSidebarOpen(false);
                   setShowMobileMenu(false);
                 }
+                setShowMobileEmptyEditor(false);
                 break;
               case 'menu':
                 // Toggle mobile menu drawer
                 setShowMobileMenu(prev => !prev);
+                setShowMobileEmptyEditor(false);
                 break;
             }
           }}

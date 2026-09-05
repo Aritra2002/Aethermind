@@ -26,7 +26,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { callAI } from '../utils/aiClient';
 import { searchHybridRag, buildRagContextWithCitations, type RagCitation } from '../utils/rag';
 import { safeRenderMarkdown } from '../utils/sanitizer';
-import { Sparkles, ArrowRight, Layers, FileText as FileIcon, Globe, BookOpen, Check, X as XIcon, AlertTriangle, ShieldAlert, Square } from 'lucide-react';
+import { Sparkles, ArrowRight, Layers, FileText as FileIcon, Globe, BookOpen, Check, X as XIcon, AlertTriangle, ShieldAlert, Square, ChevronDown, ChevronRight } from 'lucide-react';
 import { parseAiResponse, executeAiAction, validateActionPreflight, generateActionDiff, type AiAction, type ActionDiff } from '../utils/aiActions';
 import { fetchUrlContent } from '../utils/urlFetcher';
 import { useToast } from './ToastContext';
@@ -126,6 +126,16 @@ const ActionDiffCard: React.FC<{
 };
 
 /**
+ * Formats milliseconds as m:ss for live thinking/streaming elapsed indicators.
+ */
+const fmtElapsed = (ms: number): string => {
+  const totalSec = Math.max(0, Math.floor(ms / 1000));
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  return `${m}:${String(s).padStart(2, '0')}`;
+};
+
+/**
  * AskAiModal Component
  * 
  * Main modal dialog handling user queries, AI streaming interactions,
@@ -159,6 +169,24 @@ export const AskAiModal: React.FC<AskAiModalProps> = ({ isOpen, onClose, activeP
   /** Controller reference to abort in-flight streaming fetch requests */
   const abortRef = useRef<AbortController | null>(null);
 
+  /** Live chain-of-thought tokens surfaced while the model "thinks" before visible content */
+  const [reasoning, setReasoning] = useState('');
+
+  /** Milliseconds elapsed since the current AI run started (ticker for the thinking pill) */
+  const [elapsedMs, setElapsedMs] = useState(0);
+
+  /** How long the model reasoned (frozen when the first content token arrives) */
+  const [reasoningMs, setReasoningMs] = useState<number | null>(null);
+
+  /** Collapsed reasoning summary; auto-collapses when visible content starts */
+  const [reasoningCollapsed, setReasoningCollapsed] = useState(true);
+
+  /** Wall-clock start of the current reasoning phase */
+  const reasoningStartRef = useRef<number | null>(null);
+
+  /** DOM reference to the live reasoning box for auto-scrolling */
+  const reasoningScrollRef = useRef<HTMLDivElement>(null);
+
   const { showToast } = useToast();
   const pageId = activePageId;
 
@@ -166,6 +194,20 @@ export const AskAiModal: React.FC<AskAiModalProps> = ({ isOpen, onClose, activeP
   useEffect(() => {
     return () => abortRef.current?.abort();
   }, []);
+
+  // Tick the elapsed-time counter while a request is in flight
+  useEffect(() => {
+    if (!isAiLoading) return;
+    const start = Date.now();
+    const timer = window.setInterval(() => setElapsedMs(Date.now() - start), 500);
+    return () => window.clearInterval(timer);
+  }, [isAiLoading]);
+
+  // Keep the live reasoning box pinned to the newest tokens
+  useEffect(() => {
+    const el = reasoningScrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [reasoning]);
 
   // Reset dialog state and auto-focus the text input whenever the modal is opened
   useEffect(() => {
@@ -177,6 +219,10 @@ export const AskAiModal: React.FC<AskAiModalProps> = ({ isOpen, onClose, activeP
       setIsAiLoading(false);
       setStagedActionDiffs([]);
       setActionResults([]);
+      setReasoning('');
+      setElapsedMs(0);
+      setReasoningMs(null);
+      setReasoningCollapsed(true);
       setTimeout(() => inputRef.current?.focus(), 50);
     }
   }, [isOpen]);
@@ -195,6 +241,11 @@ export const AskAiModal: React.FC<AskAiModalProps> = ({ isOpen, onClose, activeP
       setCitations([]);
       setActionResults([]);
       setStagedActionDiffs([]);
+      setReasoning('');
+      setElapsedMs(0);
+      setReasoningMs(null);
+      reasoningStartRef.current = Date.now();
+      setReasoningCollapsed(false);
       
       let finalQuery = query;
       let contextPrefix = "";
@@ -261,6 +312,7 @@ BEHAVIOR RULES:
 2. **When user explicitly asks about their data** ("my notes", "from my documents", "what do I have on X", "search my files"): Use the retrieved context provided below to answer. If no relevant context is found, say so.
 3. **When user asks to CREATE notes**: Use your full knowledge to generate rich, detailed content freely.
 4. **When given web content**: Summarize it into a detailed, well-formatted note.
+5. **Never invent actions.** When the user only asks a question or requests information (e.g. "list my notes", "what do I have on X"), answer with plain prose text ONLY — do NOT emit an action JSON block, markdown code fences, or any other structured payload. Only include the JSON action block when the user explicitly asks you to create, edit, delete, or link something.
 
 CRITICAL: The retrieved context (notes/documents) is ONLY provided when the user explicitly asks about their own data. When no context is provided, answer from your general knowledge — do not say "I don't have that information" just because no context was given.
 
@@ -305,11 +357,28 @@ Only perform actions the user explicitly requested.`;
       abortRef.current?.abort();
       abortRef.current = new AbortController();
 
-      // Step 5: Stream AI response
-      await callAI(systemPrompt, userPrompt, (text) => {
-        fullResponse = text;
-        setAiResponse(text);
-      }, abortRef.current.signal);
+      // Step 5: Stream AI response (surfacing chain-of-thought tokens live so
+      // users see progress during long reasoning phases before visible content)
+      await callAI(
+        systemPrompt,
+        userPrompt,
+        (text) => {
+          // First visible content token: freeze the reasoning duration and
+          // collapse the live feed into an inspectable summary header.
+          if (fullResponse === '' && text.length > 0 && reasoningStartRef.current !== null) {
+            setReasoningMs(Date.now() - reasoningStartRef.current);
+            setReasoningCollapsed(true);
+          }
+          fullResponse = text;
+          setAiResponse(text);
+        },
+        abortRef.current.signal,
+        undefined,
+        (reasonText) => {
+          // Cap retained reasoning so very long thought chains don't bloat state
+          setReasoning(reasonText.slice(-20000));
+        }
+      );
 
       // Step 6: Parse structured JSON action blocks and route to staging or direct execution
       const parsed = parseAiResponse(fullResponse);
@@ -353,6 +422,8 @@ Only perform actions the user explicitly requested.`;
       setAiResponse(`Error: ${e instanceof Error ? e.message : 'Unknown error'}`);
     } finally {
       setIsAiLoading(false);
+      // If the run ended without visible content, still record how long it reasoned
+      setReasoningMs(prev => prev ?? (reasoningStartRef.current !== null ? Date.now() - reasoningStartRef.current : null));
     }
   };
 
@@ -449,8 +520,15 @@ Only perform actions the user explicitly requested.`;
                     background: 'var(--card-nested-bg)',
                     border: '1px solid var(--border-color)'
                   }}>
-                    <div className="spin-pulse" style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
-                      {aiResponse ? 'Streaming AI response...' : 'Analyzing knowledge graph & formulating response...'}
+                    <div className="spin-pulse" style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      {aiResponse ? (
+                        `Streaming AI response… ${fmtElapsed(elapsedMs)}`
+                      ) : (
+                        <>
+                          <span className="thinking-dot" aria-hidden="true" />
+                          <span role="status">Thinking… {fmtElapsed(elapsedMs)} — model is reasoning</span>
+                        </>
+                      )}
                     </div>
                     <button 
                       type="button" 
@@ -462,6 +540,62 @@ Only perform actions the user explicitly requested.`;
                     </button>
                   </div>
                 )}
+
+                {/* Chain-of-thought feed: live while thinking, collapsible summary once content starts */}
+                {reasoning.trim() !== '' && (
+                  <div style={{
+                    marginBottom: '12px',
+                    padding: '6px 12px',
+                    borderRadius: '6px',
+                    background: 'var(--card-nested-bg)',
+                    border: '1px dashed var(--border-color)'
+                  }}>
+                    <button
+                      type="button"
+                      onClick={() => setReasoningCollapsed(c => !c)}
+                      aria-expanded={!reasoningCollapsed}
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        width: '100%',
+                        background: 'none',
+                        border: 'none',
+                        padding: '4px 0',
+                        cursor: 'pointer',
+                        color: 'inherit'
+                      }}
+                    >
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--accent-gold)' }}>
+                        {reasoningCollapsed ? <ChevronRight size={13} /> : <ChevronDown size={13} />}
+                        Model reasoning
+                      </span>
+                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                        {reasoningMs !== null
+                          ? `reasoned ${fmtElapsed(reasoningMs)}`
+                          : `thinking… ${fmtElapsed(elapsedMs)}`}
+                      </span>
+                    </button>
+                    {!reasoningCollapsed && (
+                      <div
+                        ref={reasoningScrollRef}
+                        style={{
+                          maxHeight: '150px',
+                          overflowY: 'auto',
+                          fontFamily: 'var(--font-mono)',
+                          fontSize: '0.72rem',
+                          lineHeight: 1.45,
+                          color: 'var(--text-secondary)',
+                          whiteSpace: 'pre-wrap',
+                          wordBreak: 'break-word'
+                        }}
+                      >
+                        {reasoning}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <div 
                   className="markdown-body" 
                   dangerouslySetInnerHTML={{ __html: safeRenderMarkdown(aiResponse) }} 
@@ -552,6 +686,10 @@ Only perform actions the user explicitly requested.`;
                       setCitations([]);
                       setActionResults([]);
                       setStagedActionDiffs([]);
+                      setReasoning('');
+                      setElapsedMs(0);
+                      setReasoningMs(null);
+                      setReasoningCollapsed(true);
                       setTimeout(() => inputRef.current?.focus(), 50);
                     }}
                   >

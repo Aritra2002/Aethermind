@@ -19,6 +19,7 @@ import Prism from 'prismjs';
 import 'prismjs/themes/prism-tomorrow.css';
 import { ColorPicker } from './ColorPicker';
 import { callAI } from '../utils/aiClient';
+import { extractJsonCandidate } from '../utils/aiActions';
 import { ConfirmModal } from './ConfirmModal';
 import { useToast } from './ToastContext';
 import { cosineSimilarity } from '../utils/vectorSearch';
@@ -27,6 +28,14 @@ import { Dropdown } from './ui/Dropdown';
 import { Tooltip } from './ui/Tooltip';
 import { aiResponseCache, generateAiCacheKey, vectorSimilarityCache } from '../utils/cacheEngine';
 import { formatShortcut, isModifierKeyCombo } from '../utils/keyboardUtils';
+
+/**
+ * Formats milliseconds as m:ss for the AI progress ticker.
+ */
+const fmtElapsed = (ms: number): string => {
+  const totalSec = Math.max(0, Math.floor(ms / 1000));
+  return `${Math.floor(totalSec / 60)}:${String(totalSec % 60).padStart(2, '0')}`;
+};
 
 /**
  * Props for the {@link EditorPanel} component.
@@ -104,6 +113,15 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
   /** Indicates whether an AI operation (summarize, auto-tag) is currently fetching. */
   const [isAiLoading, setIsAiLoading] = useState(false);
 
+  /** Live chain-of-thought surfaced while an AI operation runs (F2-style progress). */
+  const [aiProgress, setAiProgress] = useState<{ label: string; reasoning: string; chars: number } | null>(null);
+
+  /** Milliseconds elapsed for the AI progress ticker. */
+  const [aiProgressMs, setAiProgressMs] = useState(0);
+
+  /** DOM ref to the live reasoning box for auto-scrolling. */
+  const aiReasoningRef = useRef<HTMLDivElement>(null);
+
   /**
    * Optimistic UI overrides for favorite/archive toggles.
    * Keyed by note id so an override from a previously viewed note is never
@@ -143,6 +161,20 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
   useEffect(() => {
     return () => abortRef.current?.abort();
   }, []);
+
+  // Tick the AI progress elapsed counter while an operation is in flight
+  useEffect(() => {
+    if (!isAiLoading) return;
+    const start = Date.now();
+    const t = window.setInterval(() => setAiProgressMs(Date.now() - start), 500);
+    return () => window.clearInterval(t);
+  }, [isAiLoading]);
+
+  // Keep the live reasoning box pinned to the newest tokens
+  useEffect(() => {
+    const el = aiReasoningRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [aiProgress?.reasoning]);
 
   /** Visibility state for the delete confirmation modal. */
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -481,16 +513,17 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
     if (!note) return;
     try {
       setIsAiLoading(true);
+      setAiProgress({ label: 'Auto-tagging & suggesting links', reasoning: '', chars: 0 });
+      setAiProgressMs(0);
       const pageNotes = allNotes.filter(n => n.pageId === note.pageId);
       const allTitles = pageNotes.map(n => n.title).filter(t => t !== note.title);
 
       const systemPrompt = `You are an AI assistant for a personal knowledge graph.
 Given a note's title, its content, and a list of existing note titles in the graph, suggest:
-1. Up to 3 relevant comma-separated tags.
-2. Up to 3 existing note titles that should be linked.
-Return exactly and ONLY in this format (do not use markdown blocks, just the text):
-TAGS: tag1, tag2
-LINKS: [[NoteTitle1]] [[NoteTitle2]]`;
+1. Up to 3 relevant tags.
+2. Up to 3 existing note titles (from the provided list ONLY) that should be linked.
+Return exactly and ONLY a JSON object with no markdown fences, no code block markers and no extra text:
+{"tags": ["tag1", "tag2"], "links": ["Existing Note Title 1", "Existing Note Title 2"]}`;
 
       const userPrompt = `Existing Note Titles: ${allTitles.join(', ')}
 Current Note Title: ${note.title}
@@ -498,18 +531,41 @@ Current Note Content: ${content}`;
 
       abortRef.current?.abort();
       abortRef.current = new AbortController();
-      const response = await callAI(systemPrompt, userPrompt, undefined, abortRef.current.signal);
+      const response = await callAI(
+        systemPrompt,
+        userPrompt,
+        (text) => setAiProgress(p => (p ? { ...p, chars: text.length } : p)),
+        abortRef.current.signal,
+        undefined,
+        (r) => setAiProgress(p => (p ? { ...p, reasoning: r.slice(-12000) } : p))
+      );
       
-      // Parse structured tags and links from plain text AI output
-      const lines = response.split('\n');
+      // Parse tags/links: strict JSON first (the model is asked for it), then
+      // fall back to the legacy TAGS:/LINKS: plain-text format for older/other models.
       let tagsToAdd = '';
       let linksToAdd = '';
-      
-      for (const line of lines) {
-        if (line.startsWith('TAGS:')) {
-          tagsToAdd = line.replace('TAGS:', '').trim();
-        } else if (line.startsWith('LINKS:')) {
-          linksToAdd = line.replace('LINKS:', '').trim();
+      const jsonCandidate = extractJsonCandidate(response, '"tags"');
+      if (jsonCandidate) {
+        try {
+          const obj = JSON.parse(jsonCandidate) as { tags?: unknown; links?: unknown };
+          if (Array.isArray(obj.tags)) {
+            tagsToAdd = obj.tags.filter(t => typeof t === 'string').join(', ');
+          }
+          if (Array.isArray(obj.links)) {
+            linksToAdd = obj.links.filter(t => typeof t === 'string').join(', ');
+          }
+        } catch {
+          // fall through to the legacy parser
+        }
+      }
+      if (!tagsToAdd && !linksToAdd) {
+        const lines = response.split('\n');
+        for (const line of lines) {
+          if (line.startsWith('TAGS:')) {
+            tagsToAdd = line.replace('TAGS:', '').trim();
+          } else if (line.startsWith('LINKS:')) {
+            linksToAdd = line.replace('LINKS:', '').trim();
+          }
         }
       }
 
@@ -539,6 +595,7 @@ Current Note Content: ${content}`;
       showToast(e instanceof Error ? e.message : 'Error', 'error');
     } finally {
       setIsAiLoading(false);
+      setAiProgress(null);
     }
   };
 
@@ -560,6 +617,8 @@ Current Note Content: ${content}`;
 
     try {
       setIsAiLoading(true);
+      setAiProgress({ label: 'Generating TL;DR summary', reasoning: '', chars: 0 });
+      setAiProgressMs(0);
       const systemPrompt = `You are an AI assistant for a personal knowledge graph.
 Please provide a concise summary (TL;DR) of the provided note content. The summary should be a single brief paragraph.
 Return exactly and ONLY the summary text, with no markdown code blocks or conversational filler.`;
@@ -567,7 +626,14 @@ Return exactly and ONLY the summary text, with no markdown code blocks or conver
       const userPrompt = `Note Content:\n${content}`;
       abortRef.current?.abort();
       abortRef.current = new AbortController();
-      const response = await callAI(systemPrompt, userPrompt, undefined, abortRef.current.signal);
+      const response = await callAI(
+        systemPrompt,
+        userPrompt,
+        (text) => setAiProgress(p => (p ? { ...p, chars: text.length } : p)),
+        abortRef.current.signal,
+        undefined,
+        (r) => setAiProgress(p => (p ? { ...p, reasoning: r.slice(-12000) } : p))
+      );
       
       const trimmed = response.trim();
       aiResponseCache.set(cacheKey, trimmed);
@@ -576,6 +642,7 @@ Return exactly and ONLY the summary text, with no markdown code blocks or conver
       showToast(e instanceof Error ? e.message : 'Error', 'error');
     } finally {
       setIsAiLoading(false);
+      setAiProgress(null);
       setSlashMenuPos(null);
     }
   };
@@ -598,6 +665,8 @@ Return exactly and ONLY the summary text, with no markdown code blocks or conver
 
     try {
       setIsAiLoading(true);
+      setAiProgress({ label: 'Transforming text with AI', reasoning: '', chars: 0 });
+      setAiProgressMs(0);
       const systemPrompt = `You are an expert AI writing assistant for a personal knowledge graph.
 Instruction: ${instruction}
 Requirements:
@@ -608,7 +677,14 @@ Requirements:
       const userPrompt = `Target Text:\n${targetText}`;
       abortRef.current?.abort();
       abortRef.current = new AbortController();
-      const response = await callAI(systemPrompt, userPrompt, undefined, abortRef.current.signal);
+      const response = await callAI(
+        systemPrompt,
+        userPrompt,
+        (text) => setAiProgress(p => (p ? { ...p, chars: text.length } : p)),
+        abortRef.current.signal,
+        undefined,
+        (r) => setAiProgress(p => (p ? { ...p, reasoning: r.slice(-12000) } : p))
+      );
       
       const trimmedResponse = response.trim();
       const updatedText = hasSelection
@@ -623,6 +699,7 @@ Requirements:
       showToast(e instanceof Error ? e.message : 'AI operation failed', 'error');
     } finally {
       setIsAiLoading(false);
+      setAiProgress(null);
     }
   };
 
@@ -970,6 +1047,48 @@ Requirements:
           </Tooltip>
         </div>
       </div>
+
+      {/* Live AI progress strip: elapsed ticker + chain-of-thought feed while the model works */}
+      {isAiLoading && aiProgress && (
+        <div style={{
+          margin: '10px 0 0',
+          padding: '8px 12px',
+          borderRadius: '6px',
+          background: 'var(--card-nested-bg)',
+          border: '1px dashed var(--border-color)'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px', gap: '8px' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', fontWeight: 600, color: 'var(--accent-gold)' }}>
+              <span className="thinking-dot" aria-hidden="true" />
+              <span role="status">{aiProgress.label}… {fmtElapsed(aiProgressMs)}</span>
+            </span>
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+              {aiProgress.reasoning
+                ? `${aiProgress.reasoning.length} reasoning chars`
+                : aiProgress.chars > 0
+                  ? `${aiProgress.chars} answer chars`
+                  : 'waiting for model…'}
+            </span>
+          </div>
+          {aiProgress.reasoning && (
+            <div
+              ref={aiReasoningRef}
+              style={{
+                maxHeight: '110px',
+                overflowY: 'auto',
+                fontFamily: 'var(--font-mono)',
+                fontSize: '0.72rem',
+                lineHeight: 1.45,
+                color: 'var(--text-secondary)',
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word'
+              }}
+            >
+              {aiProgress.reasoning}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Editor Title and Metadata Fields */}
       <div className="editor-fields">

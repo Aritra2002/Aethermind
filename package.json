@@ -9,7 +9,8 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:ai-mock": "bash qa_bot/run-ai-mock.sh"
   },
   "dependencies": {
     "@xenova/transformers": "^2.0.1",

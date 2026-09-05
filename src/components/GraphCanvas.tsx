@@ -1333,6 +1333,11 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
     canvas.addEventListener('pointerdown', handlePointerDown, { passive: false });
     canvas.addEventListener('pointerdown', handleTouchDragStart, { passive: false });
     d3.select(canvas).call(zoomBehavior);
+    // Double-click is reserved for note creation / unpinning (see handleCanvasDblClick).
+    // d3-zoom's default "dblclick.zoom" listener (attached to the selection on apply)
+    // would otherwise swallow the event and zoom instead. Remove it; wheel zoom, pinch,
+    // pan and the on-screen zoom buttons are unaffected.
+    d3.select(canvas).on('dblclick.zoom', null);
 
     // Initial centering on canvas mount once zoom behavior is attached if nodes are present
     if (!hasAutoCenteredRef.current && nodesRef.current.length > 0) {

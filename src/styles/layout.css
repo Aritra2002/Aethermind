@@ -74,15 +74,13 @@
   border-color: var(--text-muted);
 }
 
-@media (max-width: 768px) {
+/* Phones (<768px): the fixed bottom MobileNav occupies the bottom of the screen, so
+   the floating island (page switcher, palette, Ask AI, create note, settings) would be
+   covered by it. On these viewports every island action is exposed through the bottom-nav
+   "Menu" drawer instead (New Note / Search & Open / pages / rename / Ask AI / Settings). */
+@media (max-width: 767.98px) {
   .floating-dynamic-island {
-    top: auto;
-    bottom: 12px;
-    padding-bottom: max(6px, env(safe-area-inset-bottom));
-    width: calc(100vw - 24px);
-    max-width: 480px;
-    justify-content: space-around;
-    gap: 4px;
+    display: none;
   }
 }
 

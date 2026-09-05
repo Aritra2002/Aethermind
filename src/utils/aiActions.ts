@@ -192,7 +192,10 @@ export function generateActionDiff(
 
 /**
  * Parses raw AI response text to extract structured actions and conversational explanations.
- * Scans for JSON blocks wrapped in markdown code fences (` ```json ... ``` `) or bare JSON payloads.
+ * Accepts JSON in three shapes because local/quantized models are format-unreliable:
+ * 1. Fenced markdown blocks (` ```json ... ``` `, or plain ` ``` ` fences);
+ * 2. A response that is entirely bare JSON;
+ * 3. A JSON array/object EMBEDDED in prose without any fences.
  *
  * @param text - Raw completion text returned by the AI provider.
  *
@@ -218,41 +221,106 @@ export function parseAiResponse(text: string): { actions: AiAction[]; explanatio
     return actions;
   };
 
-  // 1. Scan for fenced markdown JSON blocks: ```json ... ```
-  const jsonRegex = /```json\s*([\s\S]*?)\s*```/g;
-  let match;
-  const allActions: AiAction[] = [];
-  let explanation = text;
-  let found = false;
-
-  while ((match = jsonRegex.exec(text)) !== null) {
-    found = true;
+  // Attempt to parse a string as JSON and return valid actions (or null)
+  const tryActions = (block: string): AiAction[] | null => {
     try {
-      const parsed = JSON.parse(match[1]);
-      allActions.push(...extractActions(parsed));
+      const parsed = JSON.parse(block);
+      const acts = extractActions(parsed);
+      return acts.length > 0 ? acts : null;
     } catch (e) {
-      console.debug("Failed to parse JSON block", e);
+      console.debug('Failed to parse JSON candidate', e);
+      return null;
     }
-    // Remove the matched JSON code block from the user-facing explanation text
-    explanation = explanation.replace(match[0], '').trim();
+  };
+
+  let explanation = text;
+  const allActions: AiAction[] = [];
+
+  // 1. Scan fenced markdown JSON blocks (```json or plain ```) and keep only
+  //    those that actually yield actions; strip them from the explanation.
+  const fenceRegex = /```(?:json)?\s*([\s\S]*?)\s*```/gi;
+  let match;
+  while ((match = fenceRegex.exec(text)) !== null) {
+    const acts = tryActions(match[1]);
+    if (acts) {
+      allActions.push(...acts);
+      explanation = explanation.replace(match[0], ' ').trim();
+    }
+  }
+  if (allActions.length > 0) {
+    return { actions: allActions, explanation, cleanedText: explanation };
   }
 
-  if (found) {
-    if (allActions.length > 0) {
-      return { actions: allActions, explanation, cleanedText: explanation };
+  // 2. Fallback: the entire response is a bare JSON payload
+  {
+    const acts = tryActions(text);
+    if (acts) {
+      return { actions: acts, explanation: '', cleanedText: '' };
     }
-    return null;
   }
 
-  // 2. Fallback: Check if the entire response is a bare JSON payload
-  try {
-    const parsed = JSON.parse(text);
-    const actions = extractActions(parsed);
-    if (actions.length > 0) {
-      return { actions, explanation: '', cleanedText: '' };
+  // 3. Fallback: a JSON array/object embedded in prose without fences (format drift)
+  const embedded = extractJsonCandidate(text);
+  if (embedded) {
+    const acts = tryActions(embedded);
+    if (acts) {
+      return {
+        actions: acts,
+        explanation: text.replace(embedded, ' ').replace(/\s+/g, ' ').trim(),
+        cleanedText: text.replace(embedded, ' ').trim()
+      };
     }
-  } catch (e) {
-    console.debug(e);
+  }
+
+  return null;
+}
+
+/**
+ * Locates a JSON array/object embedded in free text by finding the opening
+ * bracket that encloses the first occurrence of a given key (default
+ * `"action"`), then balance-matching to its closer (skipping string contents).
+ * Returns the JSON substring or null.
+ *
+ * Shared by the AI action parser and the editor's Auto-Tag handler, which asks
+ * the model for a strict `{"tags": [...], "links": [...]}` object that the
+ * model may still bury in prose.
+ */
+export function extractJsonCandidate(text: string, key: string = '"action"'): string | null {
+  const keyIdx = text.indexOf(key);
+  if (keyIdx < 0) return null;
+
+  // Walk backwards from the key to the nearest enclosing [ or {.
+  // If we meet a closer first, the key mention is prose, not a payload.
+  let start = -1;
+  const windowStart = Math.max(0, keyIdx - 600);
+  for (let i = keyIdx - 1; i >= windowStart; i--) {
+    const ch = text[i];
+    if (ch === '[' || ch === '{') {
+      start = i;
+      break;
+    }
+    if (ch === ']' || ch === '}') break;
+  }
+  if (start < 0) return null;
+
+  // Balance-match from start to its closing bracket, honoring quoted strings.
+  let depth = 0;
+  let inStr = false;
+  let esc = false;
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i];
+    if (inStr) {
+      if (esc) esc = false;
+      else if (ch === '\\') esc = true;
+      else if (ch === '"') inStr = false;
+      continue;
+    }
+    if (ch === '"') inStr = true;
+    else if (ch === '{' || ch === '[') depth++;
+    else if (ch === '}' || ch === ']') {
+      depth--;
+      if (depth === 0) return text.slice(start, i + 1);
+    }
   }
   return null;
 }
