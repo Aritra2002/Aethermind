@@ -124,7 +124,19 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         }}
       >
         {toasts.map((toast) => (
-          <div key={toast.id} className={`toast-message toast-${toast.type}`}>
+          <div 
+            key={toast.id} 
+            className={`toast-message toast-${toast.type}`}
+            style={{ animation: 'none' }}
+            ref={(el) => {
+              if (el && !el.dataset.animated) {
+                el.dataset.animated = 'true';
+                import('../utils/animation/animeEngine').then(({ safeAnimate, AnimePresets }) => {
+                  safeAnimate(el, AnimePresets.toastEnter);
+                });
+              }
+            }}
+          >
             {toast.message}
           </div>
         ))}

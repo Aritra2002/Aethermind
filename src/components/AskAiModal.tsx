@@ -33,6 +33,8 @@ import { useToast } from './ToastContext';
 import { db } from '../db';
 import { ragSearchCache } from '../utils/cacheEngine';
 import { Skeleton } from './ui/Skeleton';
+import { useAnime } from '../utils/animation/useAnime';
+import { AnimePresets } from '../utils/animation/animeEngine';
 
 /**
  * Props for the AskAiModal component.
@@ -477,12 +479,15 @@ Only perform actions the user explicitly requested.`;
     }
   };
 
+  const backdropRef = useAnime<HTMLDivElement>(isOpen ? AnimePresets.backdropEnter : null, [isOpen]);
+  const modalRef = useAnime<HTMLDivElement>(isOpen ? AnimePresets.modalEnter : null, [isOpen]);
+
   if (!isOpen) return null;
 
   return (
-    <div className="modal d-block" tabIndex={-1} style={{ zIndex: 1060 }} onClick={onClose}>
+    <div ref={backdropRef} className="modal d-block" tabIndex={-1} style={{ zIndex: 1060 }} onClick={onClose}>
       <div className="modal-dialog modal-dialog-centered modal-lg" style={{ width: 'min(94vw, 680px)', maxWidth: '96vw', margin: 'auto' }} onClick={e => e.stopPropagation()}>
-        <div className="modal-content glass-panel border-0" style={{ maxHeight: 'min(88dvh, 760px)' }}>
+        <div ref={modalRef} className="modal-content glass-panel border-0" style={{ maxHeight: 'min(88dvh, 760px)', animation: 'none' }}>
           {/* Modal Header */}
           <div className="modal-header border-0 pb-1">
             <div className="d-flex align-items-center gap-2" style={{ color: 'var(--accent-gold)' }}>

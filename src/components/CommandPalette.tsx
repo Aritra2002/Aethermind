@@ -9,6 +9,8 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import type { Note, Category } from '../db';
 import { Search, FileText, Sparkles, Plus, BookOpen, Calendar, Settings } from 'lucide-react';
 import { tokenizeText, scoreBM25Note, isTokenMatch } from '../utils/search/bm25';
+import { useAnime } from '../utils/animation/useAnime';
+import { AnimePresets } from '../utils/animation/animeEngine';
 
 /**
  * Palette Item model representing either a searchable note or an executable command.
@@ -227,15 +229,20 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
+  const overlayRef = useAnime<HTMLDivElement>(isOpen ? AnimePresets.backdropEnter : null, [isOpen]);
+  const modalRef = useAnime<HTMLDivElement>(isOpen ? AnimePresets.modalEnter : null, [isOpen]);
+
   if (!isOpen) return null;
 
   return (
-    <div className="command-palette-overlay" onClick={onClose} role="presentation">
+    <div ref={overlayRef} className="command-palette-overlay" onClick={onClose} role="presentation">
       <div 
+        ref={modalRef}
         className="command-palette-modal glass-panel" 
         onClick={e => e.stopPropagation()} 
         role="dialog" 
         aria-label="Universal Search & Commands"
+        style={{ animation: 'none' }}
       >
         {/* Search Input Bar */}
         <div className="command-search-bar">

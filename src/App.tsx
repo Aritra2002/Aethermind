@@ -8,7 +8,8 @@
  */
 
 import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimeTransition } from './utils/animation/AnimePresence';
+import { AnimePresets } from './utils/animation/animeEngine';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, type Note, type Link } from './db';
 import { seedDatabase, createNote, syncLinksForNote } from './db/helpers';
@@ -1036,52 +1037,47 @@ Format:
         </div>
 
         {/* Floating Spatial Note Window / Mobile Bottom Sheet */}
-        <AnimatePresence>
-          {isSidebarOpen && activeNote && (
-            <motion.div
-              initial={viewport === 'sm' ? { y: '100%', opacity: 0 } : { opacity: 0, scale: 0.96, y: 16 }}
-              animate={viewport === 'sm' ? { y: 0, opacity: 1 } : { opacity: 1, scale: 1, y: 0 }}
-              exit={viewport === 'sm' ? { y: '100%', opacity: 0 } : { opacity: 0, scale: 0.96, y: 16 }}
-              transition={{ type: "spring", stiffness: 260, damping: 26 }}
-              className={`spatial-card-window ${isEditorMaximized ? 'maximized' : ''}`}
-              style={{ width: isDesktop && !isEditorMaximized ? `${sidebarWidth}px` : undefined }}
-            >
-              {isDesktop && !isEditorMaximized && (
-                <div
-                  className="sidebar-resizer"
-                  onMouseDown={startResizing}
-                  onKeyDown={handleResizerKeyDown}
-                  role="separator"
-                  aria-orientation="vertical"
-                  aria-valuenow={sidebarWidth}
-                  aria-valuemin={300}
-                  aria-valuemax={1200}
-                  tabIndex={0}
-                  aria-label="Resize note window"
-                  style={{ left: 0, touchAction: 'none' }}
-                />
-              )}
-
-              {/* Spatial Window Body */}
-              <div style={{ flex: 1, minWidth: 0, minHeight: 0, height: '100%', overflow: 'hidden' }}>
-                <EditorPanel
-                  note={activeNote}
-                  links={links}
-                  categories={categories}
-                  isMaximized={isEditorMaximized}
-                  onToggleMaximize={() => setIsEditorMaximized(!isEditorMaximized)}
-                  onClose={() => {
-                    handleSelectNote(null);
-                    setIsSidebarOpen(false);
-                    setIsEditorMaximized(false);
-                  }}
-                  onNoteDeleted={handleNoteDeleted}
-                  onJumpToNote={handleJumpToNote}
-                />
-              </div>
-            </motion.div>
+        <AnimeTransition
+          show={isSidebarOpen && !!activeNote}
+          enter={viewport === 'sm' ? AnimePresets.bottomSheetEnter : AnimePresets.spatialCardEnter}
+          exit={viewport === 'sm' ? AnimePresets.bottomSheetExit : AnimePresets.spatialCardExit}
+          className={`spatial-card-window ${isEditorMaximized ? 'maximized' : ''}`}
+          style={{ width: isDesktop && !isEditorMaximized ? `${sidebarWidth}px` : undefined }}
+        >
+          {isDesktop && !isEditorMaximized && (
+            <div
+              className="sidebar-resizer"
+              onMouseDown={startResizing}
+              onKeyDown={handleResizerKeyDown}
+              role="separator"
+              aria-orientation="vertical"
+              aria-valuenow={sidebarWidth}
+              aria-valuemin={300}
+              aria-valuemax={1200}
+              tabIndex={0}
+              aria-label="Resize note window"
+              style={{ left: 0, touchAction: 'none' }}
+            />
           )}
-        </AnimatePresence>
+
+          {/* Spatial Window Body */}
+          <div style={{ flex: 1, minWidth: 0, minHeight: 0, height: '100%', overflow: 'hidden' }}>
+            <EditorPanel
+              note={activeNote}
+              links={links}
+              categories={categories}
+              isMaximized={isEditorMaximized}
+              onToggleMaximize={() => setIsEditorMaximized(!isEditorMaximized)}
+              onClose={() => {
+                handleSelectNote(null);
+                setIsSidebarOpen(false);
+                setIsEditorMaximized(false);
+              }}
+              onNoteDeleted={handleNoteDeleted}
+              onJumpToNote={handleJumpToNote}
+            />
+          </div>
+        </AnimeTransition>
       </main>
 
       {viewport === 'sm' && activeNote && !isSidebarOpen && (
@@ -1395,44 +1391,48 @@ Format:
           onCancel={handlePromptCancel}
         />
       )}
-      {docLoading && (
-        <div className="modal-overlay doc-loading-overlay !flex !items-center !justify-center !p-4" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div className="doc-loading-card premium-loader-card glass-panel" style={{ width: '100%', maxWidth: '400px' }}>
-            <div className="doc-loading-animation">
-              <svg width="80" height="80" viewBox="0 0 80 80">
-                <defs>
-                  <linearGradient id="synGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="var(--accent-primary)" />
-                    <stop offset="100%" stopColor="var(--accent-secondary)" />
-                  </linearGradient>
-                </defs>
-                <circle cx="40" cy="15" r="5" fill="var(--accent-primary)">
-                  <animate attributeName="r" values="5;7;5" dur="2s" repeatCount="indefinite" />
-                </circle>
-                <circle cx="15" cy="55" r="5" fill="var(--accent-secondary)">
-                  <animate attributeName="r" values="5;7;5" dur="2s" begin="0.5s" repeatCount="indefinite" />
-                </circle>
-                <circle cx="65" cy="55" r="5" fill="var(--accent-gold)">
-                  <animate attributeName="r" values="5;7;5" dur="2s" begin="1s" repeatCount="indefinite" />
-                </circle>
-                <line x1="40" y1="15" x2="15" y2="55" stroke="url(#synGrad)" strokeWidth="2" strokeDasharray="5,5">
-                  <animate attributeName="stroke-dashoffset" values="20;0" dur="2s" repeatCount="indefinite" />
-                </line>
-                <line x1="40" y1="15" x2="65" y2="55" stroke="url(#synGrad)" strokeWidth="2" strokeDasharray="5,5">
-                  <animate attributeName="stroke-dashoffset" values="20;0" dur="2s" repeatCount="indefinite" />
-                </line>
-                <line x1="15" y1="55" x2="65" y2="55" stroke="url(#synGrad)" strokeWidth="2" strokeDasharray="5,5">
-                  <animate attributeName="stroke-dashoffset" values="0;20" dur="2s" repeatCount="indefinite" />
-                </line>
-              </svg>
-            </div>
-            <div className="doc-loading-text">
-              <h3>Processing Document</h3>
-              <p className="doc-loading-status">{docStatus}</p>
-            </div>
+      <AnimeTransition
+        show={docLoading}
+        enter={AnimePresets.backdropEnter}
+        exit={AnimePresets.backdropExit}
+        className="modal-overlay doc-loading-overlay !flex !items-center !justify-center !p-4"
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+      >
+        <div className="doc-loading-card premium-loader-card glass-panel" style={{ width: '100%', maxWidth: '400px' }}>
+          <div className="doc-loading-animation">
+            <svg width="80" height="80" viewBox="0 0 80 80">
+              <defs>
+                <linearGradient id="synGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="var(--accent-primary)" />
+                  <stop offset="100%" stopColor="var(--accent-secondary)" />
+                </linearGradient>
+              </defs>
+              <circle cx="40" cy="15" r="5" fill="var(--accent-primary)">
+                <animate attributeName="r" values="5;7;5" dur="2s" repeatCount="indefinite" />
+              </circle>
+              <circle cx="15" cy="55" r="5" fill="var(--accent-secondary)">
+                <animate attributeName="r" values="5;7;5" dur="2s" begin="0.5s" repeatCount="indefinite" />
+              </circle>
+              <circle cx="65" cy="55" r="5" fill="var(--accent-gold)">
+                <animate attributeName="r" values="5;7;5" dur="2s" begin="1s" repeatCount="indefinite" />
+              </circle>
+              <line x1="40" y1="15" x2="15" y2="55" stroke="url(#synGrad)" strokeWidth="2" strokeDasharray="5,5">
+                <animate attributeName="stroke-dashoffset" values="20;0" dur="2s" repeatCount="indefinite" />
+              </line>
+              <line x1="40" y1="15" x2="65" y2="55" stroke="url(#synGrad)" strokeWidth="2" strokeDasharray="5,5">
+                <animate attributeName="stroke-dashoffset" values="20;0" dur="2s" repeatCount="indefinite" />
+              </line>
+              <line x1="15" y1="55" x2="65" y2="55" stroke="url(#synGrad)" strokeWidth="2" strokeDasharray="5,5">
+                <animate attributeName="stroke-dashoffset" values="0;20" dur="2s" repeatCount="indefinite" />
+              </line>
+            </svg>
+          </div>
+          <div className="doc-loading-text">
+            <h3>Processing Document</h3>
+            <p className="doc-loading-status">{docStatus}</p>
           </div>
         </div>
-      )}
+      </AnimeTransition>
     </div>
   );
 }

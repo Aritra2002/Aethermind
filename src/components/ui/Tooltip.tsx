@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file Tooltip.tsx
  * @description Accessible, high-performance portalled micro-tooltip component for AetherMind.
  * Inspired by Aceternity UI, OriginUI, and 21st.dev motion standards.
@@ -12,7 +12,8 @@
 
 import React, { useState, useRef, useEffect, useId } from 'react';
 import { createPortal } from 'react-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimeTransition } from '../../utils/animation/AnimePresence';
+import { AnimePresets } from '../../utils/animation/animeEngine';
 import { formatShortcutBadge } from '../../utils/keyboardUtils';
 
 export interface TooltipProps {
@@ -134,34 +135,27 @@ export const Tooltip: React.FC<TooltipProps> = ({
     <>
       {trigger}
       {typeof document !== 'undefined' && createPortal(
-        <AnimatePresence>
-          {isOpen && (
-            <motion.div
-              id={tooltipId}
-              role="tooltip"
-              initial={{ opacity: 0, scale: 0.94, ...getInitialOffset() }}
-              animate={{ opacity: 1, scale: 1, x: 0, y: 0 }}
-              exit={{ opacity: 0, scale: 0.96, transition: { duration: 0.08 } }}
-              transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
-              className={`aether-tooltip-portal ${className}`}
-              style={{
-                position: 'fixed',
-                left: coords.x,
-                top: coords.y,
-                transform: getTransform(),
-                pointerEvents: 'none',
-                zIndex: 99999
-              }}
-            >
-              <div className="aether-tooltip-content">
-                <span className="tooltip-label">{content}</span>
-                {shortcut && (
-                  <kbd className="tooltip-kbd">{formatShortcutBadge(shortcut)}</kbd>
-                )}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>,
+        <AnimeTransition
+          show={isOpen}
+          enter={AnimePresets.tooltipEnter(getInitialOffset())}
+          exit={AnimePresets.tooltipExit}
+          className={`aether-tooltip-portal ${className}`}
+          style={{
+            position: 'fixed',
+            left: coords.x,
+            top: coords.y,
+            transform: getTransform(),
+            pointerEvents: 'none',
+            zIndex: 99999
+          }}
+        >
+          <div id={tooltipId} role="tooltip" className="aether-tooltip-content">
+            <span className="tooltip-label">{content}</span>
+            {shortcut && (
+              <kbd className="tooltip-kbd">{formatShortcutBadge(shortcut)}</kbd>
+            )}
+          </div>
+        </AnimeTransition>,
         document.body
       )}
     </>

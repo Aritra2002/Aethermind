@@ -20,6 +20,8 @@
 
 import React, { useState } from 'react';
 import { Database, Brain, Info, Calendar as CalendarIcon, Palette, Keyboard, HardDrive } from 'lucide-react';
+import { useAnime } from '../../utils/animation/useAnime';
+import { AnimePresets } from '../../utils/animation/animeEngine';
 import packageJson from '../../../package.json';
 import { DataSettingsTab } from './DataSettingsTab';
 import { AiSettingsTab } from './AiSettingsTab';
@@ -104,8 +106,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = (props) => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  const backdropRef = useAnime<HTMLDivElement>(AnimePresets.backdropEnter);
+  const modalRef = useAnime<HTMLDivElement>(AnimePresets.modalEnter);
+
   return (
     <div 
+      ref={backdropRef}
       className="modal d-block" 
       tabIndex={-1} 
       style={{ 
@@ -118,11 +124,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = (props) => {
     >
       <div className="modal-dialog modal-xl modal-dialog-centered" style={{ width: 'min(95vw, 1000px)', maxWidth: '96vw', height: 'min(88dvh, 780px)', maxHeight: '90dvh', margin: 'auto' }} onClick={e => e.stopPropagation()}>
         <div 
+          ref={modalRef}
           className="modal-content glass-panel settings-modal border-0 h-100 position-relative" 
           style={{ 
             display: 'flex', 
             flexDirection: isMobile ? 'column' : 'row',
-            overflow: 'hidden' 
+            overflow: 'hidden',
+            animation: 'none'
           }}
         >
           {/* Tab Navigation Sidebar */}

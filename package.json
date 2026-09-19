@@ -1,7 +1,7 @@
 {
   "name": "Aethermind",
   "private": true,
-  "version": "2.1.0",
+  "version": "2.2.0",
   "homepage": "https://aritra2002.github.io/Aethermind",
   "type": "module",
   "scripts": {
@@ -13,14 +13,14 @@
     "test:ai-mock": "bash qa_bot/run-ai-mock.sh"
   },
   "dependencies": {
-    "@xenova/transformers": "^2.0.1",
+    "@xenova/transformers": "^1.4.2",
+    "animejs": "^4.5.0",
     "bootstrap": "^5.3.8",
     "d3": "^7.9.0",
     "date-fns": "^4.4.0",
     "dexie": "^4.4.4",
     "dexie-react-hooks": "^4.4.0",
     "dompurify": "^3.4.11",
-    "framer-motion": "^12.42.2",
     "jszip": "^3.10.1",
     "lucide-react": "^1.21.0",
     "marked": "^18.0.5",

@@ -13,6 +13,7 @@ import { db } from '../db';
 import { Sparkles, X, Link as LinkIcon } from 'lucide-react';
 import { updateNote } from '../db/helpers';
 import { useToast } from './ToastContext';
+import { AnimeTransition } from '../utils/animation/AnimePresence';
 
 /**
  * Props for the {@link ConnectionDiscovery} component.
@@ -181,63 +182,72 @@ If none connect, return {"connected": false}`;
 
   // Render the proactive suggestion card
   return (
-    <div style={{
-      position: 'absolute',
-      bottom: '24px',
-      left: '50%',
-      transform: 'translateX(-50%)',
-      background: 'var(--bg-secondary)',
-      border: '1px solid var(--node-indigo)',
-      borderRadius: '8px',
-      padding: '16px',
-      boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
-      zIndex: 'var(--z-modal, 1000)',
-      width: '90%',
-      maxWidth: '400px',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '8px'
-    }}>
-      {/* Dismiss button */}
-      <button 
-        onClick={() => setDismissed(true)}
-        style={{ position: 'absolute', top: '8px', right: '8px', background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}
-        aria-label="Dismiss suggestion"
-      >
-        <X size={16} />
-      </button>
+    <AnimeTransition
+      show={!dismissed && !!suggestion}
+      enter={{ opacity: [0, 1], translateY: [12, 0], duration: 220, ease: 'outCubic' }}
+      exit={{ opacity: [1, 0], translateY: [0, 10], duration: 160, ease: 'outQuad' }}
+      style={{
+        position: 'absolute',
+        bottom: '24px',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        zIndex: 'var(--z-modal, 1000)',
+        width: '90%',
+        maxWidth: '400px'
+      }}
+    >
+      <div style={{
+        background: 'var(--bg-secondary)',
+        border: '1px solid var(--node-indigo)',
+        borderRadius: '8px',
+        padding: '16px',
+        boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '8px',
+        position: 'relative'
+      }}>
+        {/* Dismiss button */}
+        <button 
+          onClick={() => setDismissed(true)}
+          style={{ position: 'absolute', top: '8px', right: '8px', background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}
+          aria-label="Dismiss suggestion"
+        >
+          <X size={16} />
+        </button>
 
-      {/* Header badge */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--node-indigo)', fontWeight: 'bold' }}>
-        <Sparkles size={16} /> AI Discovery
-      </div>
+        {/* Header badge */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--node-indigo)', fontWeight: 'bold' }}>
+          <Sparkles size={16} /> AI Discovery
+        </div>
 
-      {/* Suggestion text & reasoning */}
-      <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
-        This note might connect to <strong>{suggestion.targetTitle}</strong>.
-      </p>
-      <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-        {suggestion.reason}
-      </p>
+        {/* Suggestion text & reasoning */}
+        <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
+          This note might connect to <strong>{suggestion?.targetTitle}</strong>.
+        </p>
+        <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+          {suggestion?.reason}
+        </p>
 
-      {/* Action button to create graph link */}
-      <button 
-        className="btn btn-primary"
-        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginTop: '8px' }}
-        onClick={async () => {
-          const currentNote = await db.notes.get(noteId);
-          if (currentNote) {
-            const currentIds = currentNote.linkedNoteIds || [];
-            if (!currentIds.includes(suggestion.targetId)) {
-              await updateNote(noteId, { linkedNoteIds: [...currentIds, suggestion.targetId] });
+        {/* Action button to create graph link */}
+        <button 
+          className="btn btn-primary"
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginTop: '8px' }}
+          onClick={async () => {
+            const currentNote = await db.notes.get(noteId);
+            if (currentNote && suggestion) {
+              const currentIds = currentNote.linkedNoteIds || [];
+              if (!currentIds.includes(suggestion.targetId)) {
+                await updateNote(noteId, { linkedNoteIds: [...currentIds, suggestion.targetId] });
+              }
             }
-          }
-          setDismissed(true);
-        }}
-      >
-        <LinkIcon size={14} /> Add Link
-      </button>
-    </div>
+            setDismissed(true);
+          }}
+        >
+          <LinkIcon size={14} /> Add Link
+        </button>
+      </div>
+    </AnimeTransition>
   );
 };
 

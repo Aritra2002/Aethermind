@@ -17,6 +17,8 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
+import { useAnime } from '../utils/animation/useAnime';
+import { AnimePresets } from '../utils/animation/animeEngine';
 
 /**
  * Props for the PromptModal component.
@@ -70,10 +72,13 @@ export function PromptModal({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onCancel]);
 
+  const backdropRef = useAnime<HTMLDivElement>(AnimePresets.backdropEnter);
+  const modalRef = useAnime<HTMLDivElement>(AnimePresets.modalEnter);
+
   return (
-    <div className="modal d-block" tabIndex={-1} style={{ zIndex: 1100 }} onClick={onCancel}>
+    <div ref={backdropRef} className="modal d-block" tabIndex={-1} style={{ zIndex: 1100 }} onClick={onCancel}>
       <div className="modal-dialog modal-dialog-centered modal-sm" onClick={e => e.stopPropagation()}>
-        <div className="modal-content glass-panel border-0">
+        <div ref={modalRef} className="modal-content glass-panel border-0" style={{ animation: 'none' }}>
           {/* Modal Header */}
           <div className="modal-header border-0">
             <h5 className="modal-title">{title}</h5>

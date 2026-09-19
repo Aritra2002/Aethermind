@@ -90,6 +90,7 @@ Thumbs.db
 .gemini/
 .claude/
 .gstack/
+.freebuff/
 .tempmediaStorage/
 scratch/
 mobile_*.png

@@ -17,7 +17,8 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimeTransition } from '../../utils/animation/AnimePresence';
+import { AnimePresets } from '../../utils/animation/animeEngine';
 import { ChevronDown, Check } from 'lucide-react';
 import '../../styles/dropdown.css';
 
@@ -217,38 +218,39 @@ export const Dropdown: React.FC<DropdownProps> = ({
             {selectedOption ? selectedOption.label : placeholder}
           </span>
         )}
-        <motion.div
-          animate={{ rotate: isOpen ? 180 : 0 }}
-          transition={{ duration: 0.16, ease: [0.23, 1, 0.32, 1] }}
-          style={{ display: 'flex', alignItems: 'center', marginLeft: '8px', flexShrink: 0 }}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            marginLeft: '8px',
+            flexShrink: 0,
+            transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+            transition: 'transform 160ms cubic-bezier(0.16, 1, 0.3, 1)'
+          }}
         >
           <ChevronDown size={14} color="var(--text-secondary)" />
-        </motion.div>
+        </div>
       </div>
 
       {/* Portalled Dropdown Floating Menu */}
       {createPortal(
-        <AnimatePresence>
-          {isOpen && menuPos && (
-            <motion.div
-              ref={menuRef}
-              className="dropdown-menu"
-              initial={{ opacity: 0, scale: 0.96, y: menuPlacement === 'top' ? 4 : -4 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.96, y: menuPlacement === 'top' ? 4 : -4 }}
-              transition={{ duration: 0.14, ease: [0.23, 1, 0.32, 1] }}
-              style={{
-                position: 'fixed',
-                left: `${menuPos.left}px`,
-                top: `${menuPos.top}px`,
-                width: `${menuPos.width}px`,
-                minWidth: '160px',
-                maxHeight: '260px',
-                zIndex: 100000,
-                transformOrigin: menuPlacement === 'top' ? 'bottom center' : 'top center'
-              }}
-              onClick={(e) => e.stopPropagation()}
-            >
+        <AnimeTransition
+          show={isOpen && !!menuPos}
+          enter={AnimePresets.dropdownEnter(menuPlacement)}
+          exit={AnimePresets.dropdownExit(menuPlacement)}
+          className="dropdown-menu"
+          style={{
+            position: 'fixed',
+            left: menuPos ? `${menuPos.left}px` : undefined,
+            top: menuPos ? `${menuPos.top}px` : undefined,
+            width: menuPos ? `${menuPos.width}px` : undefined,
+            minWidth: '160px',
+            maxHeight: '260px',
+            zIndex: 100000,
+            transformOrigin: menuPlacement === 'top' ? 'bottom center' : 'top center'
+          }}
+        >
+          <div ref={menuRef} onClick={(e) => e.stopPropagation()}>
               {filteredOptions.length > 0 ? (
                 filteredOptions.map((opt) => {
                   const isCurrentSelected = String(opt.value) === String(value);
@@ -269,9 +271,8 @@ export const Dropdown: React.FC<DropdownProps> = ({
               ) : (
                 <div className="dropdown-empty">No options found</div>
               )}
-            </motion.div>
-          )}
-        </AnimatePresence>,
+          </div>
+        </AnimeTransition>,
         document.body
       )}
     </div>
