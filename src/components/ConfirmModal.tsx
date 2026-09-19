@@ -18,6 +18,8 @@
 
 import React from 'react';
 import { AlertTriangle } from 'lucide-react';
+import { useAnime } from '../utils/animation/useAnime';
+import { AnimePresets } from '../utils/animation/animeEngine';
 
 /**
  * Props for the ConfirmModal component.
@@ -59,12 +61,15 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   onConfirm,
   onCancel
 }) => {
+  const backdropRef = useAnime<HTMLDivElement>(isOpen ? AnimePresets.backdropEnter : null, [isOpen]);
+  const modalRef = useAnime<HTMLDivElement>(isOpen ? AnimePresets.modalEnter : null, [isOpen]);
+
   if (!isOpen) return null;
 
   return (
-    <div className="modal d-block" tabIndex={-1} style={{ zIndex: 1100 }} onClick={onCancel}>
+    <div ref={backdropRef} className="modal d-block" tabIndex={-1} style={{ zIndex: 1100 }} onClick={onCancel}>
       <div className="modal-dialog modal-dialog-centered modal-sm" onClick={e => e.stopPropagation()}>
-        <div className="modal-content glass-panel border-0">
+        <div ref={modalRef} className="modal-content glass-panel border-0" style={{ animation: 'none' }}>
           {/* Modal Header with Optional Destructive Alert Icon */}
           <div className="modal-header border-0">
             <div className="d-flex align-items-center gap-2">

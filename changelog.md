@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+[2.2.0]: https://github.com/Aritra2002/Aethermind/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/Aritra2002/Aethermind/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/Aritra2002/Aethermind/compare/v1.31.0...v2.0.0
 [1.31.0]: https://github.com/Aritra2002/Aethermind/compare/v1.30.0...v1.31.0
@@ -57,6 +58,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [1.5.0]: https://github.com/Aritra2002/Aethermind/compare/v1.0.0...v1.5.0
 [1.0.0]: https://github.com/Aritra2002/Aethermind/releases/tag/v1.0.0
 
+
+## [2.2.0] - 2026-09-20
+
+### Added
+
+- **Unified Anime.js v4.5.0 Engine (`src/utils/animation/`)**:
+  - Replaced legacy `framer-motion` dependency entirely with project-local `animejs` 4.5.0.
+  - Implemented centralized animation abstraction with curated presets: `modalEnter`/`Exit`, `backdropEnter`/`Exit`, `dropdownEnter`/`Exit`, `tooltipEnter`/`Exit`, `spatialCardEnter`/`Exit`, `bottomSheetEnter`/`Exit`, and `toastEnter`.
+  - Added OS and browser-level `prefers-reduced-motion` automatic detection and enforcement (`safeAnimate`).
+  - Added React hook `useAnime` for binding declarative animations with automatic unmount cleanup.
+  - Added `<AnimeTransition>` component orchestrating mount/unmount and smooth exit transitions without premature DOM removal.
+
+### Changed
+
+- **UI & Modal Transitions**: Converted all modals (`SettingsModal`, `CommandPalette`, `AskAiModal`, `ReviewModal`, `ConfirmModal`, `PromptModal`, `NewPageModal`, `RenamePageModal`), dropdown menus, tooltips, toasts, journal date details, connection discovery pills, and mobile bottom sheet previews to Anime.js.
+
+### Removed
+
+- Removed `framer-motion` from project dependencies.
 
 ## [2.1.0] - 2026-09-04
 

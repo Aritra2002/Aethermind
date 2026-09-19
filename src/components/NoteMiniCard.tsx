@@ -11,6 +11,8 @@ import type { Note, Category } from '../db';
 import { X, FileText } from 'lucide-react';
 import { safeRenderMarkdown } from '../utils/sanitizer';
 import { Tooltip } from './ui/Tooltip';
+import { useAnime } from '../utils/animation/useAnime';
+import { AnimePresets } from '../utils/animation/animeEngine';
 
 /**
  * Props for the {@link NoteMiniCard} component.
@@ -116,10 +118,13 @@ export const NoteMiniCard: React.FC<NoteMiniCardProps> = ({ note, category, onOp
     setSwipeFromHandle(false);
   };
 
+  const cardRef = useAnime<HTMLDivElement>(AnimePresets.bottomSheetEnter);
+
   return (
     <div 
+      ref={cardRef}
       className="note-mini-card"
-      style={{ padding: '16px' }}
+      style={{ padding: '16px', animation: 'none' }}
     >
       {/* Drag Handle & Card Header */}
       <div 

@@ -17,6 +17,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { db } from '../db';
+import { useAnime } from '../utils/animation/useAnime';
+import { AnimePresets } from '../utils/animation/animeEngine';
 
 /**
  * Props for the RenamePageModal component.
@@ -63,8 +65,6 @@ export const RenamePageModal: React.FC<RenamePageModalProps> = ({
     onClose();
   };
 
-  if (!isOpen) return null;
-
   /**
    * Validates non-empty input and updates the page title record in IndexedDB.
    * 
@@ -78,10 +78,15 @@ export const RenamePageModal: React.FC<RenamePageModalProps> = ({
     }
   };
 
+  const backdropRef = useAnime<HTMLDivElement>(isOpen ? AnimePresets.backdropEnter : null, [isOpen]);
+  const modalRef = useAnime<HTMLDivElement>(isOpen ? AnimePresets.modalEnter : null, [isOpen]);
+
+  if (!isOpen) return null;
+
   return (
-    <div className="modal d-block" tabIndex={-1} style={{ zIndex: 1060 }} onClick={handleClose}>
+    <div ref={backdropRef} className="modal d-block" tabIndex={-1} style={{ zIndex: 1060 }} onClick={handleClose}>
       <div className="modal-dialog modal-dialog-centered modal-sm" onClick={e => e.stopPropagation()}>
-        <div className="modal-content glass-panel border-0">
+        <div ref={modalRef} className="modal-content glass-panel border-0" style={{ animation: 'none' }}>
           {/* Modal Header */}
           <div className="modal-header border-0">
             <h5 className="modal-title">Rename Page</h5>
