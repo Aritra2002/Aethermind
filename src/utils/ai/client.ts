@@ -90,13 +90,18 @@ export const setAIConfig = (config: AIConfig) => {
 
 /**
  * Dispatches a prompt to the configured AI provider with optional real-time token streaming.
+ *
+ * @param onStream - Receives accumulated visible content tokens as they stream.
+ * @param onReasoning - Receives accumulated chain-of-thought tokens (emitted before visible
+ *                      content on reasoning-capable models such as Qwen/DeepSeek) as they stream.
  */
 export const callAI = async (
   systemPrompt: string,
   userPrompt: string,
   onStream?: (accumulatedText: string, delta?: string) => void,
   signal?: AbortSignal,
-  temperature?: number
+  temperature?: number,
+  onReasoning?: (accumulatedText: string, delta?: string) => void
 ): Promise<string> => {
   const config = getAIConfig();
 
@@ -124,6 +129,7 @@ export const callAI = async (
     systemPrompt,
     userPrompt,
     onStream,
+    onReasoning,
     signal: internalController.signal,
     temperature
   };

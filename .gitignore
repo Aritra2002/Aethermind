@@ -2,6 +2,9 @@
 # .gitignore — AetherMind Repository Ignore Rules
 # ============================================================
 
+# python virtual environment
+.venv
+
 # Dependencies
 node_modules/
 .pnp
@@ -87,10 +90,14 @@ Thumbs.db
 .gemini/
 .claude/
 .gstack/
+.freebuff/
 .tempmediaStorage/
 scratch/
 mobile_*.png
 
 # Local Embedded Database & RAG caches
-*.db
-chroma_data/
+*.dbchroma_data/
+
+# QA bot & local Python test suite
+qa_bot/
+

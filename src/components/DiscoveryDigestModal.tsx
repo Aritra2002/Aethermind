@@ -23,6 +23,8 @@ import { callAI } from '../utils/aiClient';
 import { safeRenderMarkdown } from '../utils/sanitizer';
 import { Sparkles, Square } from 'lucide-react';
 import { Skeleton } from './ui/Skeleton';
+import { useAnime } from '../utils/animation/useAnime';
+import { AnimePresets } from '../utils/animation/animeEngine';
 
 /**
  * Props for the DiscoveryDigestModal component.
@@ -123,12 +125,15 @@ export const DiscoveryDigestModal: React.FC<DiscoveryDigestModalProps> = ({ isOp
     return () => { cancelled = true; };
   }, [isOpen, notes]);
 
+  const backdropRef = useAnime<HTMLDivElement>(isOpen ? AnimePresets.backdropEnter : null, [isOpen]);
+  const modalRef = useAnime<HTMLDivElement>(isOpen ? AnimePresets.modalEnter : null, [isOpen]);
+
   if (!isOpen) return null;
 
   return (
-    <div className="modal d-block" tabIndex={-1} style={{ zIndex: 1060 }} onClick={onClose}>
+    <div ref={backdropRef} className="modal d-block" tabIndex={-1} style={{ zIndex: 1060 }} onClick={onClose}>
       <div className="modal-dialog modal-dialog-centered modal-lg" style={{ width: 'min(94vw, 640px)', maxWidth: '96vw', margin: 'auto' }} onClick={e => e.stopPropagation()}>
-        <div className="modal-content glass-panel border-0" style={{ maxHeight: 'min(88dvh, 760px)' }}>
+        <div ref={modalRef} className="modal-content glass-panel border-0" style={{ maxHeight: 'min(88dvh, 760px)', animation: 'none' }}>
           {/* Modal Header */}
           <div className="modal-header border-0">
             <div className="d-flex align-items-center gap-2" style={{ color: 'var(--accent-gold)' }}>

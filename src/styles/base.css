@@ -646,6 +646,8 @@ input[type="email"]:focus,
   box-shadow: 0 -8px 32px rgba(0,0,0,0.6);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
+  max-height: calc(100dvh - var(--mobile-nav-height, 64px) - var(--safe-bottom, env(safe-area-inset-bottom, 0px)) - 16px);
+  overflow-y: auto;
 }
 .mobile-menu-items {
   display: flex;
@@ -657,6 +659,41 @@ input[type="email"]:focus,
   padding: 12px 16px !important;
   width: 100% !important;
   border-radius: var(--radius-md) !important;
+}
+.menu-section-label {
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin: 10px 6px 2px;
+}
+.mobile-panel-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 2px 2px 8px;
+}
+.mobile-panel-title {
+  font-size: 0.98rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.mobile-panel-sub {
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+  margin-top: 3px;
+}
+.mobile-menu-btn-primary {
+  background: var(--surface-pill-bg) !important;
+  color: var(--accent-primary) !important;
+  border: 1px solid var(--accent-primary) !important;
+  box-shadow: 0 0 12px var(--glow-primary);
+  font-weight: 600;
+}
+.mobile-menu-note-row {
+  gap: 10px !important;
 }
 
 .doc-loading-overlay {
@@ -719,6 +756,21 @@ input[type="email"]:focus,
 
 .spinning {
   animation: spin 1s linear infinite;
+}
+
+/* Pulsing amber dot used to indicate live "model is reasoning" state */
+.thinking-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent-gold, #f59e0b);
+  animation: thinking-pulse 1s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+@keyframes thinking-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.35; transform: scale(0.72); }
 }
 
 /* Accessibility: Focus-Visible Keyboard Navigation */

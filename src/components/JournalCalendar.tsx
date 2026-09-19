@@ -10,7 +10,7 @@ import React, { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db';
 import { startOfMonth, endOfMonth, eachDayOfInterval, format, setMonth, setYear, getDay } from 'date-fns';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimeTransition } from '../utils/animation/AnimePresence';
 import { Calendar, FileText, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Dropdown } from './ui/Dropdown';
 
@@ -156,31 +156,17 @@ export const JournalCalendar: React.FC<JournalCalendarProps> = ({ onSelectNote }
     return base;
   };
 
-  /** Framer motion container animation configuration for staggered child appearances. */
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: { opacity: 1, transition: { staggerChildren: 0.005, delayChildren: 0.05 } }
-  };
-
-  /** Framer motion child item animation configuration with spring physics. */
-  const itemVariants = {
-    hidden: { scale: 0, opacity: 0 },
-    visible: { scale: 1, opacity: 1, transition: { type: "spring" as const, stiffness: 300, damping: 20 } }
-  };
-
   /** Filter and sort notes belonging to the selected date by creation timestamp. */
   const selectedNotes = selectedDate 
     ? notes.filter(n => format(new Date(n.createdAt), 'yyyy-MM-dd') === selectedDate).sort((a,b) => b.createdAt - a.createdAt)
     : [];
 
   return (
-    <motion.div 
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
+    <div 
       onClick={() => setSelectedDate(null)}
       role="presentation"
       className="journal-calendar-container"
-      style={{ padding: '24px 32px', display: 'flex', flexDirection: 'column', gap: '20px', position: 'relative', width: '100%', height: '100%' }}
+      style={{ padding: '24px 32px', display: 'flex', flexDirection: 'column', gap: '20px', position: 'relative', width: '100%', height: '100%', animation: 'fadeIn 0.2s ease-out' }}
     >
       {/* Calendar Header with Title and Month/Year Navigators */}
       <div className="journal-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: '16px' }}>
@@ -339,10 +325,7 @@ export const JournalCalendar: React.FC<JournalCalendarProps> = ({ onSelectNote }
       
       {/* Calendar Grid Section */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', alignItems: 'center' }}>
-        <motion.div 
-          variants={containerVariants}
-          initial="hidden"
-          animate="visible"
+        <div 
           onClick={(e) => e.stopPropagation()}
           style={{ 
             display: 'flex', 
@@ -371,10 +354,8 @@ export const JournalCalendar: React.FC<JournalCalendarProps> = ({ onSelectNote }
               const isSelected = selectedDate === dateStr;
               const style = getStyle(count, isSelected);
               return (
-                <motion.div 
+                <div 
                   key={dateStr}
-                  variants={itemVariants}
-                  whileHover={{ scale: 1.1, zIndex: 10, transition: { duration: 0.2 } }}
                   onClick={() => setSelectedDate(dateStr)}
                   onKeyDown={(e) => e.key === 'Enter' && setSelectedDate(dateStr)}
                   role="button"
@@ -392,8 +373,11 @@ export const JournalCalendar: React.FC<JournalCalendarProps> = ({ onSelectNote }
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    position: 'relative'
+                    position: 'relative',
+                    transition: 'transform 0.16s ease, box-shadow 0.16s ease'
                   }}
+                  onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.08)'; e.currentTarget.style.zIndex = '5'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.zIndex = '1'; }}
                 >
                   <span style={{ fontSize: '1rem', fontWeight: 600, color: count > 0 ? '#ffffff' : (isSelected ? 'var(--text-primary)' : 'var(--text-secondary)') }}>
                     {format(day, 'd')}
@@ -401,29 +385,25 @@ export const JournalCalendar: React.FC<JournalCalendarProps> = ({ onSelectNote }
                   {count > 0 && (
                     <div style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#ffffff', position: 'absolute', bottom: '6px', opacity: 0.9 }} />
                   )}
-                </motion.div>
+                </div>
               );
             })}
           </div>
-        </motion.div>
+        </div>
 
-        {/* Selected Date Detail Drawer */}
-        <AnimatePresence>
-          {selectedDate && (
-            <motion.div 
-              key="details-panel"
-              initial={{ opacity: 0, height: 0, marginTop: -24 }}
-              animate={{ opacity: 1, height: 'auto', marginTop: 0 }}
-              exit={{ opacity: 0, height: 0, marginTop: -24 }}
-              transition={{ duration: 0.3, ease: 'easeOut' }}
-              style={{ overflow: 'hidden', width: '100%' }}
-            >
-              <div 
-                onClick={(e) => e.stopPropagation()}
-                style={{ display: 'flex', flexDirection: 'column', gap: '12px', background: 'var(--card-nested-bg)', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-color)', width: '100%' }}
-              >
+        {/* Selected Date Detail Drawer with AnimeTransition */}
+        <AnimeTransition
+          show={!!selectedDate}
+          enter={{ opacity: [0, 1], translateY: [-10, 0], duration: 220, ease: 'outCubic' }}
+          exit={{ opacity: [1, 0], translateY: [0, -8], duration: 160, ease: 'outQuad' }}
+          style={{ width: '100%', maxWidth: '500px' }}
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            style={{ display: 'flex', flexDirection: 'column', gap: '12px', background: 'var(--card-nested-bg)', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-color)', width: '100%' }}
+          >
                 <div style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
-                  <h4 style={{ margin: 0, fontSize: '1rem', color: 'var(--text-primary)' }}>{format(new Date(selectedDate), 'MMMM do, yyyy')}</h4>
+                  <h4 style={{ margin: 0, fontSize: '1rem', color: 'var(--text-primary)' }}>{selectedDate ? format(new Date(selectedDate), 'MMMM do, yyyy') : ''}</h4>
                   <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
                     {selectedNotes.length} note{selectedNotes.length !== 1 ? 's' : ''} created across all pages
                   </div>
@@ -497,11 +477,9 @@ export const JournalCalendar: React.FC<JournalCalendarProps> = ({ onSelectNote }
                   )}
                 </div>
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        </AnimeTransition>
       </div>
-    </motion.div>
+    </div>
   );
 };
 

@@ -7,6 +7,7 @@ import { describe, it, expect } from 'vitest';
 import {
   getActionRiskLevel,
   parseAiResponse,
+  extractJsonCandidate,
   generateActionDiff,
   validateActionPreflight,
   type AiAction
@@ -37,6 +38,37 @@ Let me know if you want any edits.`;
     expect(parsed?.actions[0].action).toBe('create_note');
     expect(parsed?.actions[1].action).toBe('create_link');
     expect(parsed?.explanation).toContain('I have analyzed your request');
+  });
+
+  it('parses an action array embedded in prose WITHOUT markdown fences (format drift)', () => {
+    // Real-world sample: a local quantized model dropped the ```json fences and
+    // wrote the array inline in a sentence. Previously this returned null and the
+    // action was never staged.
+    const rawAiText = `Here is the created note: { "action": "create_note", "title": "Local AI Milestone", "content": "Created by the local AI during QA testing. It should connect concepts about knowledge graphs and local-first software.", "tags": ["qa-ai"] } I've created the note "Local AI Milestone" with the requested content.`;
+
+    const parsed = parseAiResponse(rawAiText);
+    expect(parsed).not.toBeNull();
+    expect(parsed?.actions.length).toBe(1);
+    expect(parsed?.actions[0].action).toBe('create_note');
+    expect(parsed?.actions[0].title).toBe('Local AI Milestone');
+    expect(parsed?.actions[0].tags).toEqual(['qa-ai']);
+    // The JSON payload is stripped out of the user-facing explanation
+    expect(parsed?.explanation).toContain('I\'ve created the note');
+    expect(parsed?.explanation).not.toContain('"action"');
+  });
+
+  it('extracts a tags/links JSON object embedded in prose (editor Auto-Tag path)', () => {
+    // Model buried the strict JSON the Auto-Tag prompt asked for inside a sentence.
+    const raw = 'Here are my suggestions: {\n  "tags": ["qa", "local-first"],\n  "links": ["Interactive Graph"]\n} Hope that helps!';
+    const candidate = extractJsonCandidate(raw, '"tags"');
+    expect(candidate).not.toBeNull();
+    const obj = JSON.parse(candidate as string) as { tags: string[]; links: string[] };
+    expect(obj.tags).toEqual(['qa', 'local-first']);
+    expect(obj.links).toEqual(['Interactive Graph']);
+  });
+
+  it('returns null when the key is only mentioned in prose', () => {
+    expect(extractJsonCandidate('The tags feature is disabled for this note.', '"tags"')).toBeNull();
   });
 
   it('computes accurate before/after diffs with risk classification', () => {

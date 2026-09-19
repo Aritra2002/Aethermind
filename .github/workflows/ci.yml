@@ -1,38 +1,29 @@
-name: CI Quality Gate
+name: CI
 
 on:
   push:
-    branches: ['main']
+    branches: [main]
   pull_request:
-    branches: ['main']
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
 
 jobs:
-  validate:
-    name: Lint, Typecheck & Test
+  test:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Node.js 22
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: 22
-          cache: 'npm'
+          node-version: 20
+          cache: npm
 
-      - name: Install dependencies
-        run: npm ci --legacy-peer-deps
+      - name: Install JS dependencies
+        run: npm ci
 
-      - name: Run linter
+      - name: Typecheck
+        run: npx tsc -b --noEmit
+
+      - name: Lint
         run: npm run lint
 
-      - name: Run typecheck & build
-        run: npm run build
-
-      - name: Run test suite
-        run: npm test
+      - name: Unit & component tests
+        run: npm test

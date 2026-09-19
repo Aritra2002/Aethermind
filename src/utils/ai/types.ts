@@ -53,6 +53,13 @@ export interface AIRequestOptions {
   systemPrompt: string;
   userPrompt: string;
   onStream?: AIStreamCallback;
+  /**
+   * Optional callback for streaming chain-of-thought "reasoning" tokens
+   * (e.g. `delta.reasoning_content` from Qwen/DeepSeek-style OpenAI-compatible
+   * endpoints). Reasoning arrives BEFORE the visible content, so surfacing it
+   * lets the UI show progress during long "thinking" phases.
+   */
+  onReasoning?: AIStreamCallback;
   signal?: AbortSignal;
   temperature?: number;
   maxTokens?: number;

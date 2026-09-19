@@ -27,6 +27,8 @@ import { db } from '../db';
 import type { Note } from '../db';
 import { safeRenderMarkdown } from '../utils/sanitizer';
 import { BrainCircuit, Loader2 } from 'lucide-react';
+import { useAnime } from '../utils/animation/useAnime';
+import { AnimePresets } from '../utils/animation/animeEngine';
 
 /**
  * Props for the ReviewModal component.
@@ -161,10 +163,13 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({ onClose }) => {
     setCurrentIndex(prev => prev + 1);
   };
 
+  const backdropRef = useAnime<HTMLDivElement>(AnimePresets.backdropEnter);
+  const modalRef = useAnime<HTMLDivElement>(AnimePresets.modalEnter);
+
   return (
-    <div className="modal d-block" tabIndex={-1} style={{ zIndex: 1060 }} onClick={onClose}>
-      <div className="modal-dialog modal-dialog-centered modal-lg" style={{ width: 'min(94vw, 640px)', maxWidth: '96vw', margin: 'auto' }} onClick={e => e.stopPropagation()}>
-        <div className="modal-content glass-panel border-0" style={{ maxHeight: 'min(88dvh, 760px)', display: 'flex', flexDirection: 'column' }}>
+    <div ref={backdropRef} className="modal d-block" tabIndex={-1} style={{ zIndex: 1060 }} onClick={onClose}>
+      <div className="modal-dialog modal-dialog-centered modal-lg" style={{ width: 'min(94vw, 680px)', maxWidth: '96vw', margin: 'auto' }} onClick={e => e.stopPropagation()}>
+        <div ref={modalRef} className="modal-content glass-panel border-0" style={{ height: '560px', maxHeight: 'min(88dvh, 760px)', display: 'flex', flexDirection: 'column', animation: 'none' }}>
           {/* Modal Header */}
           <div className="modal-header border-0">
             <h5 className="modal-title d-flex align-items-center gap-2">

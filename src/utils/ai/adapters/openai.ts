@@ -71,12 +71,22 @@ export class OpenAIAdapter implements AIProviderAdapter {
 
       if (isStream) {
         let fullText = '';
+        let fullReasoning = '';
         await processSseStream(
           response,
           (dataStr) => {
             try {
               const parsed = JSON.parse(dataStr);
-              const delta = parsed.choices?.[0]?.delta?.content || '';
+              const deltaObj = parsed.choices?.[0]?.delta || {};
+              // Chain-of-thought tokens (Qwen/DeepSeek-style reasoning_content)
+              // stream BEFORE visible content. Forward them separately so UIs
+              // can show live progress instead of silence.
+              const reasoningDelta = deltaObj.reasoning_content || '';
+              if (reasoningDelta) {
+                fullReasoning += reasoningDelta;
+                options.onReasoning?.(fullReasoning, reasoningDelta);
+              }
+              const delta = deltaObj.content || '';
               if (delta) {
                 fullText += delta;
                 options.onStream?.(fullText, delta);

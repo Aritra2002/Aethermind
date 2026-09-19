@@ -8,7 +8,8 @@
  */
 
 import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimeTransition } from './utils/animation/AnimePresence';
+import { AnimePresets } from './utils/animation/animeEngine';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, type Note, type Link } from './db';
 import { seedDatabase, createNote, syncLinksForNote } from './db/helpers';
@@ -41,7 +42,7 @@ import { parseAiResponse, executeAiAction } from './utils/aiActions';
 import { callAI, getAIConfig } from './utils/aiClient';
 import { parseHashClip, ingestClip, handleClipMessage } from './utils/clipperHandoff';
 
-import { Brain, Plus, Settings, Calendar, Sparkles, Edit2, Trash2, Compass, FileArchive, FileUp, Search } from 'lucide-react';
+import { Brain, Plus, Settings, Calendar, Sparkles, Edit2, Trash2, Compass, FileArchive, FileUp, Search, Network, FileText, X } from 'lucide-react';
 
 /**
  * Custom hook to monitor window width and compute responsive breakpoint tier.
@@ -112,6 +113,7 @@ export default function App() {
   const viewport = useViewport();
   const isDesktop = viewport === 'lg';
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [showMobileEmptyEditor, setShowMobileEmptyEditor] = useState(false);
   const [isEditorMaximized, setIsEditorMaximized] = useState(false);
   const handlePromptCancel = useCallback(() => setPromptConfig(null), []);
 
@@ -1035,52 +1037,47 @@ Format:
         </div>
 
         {/* Floating Spatial Note Window / Mobile Bottom Sheet */}
-        <AnimatePresence>
-          {isSidebarOpen && activeNote && (
-            <motion.div
-              initial={viewport === 'sm' ? { y: '100%', opacity: 0 } : { opacity: 0, scale: 0.96, y: 16 }}
-              animate={viewport === 'sm' ? { y: 0, opacity: 1 } : { opacity: 1, scale: 1, y: 0 }}
-              exit={viewport === 'sm' ? { y: '100%', opacity: 0 } : { opacity: 0, scale: 0.96, y: 16 }}
-              transition={{ type: "spring", stiffness: 260, damping: 26 }}
-              className={`spatial-card-window ${isEditorMaximized ? 'maximized' : ''}`}
-              style={{ width: isDesktop && !isEditorMaximized ? `${sidebarWidth}px` : undefined }}
-            >
-              {isDesktop && !isEditorMaximized && (
-                <div
-                  className="sidebar-resizer"
-                  onMouseDown={startResizing}
-                  onKeyDown={handleResizerKeyDown}
-                  role="separator"
-                  aria-orientation="vertical"
-                  aria-valuenow={sidebarWidth}
-                  aria-valuemin={300}
-                  aria-valuemax={1200}
-                  tabIndex={0}
-                  aria-label="Resize note window"
-                  style={{ left: 0, touchAction: 'none' }}
-                />
-              )}
-
-              {/* Spatial Window Body */}
-              <div style={{ flex: 1, minWidth: 0, minHeight: 0, height: '100%', overflow: 'hidden' }}>
-                <EditorPanel
-                  note={activeNote}
-                  links={links}
-                  categories={categories}
-                  isMaximized={isEditorMaximized}
-                  onToggleMaximize={() => setIsEditorMaximized(!isEditorMaximized)}
-                  onClose={() => {
-                    handleSelectNote(null);
-                    setIsSidebarOpen(false);
-                    setIsEditorMaximized(false);
-                  }}
-                  onNoteDeleted={handleNoteDeleted}
-                  onJumpToNote={handleJumpToNote}
-                />
-              </div>
-            </motion.div>
+        <AnimeTransition
+          show={isSidebarOpen && !!activeNote}
+          enter={viewport === 'sm' ? AnimePresets.bottomSheetEnter : AnimePresets.spatialCardEnter}
+          exit={viewport === 'sm' ? AnimePresets.bottomSheetExit : AnimePresets.spatialCardExit}
+          className={`spatial-card-window ${isEditorMaximized ? 'maximized' : ''}`}
+          style={{ width: isDesktop && !isEditorMaximized ? `${sidebarWidth}px` : undefined }}
+        >
+          {isDesktop && !isEditorMaximized && (
+            <div
+              className="sidebar-resizer"
+              onMouseDown={startResizing}
+              onKeyDown={handleResizerKeyDown}
+              role="separator"
+              aria-orientation="vertical"
+              aria-valuenow={sidebarWidth}
+              aria-valuemin={300}
+              aria-valuemax={1200}
+              tabIndex={0}
+              aria-label="Resize note window"
+              style={{ left: 0, touchAction: 'none' }}
+            />
           )}
-        </AnimatePresence>
+
+          {/* Spatial Window Body */}
+          <div style={{ flex: 1, minWidth: 0, minHeight: 0, height: '100%', overflow: 'hidden' }}>
+            <EditorPanel
+              note={activeNote}
+              links={links}
+              categories={categories}
+              isMaximized={isEditorMaximized}
+              onToggleMaximize={() => setIsEditorMaximized(!isEditorMaximized)}
+              onClose={() => {
+                handleSelectNote(null);
+                setIsSidebarOpen(false);
+                setIsEditorMaximized(false);
+              }}
+              onNoteDeleted={handleNoteDeleted}
+              onJumpToNote={handleJumpToNote}
+            />
+          </div>
+        </AnimeTransition>
       </main>
 
       {viewport === 'sm' && activeNote && !isSidebarOpen && (
@@ -1100,6 +1097,13 @@ Format:
       {showMobileMenu && viewport === 'sm' && (
         <div className="mobile-menu-drawer">
           <div className="mobile-menu-items">
+            {/* Quick actions relocated from the desktop hud island (hidden on phones) */}
+            <button className="header-btn mobile-menu-btn" onClick={() => { handleCreateNote(); setShowMobileMenu(false); }}>
+              <Plus size={18} /> New Note
+            </button>
+            <button className="header-btn mobile-menu-btn" onClick={() => { setShowCommandPalette(true); setShowMobileMenu(false); }}>
+              <Search size={18} /> Search & Open
+            </button>
             <button className="header-btn mobile-menu-btn" onClick={() => { setShowReview(true); setShowMobileMenu(false); }}>
               <Brain size={18} /> Review
             </button>
@@ -1121,13 +1125,100 @@ Format:
             <button className="header-btn mobile-menu-btn" onClick={() => { setShowSettings(true); setShowMobileMenu(false); }}>
               <Settings size={18} /> Settings
             </button>
+            {/* Workspace page switching (was the island's page dropdown) */}
+            <div className="menu-section-label">Pages</div>
+            {pages.map(p => (
+              <button
+                key={p.id}
+                className="header-btn mobile-menu-btn"
+                style={p.id === currentPageId ? { color: 'var(--accent-primary)' } : undefined}
+                onClick={() => {
+                  setCurrentPageId(p.id!);
+                  setActiveNoteId(null);
+                  setIsSidebarOpen(false);
+                  setShowMobileMenu(false);
+                }}
+              >
+                <Network size={18} /> {p.title}
+              </button>
+            ))}
+            <button className="header-btn mobile-menu-btn" onClick={() => { setShowRenamePage(true); setShowMobileMenu(false); }}>
+              <Edit2 size={18} /> Rename Page
+            </button>
+            {pages.length > 1 && (
+              <button
+                className="header-btn mobile-menu-btn"
+                style={{ color: 'var(--accent-danger)' }}
+                onClick={() => { setShowDeletePageConfirm(true); setShowMobileMenu(false); }}
+              >
+                <Trash2 size={18} /> Delete Page…
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Empty-state note picker shown when the Editor tab is tapped without an open note */}
+      {showMobileEmptyEditor && viewport === 'sm' && (
+        <div className="mobile-menu-drawer">
+          <div className="mobile-panel-header">
+            <div>
+              <div className="mobile-panel-title">No note open</div>
+              <div className="mobile-panel-sub">Tap a note on the graph, pick one below, or create a new note to start editing.</div>
+            </div>
+            <button
+              className="header-btn icon-only-btn"
+              aria-label="Close note picker"
+              onClick={() => setShowMobileEmptyEditor(false)}
+            >
+              <X size={18} />
+            </button>
+          </div>
+          <div className="mobile-menu-items">
+            <button
+              className="header-btn mobile-menu-btn mobile-menu-btn-primary"
+              onClick={() => { setShowMobileEmptyEditor(false); handleCreateNote(); }}
+            >
+              <Plus size={18} /> New Note
+            </button>
+            <button
+              className="header-btn mobile-menu-btn"
+              onClick={() => { setShowMobileEmptyEditor(false); setShowCommandPalette(true); }}
+            >
+              <Search size={18} /> Search & Open
+            </button>
+            <div className="menu-section-label">Notes on this page</div>
+            {notes.length === 0 && (
+              <div className="mobile-panel-sub" style={{ padding: '4px 6px 2px' }}>
+                This page has no notes yet — create one to get started.
+              </div>
+            )}
+            {notes.slice(0, 8).map(n => (
+              <button
+                key={n.id}
+                className="header-btn mobile-menu-btn mobile-menu-note-row"
+                onClick={() => { setShowMobileEmptyEditor(false); handleJumpToNote(n.title); }}
+              >
+                <FileText size={16} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+                <span
+                  style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, textAlign: 'left' }}
+                >
+                  {n.title}
+                </span>
+              </button>
+            ))}
+            {notes.length > 8 && (
+              <div className="mobile-panel-sub" style={{ padding: '4px 6px 2px' }}>
+                +{notes.length - 8} more — use Search & Open to find them.
+              </div>
+            )}
           </div>
         </div>
       )}
 
       {viewport === 'sm' && (
         <MobileNav 
-          activeTab={isSidebarOpen ? 'editor' : (isSearchOpen ? 'search' : (showMobileMenu ? 'menu' : 'graph'))}
+          activeTab={isSidebarOpen ? 'editor' : (isSearchOpen ? 'search' : (showMobileMenu ? 'menu' : (showMobileEmptyEditor ? 'editor' : 'graph')))}
           onTabChange={(tab) => {
             switch (tab) {
               case 'graph':
@@ -1135,8 +1226,21 @@ Format:
                 setIsSidebarOpen(false);
                 setIsSearchOpen(false);
                 setShowMobileMenu(false);
+                setShowMobileEmptyEditor(false);
                 break;
               case 'editor':
+                // No note open: there is nothing to edit, so show an empty state with a
+                // quick note picker instead of silently doing nothing.
+                if (!activeNote) {
+                  if (showMobileEmptyEditor) {
+                    setShowMobileEmptyEditor(false);
+                  } else {
+                    setShowMobileEmptyEditor(true);
+                    setIsSearchOpen(false);
+                    setShowMobileMenu(false);
+                  }
+                  break;
+                }
                 // If editor is already open, close it; otherwise open it
                 if (isSidebarOpen) {
                   setIsSidebarOpen(false);
@@ -1145,6 +1249,7 @@ Format:
                   setIsSearchOpen(false);
                   setShowMobileMenu(false);
                 }
+                setShowMobileEmptyEditor(false);
                 break;
               case 'search':
                 // If search is already open, close it; otherwise open it
@@ -1155,10 +1260,12 @@ Format:
                   setIsSidebarOpen(false);
                   setShowMobileMenu(false);
                 }
+                setShowMobileEmptyEditor(false);
                 break;
               case 'menu':
                 // Toggle mobile menu drawer
                 setShowMobileMenu(prev => !prev);
+                setShowMobileEmptyEditor(false);
                 break;
             }
           }}
@@ -1284,44 +1391,48 @@ Format:
           onCancel={handlePromptCancel}
         />
       )}
-      {docLoading && (
-        <div className="modal-overlay doc-loading-overlay !flex !items-center !justify-center !p-4" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div className="doc-loading-card premium-loader-card glass-panel" style={{ width: '100%', maxWidth: '400px' }}>
-            <div className="doc-loading-animation">
-              <svg width="80" height="80" viewBox="0 0 80 80">
-                <defs>
-                  <linearGradient id="synGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="var(--accent-primary)" />
-                    <stop offset="100%" stopColor="var(--accent-secondary)" />
-                  </linearGradient>
-                </defs>
-                <circle cx="40" cy="15" r="5" fill="var(--accent-primary)">
-                  <animate attributeName="r" values="5;7;5" dur="2s" repeatCount="indefinite" />
-                </circle>
-                <circle cx="15" cy="55" r="5" fill="var(--accent-secondary)">
-                  <animate attributeName="r" values="5;7;5" dur="2s" begin="0.5s" repeatCount="indefinite" />
-                </circle>
-                <circle cx="65" cy="55" r="5" fill="var(--accent-gold)">
-                  <animate attributeName="r" values="5;7;5" dur="2s" begin="1s" repeatCount="indefinite" />
-                </circle>
-                <line x1="40" y1="15" x2="15" y2="55" stroke="url(#synGrad)" strokeWidth="2" strokeDasharray="5,5">
-                  <animate attributeName="stroke-dashoffset" values="20;0" dur="2s" repeatCount="indefinite" />
-                </line>
-                <line x1="40" y1="15" x2="65" y2="55" stroke="url(#synGrad)" strokeWidth="2" strokeDasharray="5,5">
-                  <animate attributeName="stroke-dashoffset" values="20;0" dur="2s" repeatCount="indefinite" />
-                </line>
-                <line x1="15" y1="55" x2="65" y2="55" stroke="url(#synGrad)" strokeWidth="2" strokeDasharray="5,5">
-                  <animate attributeName="stroke-dashoffset" values="0;20" dur="2s" repeatCount="indefinite" />
-                </line>
-              </svg>
-            </div>
-            <div className="doc-loading-text">
-              <h3>Processing Document</h3>
-              <p className="doc-loading-status">{docStatus}</p>
-            </div>
+      <AnimeTransition
+        show={docLoading}
+        enter={AnimePresets.backdropEnter}
+        exit={AnimePresets.backdropExit}
+        className="modal-overlay doc-loading-overlay !flex !items-center !justify-center !p-4"
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+      >
+        <div className="doc-loading-card premium-loader-card glass-panel" style={{ width: '100%', maxWidth: '400px' }}>
+          <div className="doc-loading-animation">
+            <svg width="80" height="80" viewBox="0 0 80 80">
+              <defs>
+                <linearGradient id="synGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="var(--accent-primary)" />
+                  <stop offset="100%" stopColor="var(--accent-secondary)" />
+                </linearGradient>
+              </defs>
+              <circle cx="40" cy="15" r="5" fill="var(--accent-primary)">
+                <animate attributeName="r" values="5;7;5" dur="2s" repeatCount="indefinite" />
+              </circle>
+              <circle cx="15" cy="55" r="5" fill="var(--accent-secondary)">
+                <animate attributeName="r" values="5;7;5" dur="2s" begin="0.5s" repeatCount="indefinite" />
+              </circle>
+              <circle cx="65" cy="55" r="5" fill="var(--accent-gold)">
+                <animate attributeName="r" values="5;7;5" dur="2s" begin="1s" repeatCount="indefinite" />
+              </circle>
+              <line x1="40" y1="15" x2="15" y2="55" stroke="url(#synGrad)" strokeWidth="2" strokeDasharray="5,5">
+                <animate attributeName="stroke-dashoffset" values="20;0" dur="2s" repeatCount="indefinite" />
+              </line>
+              <line x1="40" y1="15" x2="65" y2="55" stroke="url(#synGrad)" strokeWidth="2" strokeDasharray="5,5">
+                <animate attributeName="stroke-dashoffset" values="20;0" dur="2s" repeatCount="indefinite" />
+              </line>
+              <line x1="15" y1="55" x2="65" y2="55" stroke="url(#synGrad)" strokeWidth="2" strokeDasharray="5,5">
+                <animate attributeName="stroke-dashoffset" values="0;20" dur="2s" repeatCount="indefinite" />
+              </line>
+            </svg>
+          </div>
+          <div className="doc-loading-text">
+            <h3>Processing Document</h3>
+            <p className="doc-loading-status">{docStatus}</p>
           </div>
         </div>
-      )}
+      </AnimeTransition>
     </div>
   );
 }
